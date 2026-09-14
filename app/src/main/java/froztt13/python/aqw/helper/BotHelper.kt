@@ -303,6 +303,7 @@ object BotHelper {
                         soeQty = sObj.optInt("soe_qty", 0),
                         monsters = monstersList,
                         targetMonsters = sObj.optString("target_monsters", ""),
+                        targetedMonster = sObj.optString("targeted_monster", ""),
                         auras = parseStringList(sObj.optJSONArray("auras"))
                     )
                 } else {

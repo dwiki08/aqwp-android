@@ -197,6 +197,7 @@ data class SlotTelemetry(
     val soeQty: Int = 0,
     val monsters: List<MonsterTelemetry> = emptyList(),
     val targetMonsters: String = "",
+    val targetedMonster: String = "",
     val auras: List<String> = emptyList()
 )
 

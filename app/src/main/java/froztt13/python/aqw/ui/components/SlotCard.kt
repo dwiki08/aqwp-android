@@ -214,7 +214,7 @@ fun SlotCard(
                                         .background(accentColor)
                                 )
                                 Text(
-                                    text = "Target Monsters",
+                                    text = "Priority",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = TextSecondary
@@ -230,6 +230,45 @@ fun SlotCard(
                                 color = TextPrimary
                             )
                         }
+                    }
+
+                    // Targeted Monster (Current / Last target from skill)
+                    val currentTargeted = telemetry.targetedMonster.ifEmpty { "-" }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF161928))
+                            .padding(horizontal = 8.dp, vertical = 5.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(ErrorRed)
+                            )
+                            Text(
+                                text = "Targeted Monster",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = TextSecondary
+                            )
+                        }
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text(
+                            modifier = Modifier.weight(1f),
+                            text = currentTargeted,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.End,
+                            color = if (currentTargeted == "-") TextMuted else TextPrimary
+                        )
                     }
 
                     // HP Bar
@@ -825,6 +864,7 @@ private fun SlotCardActivePreview() {
                 cooldowns = mapOf(0 to 0.0, 1 to 2.1, 2 to 0.0, 3 to 4.5, 4 to 0.0, 5 to 0.0),
                 soeQty = 150,
                 targetMonsters = "Ascended Solstice,Blessless Deer,Dawn Knight",
+                targetedMonster = "Ascended Solstice",
                 auras = listOf("Focus", "Radiance", "Sun's Warmth", "Potent Vigor")
             ),
             isPartyRunning = true,

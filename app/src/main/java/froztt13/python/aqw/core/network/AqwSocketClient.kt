@@ -22,7 +22,7 @@ import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.net.Socket
 
-class AqwSocketClient {
+open class AqwSocketClient {
 
     companion object {
         private const val TAG = "AqwSocketClient"
@@ -105,7 +105,7 @@ class AqwSocketClient {
         }
     }
 
-    suspend fun send(packet: String): Boolean = withContext(Dispatchers.IO) {
+    open suspend fun send(packet: String): Boolean = withContext(Dispatchers.IO) {
         if (!_isConnected.value) return@withContext false
         writeMutex.withLock {
             try {

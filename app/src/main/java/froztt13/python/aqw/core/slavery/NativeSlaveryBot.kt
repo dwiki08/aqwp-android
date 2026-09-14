@@ -461,6 +461,7 @@ object NativeSlaveryBot {
                 soeQty = soeQty,
                 monsters = cellMonsters,
                 targetMonsters = p.cell,
+                targetedMonster = session.lastTargetMonster,
                 auras = p.auras.toList()
             )
             mutable

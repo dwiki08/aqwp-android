@@ -738,7 +738,7 @@ class AqwSession {
             }
 
             is AqwEvent.Warning -> {
-                if (event.isSpamWarning.not())
+//                if (event.isSpamWarning.not())
                     onLog?.invoke("[Warning] ${event.message}")
             }
 
@@ -809,6 +809,9 @@ class AqwSession {
         }
         return result
     }
+
+    val lastTargetMonster: String
+        get() = commands.lastTargetMonster
 
     fun stop() {
         unregister(this)

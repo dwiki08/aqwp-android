@@ -575,7 +575,7 @@ object NativeEclipseBot {
                     isAttacking = false
                 }
 
-                delay(220.milliseconds)
+                delay(500.milliseconds)
             }
         } catch (e: Exception) {
             BotHelper.dispatchLog("eclipse", username, "Worker error: ${e.message}")
@@ -623,6 +623,7 @@ object NativeEclipseBot {
                 soeQty = soeQty,
                 monsters = cellMonsters,
                 targetMonsters = targetMonsters,
+                targetedMonster = session.lastTargetMonster,
                 auras = p.auras.toList()
             )
             mutable

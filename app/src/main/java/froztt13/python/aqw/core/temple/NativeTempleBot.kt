@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
@@ -156,7 +157,7 @@ object NativeTempleBot {
                 slotJobs.add(job)
             }
 
-            slotJobs.forEach { it.join() }
+            slotJobs.joinAll()
         } catch (e: Exception) {
             Log.e(TAG, "Error in Temple Party run: ${e.message}", e)
             BotHelper.dispatchLog("temple", "System", "Error in Temple Party run: ${e.message}")
@@ -180,7 +181,7 @@ object NativeTempleBot {
         val username = slotConfig.username.trim()
         val password = slotConfig.password.trim()
         val isTaunter = slotConfig.isTaunter
-        var targetMonsters = slotConfig.defaultTarget.ifBlank { defaultTargetMonsters }
+        val targetMonsters = slotConfig.defaultTarget.ifBlank { defaultTargetMonsters }
 
         val session = AqwSession()
         activeSessions[slotKey] = session
@@ -280,7 +281,7 @@ object NativeTempleBot {
             }
 
             // Prepare Scroll of Enrage if taunter
-            var soeQty = 0
+            var soeQty: Int
             if (isTaunter) {
                 val soeItem = session.playerState.inventory.firstOrNull {
                     it.name.equals("Scroll of Enrage", ignoreCase = true)
@@ -560,6 +561,7 @@ object NativeTempleBot {
                 soeQty = soeQty,
                 monsters = cellMonsters,
                 targetMonsters = targetMonsters,
+                targetedMonster = session.lastTargetMonster,
                 auras = p.auras.toList()
             )
             mutable

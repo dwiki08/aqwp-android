@@ -67,6 +67,7 @@ class AqwCombatCommands(
     // ==========================================
 
     var scrollId: String = ""
+    var lastTargetMonster: String = ""
 
     fun getSkill(index: Int): AqwSkill? {
         val found = playerState.skills.firstOrNull { it.index == index }
@@ -157,9 +158,13 @@ class AqwCombatCommands(
     fun updateNextUse(index: Int) {
         val skill = getSkill(index) ?: return
 
-        val cdr = minOf(maxOf(playerState.cdReduction, 0.0), 0.5)
         val baseCd = if (skill.cdMillis > 0.0) skill.cdMillis else (skill.cdSeconds * 1000.0)
-        val effectiveCd = baseCd * (1.0 - cdr)
+        val effectiveCd = if (index == 0 || skill.index == 0) {
+            baseCd
+        } else {
+            val cdr = minOf(maxOf(playerState.cdReduction, 0.0), 0.5)
+            baseCd * (1.0 - cdr)
+        }
 
         val nextUseTime = System.currentTimeMillis() + effectiveCd.toLong()
         skill.nextUseTimestamp = nextUseTime
@@ -219,6 +224,7 @@ class AqwCombatCommands(
 
         val usernameId =
             if (playerState.roomUserId > 0) playerState.roomUserId else playerState.userId
+        var targetedMonId: String? = null
         val targetParam = when (tgtType) {
             "s" -> "a${index}>p:${usernameId}" // self
             "f" -> {
@@ -245,13 +251,46 @@ class AqwCombatCommands(
             }
 
             else -> {
-                val monId = targetMonMapId ?: "1"
-                if (index == 0) {
-                    "aa>m:${monId}"
-                } else if (index == 5 && scrollId.isNotBlank()) {
-                    "i1>m:${monId}%${scrollId}"
-                } else {
-                    "a${index}>m:${monId}"
+                val maxTarget = (skill?.tgtMax ?: 1).coerceAtLeast(1)
+                val currentCellMons = monstersProvider().filter {
+                    it.frame.equals(
+                        playerState.cell,
+                        ignoreCase = true
+                    ) && it.isAlive && it.currentHp > 0
+                }
+                val sortedCellMons = currentCellMons
+                    .filter { it.monMapId.isNotBlank() }
+                    .sortedWith(
+                        compareBy(
+                            { it.monMapId.toIntOrNull() ?: Int.MAX_VALUE },
+                            { it.monMapId })
+                    )
+
+                val primaryId = targetMonMapId?.takeIf { it.isNotBlank() }
+                    ?: sortedCellMons.firstOrNull()?.monMapId
+                    ?: "1"
+                targetedMonId = primaryId
+
+                val otherMonIds = sortedCellMons
+                    .map { it.monMapId }
+                    .filter { it != primaryId }
+                    .distinct()
+
+                val selectedMonIds = mutableListOf<String>()
+                selectedMonIds.add(primaryId)
+                for (id in otherMonIds) {
+                    if (selectedMonIds.size >= maxTarget) break
+                    selectedMonIds.add(id)
+                }
+
+                selectedMonIds.joinToString(",") { monId ->
+                    if (index == 0) {
+                        "aa>m:$monId"
+                    } else if (index == 5 && scrollId.isNotBlank()) {
+                        "i1>m:$monId%$scrollId"
+                    } else {
+                        "a$index>m:$monId"
+                    }
                 }
             }
         }
@@ -260,6 +299,12 @@ class AqwCombatCommands(
         val sent = client.send(packet)
         if (sent) {
             updateNextUse(index)
+            if (tgtType != "s" && tgtType != "f") {
+                val monId = targetedMonId ?: targetMonMapId ?: "1"
+                val mon = monstersProvider().firstOrNull { it.monMapId == monId }
+                val resolvedName = mon?.name?.trim()?.ifEmpty { null }
+                lastTargetMonster = resolvedName ?: targetMonMapId ?: "Monster #$monId"
+            }
             if (reloadDelayMs > 0) {
                 delay(reloadDelayMs.milliseconds)
             }
@@ -327,6 +372,9 @@ class AqwCombatCommands(
         val sent = client.send(packet)
         if (sent) {
             updateNextUse(5)
+            val mon = monstersProvider().firstOrNull { it.monMapId == monMapId }
+            val resolvedName = mon?.name?.trim()?.ifEmpty { null }
+            lastTargetMonster = resolvedName ?: monMapId
             delay(200.milliseconds)
         }
         return sent
@@ -422,7 +470,7 @@ class AqwCombatCommands(
     suspend fun killMonster(
         monsterNameOrId: String = "*",
         skills: List<Int> = listOf(0, 1, 2, 0, 3, 4),
-        delayMs: Long = 250L,
+        delayMs: Long = 500L,
         timeoutMs: Long = 60000L,
         hunt: Boolean = false,
         isStopRequested: () -> Boolean = { false }
@@ -501,7 +549,7 @@ class AqwCombatCommands(
     suspend fun killMonster(
         target: AqwMonster,
         skills: List<Int> = listOf(0, 1, 2, 0, 3, 4),
-        delayMs: Long = 250L,
+        delayMs: Long = 500L,
         timeoutMs: Long = 60000L,
         hunt: Boolean = false,
         isStopRequested: () -> Boolean = { false }

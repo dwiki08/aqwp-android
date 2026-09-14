@@ -5,12 +5,12 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 
 object BatteryOptimizationHelper {
     private const val TAG = "BatteryOptHelper"
@@ -21,13 +21,9 @@ object BatteryOptimizationHelper {
      */
     fun isBatteryOptimizationIgnored(context: Context): Boolean {
         return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-                powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
-            } else {
-                true
-            }
-        } catch (t: Throwable) {
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
+        } catch (_: Throwable) {
             true
         }
     }
@@ -37,20 +33,18 @@ object BatteryOptimizationHelper {
      */
     @SuppressLint("BatteryLife")
     fun requestIgnoreBatteryOptimization(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            try {
-                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                    data = Uri.parse("package:${context.packageName}")
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-            } catch (e: Exception) {
-                Log.w(
-                    TAG,
-                    "Direct battery optimization request failed, falling back to settings: ${e.message}"
-                )
-                openBatteryOptimizationSettings(context)
+        try {
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = "package:${context.packageName}".toUri()
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Log.w(
+                TAG,
+                "Direct battery optimization request failed, falling back to settings: ${e.message}"
+            )
+            openBatteryOptimizationSettings(context)
         }
     }
 
@@ -58,16 +52,14 @@ object BatteryOptimizationHelper {
      * Opens the general Battery Optimization settings page as a fallback.
      */
     fun openBatteryOptimizationSettings(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            try {
-                val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to open battery optimization settings: ${e.message}")
-                openAppSettings(context)
+        try {
+            val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to open battery optimization settings: ${e.message}")
+            openAppSettings(context)
         }
     }
 
@@ -84,7 +76,7 @@ object BatteryOptimizationHelper {
             } else {
                 true
             }
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             true
         }
     }
@@ -95,7 +87,7 @@ object BatteryOptimizationHelper {
     fun openAppSettings(context: Context) {
         try {
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.parse("package:${context.packageName}")
+                data = "package:${context.packageName}".toUri()
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)

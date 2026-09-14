@@ -716,6 +716,30 @@ fun SlaveSlotCard(
                             }
                         }
 
+                        // Targeted Monster
+                        val currentTargeted = telemetry.targetedMonster.ifEmpty { "-" }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFF161928))
+                                .padding(horizontal = 8.dp, vertical = 5.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Targeted Monster",
+                                fontSize = 11.sp,
+                                color = TextSecondary
+                            )
+                            Text(
+                                text = currentTargeted,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (currentTargeted == "-") TextMuted else TextPrimary
+                            )
+                        }
+
                         // HP Bar
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Row(

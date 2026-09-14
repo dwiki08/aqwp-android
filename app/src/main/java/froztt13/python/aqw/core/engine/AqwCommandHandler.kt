@@ -146,6 +146,9 @@ class AqwCommandHandler(
             combat.scrollId = value
         }
 
+    val lastTargetMonster: String
+        get() = combat.lastTargetMonster
+
     fun getSkill(index: Int): AqwSkill? = combat.getSkill(index)
     fun canUseSkill(index: Int): Boolean = combat.canUseSkill(index)
     fun checkIsSkillSafe(index: Int): Boolean = combat.checkIsSkillSafe(index)
