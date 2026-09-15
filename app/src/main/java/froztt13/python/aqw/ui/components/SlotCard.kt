@@ -83,13 +83,19 @@ fun SlotCard(
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
     var showAuras by rememberSaveable { mutableStateOf(false) }
+    val statusColor = when {
+        !telemetry.running -> Color(0xFF64748B)
+        telemetry.isDead || (telemetry.hp <= 0 && telemetry.maxHp > 0) -> ErrorRed
+        telemetry.isInCombat -> SunGold
+        else -> MoonCyan
+    }
 
     Card(
         modifier = modifier
             .fillMaxWidth()
             .border(
                 1.dp,
-                if (telemetry.running) SuccessGreen.copy(alpha = 0.5f) else Color(0xFF2E3350),
+                if (!telemetry.running) Color(0xFF2E3350) else statusColor.copy(alpha = 0.5f),
                 RoundedCornerShape(16.dp)
             ),
         shape = RoundedCornerShape(16.dp),
@@ -115,7 +121,7 @@ fun SlotCard(
                         modifier = Modifier
                             .size(10.dp)
                             .clip(CircleShape)
-                            .background(if (telemetry.running) SuccessGreen else Color(0xFF64748B))
+                            .background(statusColor)
                     )
                     Text(
                         text = title,
@@ -145,17 +151,22 @@ fun SlotCard(
                         }
                     }
                     if (telemetry.running) {
+                        val (stateText, stateColor) = when {
+                            telemetry.isDead || (telemetry.hp <= 0 && telemetry.maxHp > 0) -> "DEAD" to ErrorRed
+                            telemetry.isInCombat -> "IN_COMBAT" to SunGold
+                            else -> "IDLE" to MoonCyan
+                        }
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(SuccessGreen.copy(alpha = 0.2f))
+                                .background(stateColor.copy(alpha = 0.2f))
                                 .padding(horizontal = 8.dp, vertical = 3.dp)
                         ) {
                             Text(
-                                text = "ACTIVE",
+                                text = stateText,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = SuccessGreen
+                                color = stateColor
                             )
                         }
                     }

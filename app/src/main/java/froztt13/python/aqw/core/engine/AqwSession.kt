@@ -63,7 +63,7 @@ class AqwSession {
     private val sessionScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var packetListenerJob: Job? = null
 
-    private val socketClient = AqwSocketClient()
+    val socketClient = AqwSocketClient()
     val isConnected: StateFlow<Boolean> = socketClient.isConnected
 
     val playerState = AqwPlayerState()
@@ -98,6 +98,7 @@ class AqwSession {
         onLog: ((String) -> Unit)? = null
     ): Boolean = withContext(Dispatchers.IO) {
         this@AqwSession.logCallback = onLog
+        socketClient.tag = username
         onLog?.invoke("Authenticating account $username...")
         val loginResult = AqwHttpApi.login(username, password)
         if (!loginResult.success) {
@@ -108,7 +109,7 @@ class AqwSession {
         }
 
         playerState.username = username
-        playerState.userId = loginResult.userId
+        playerState.authUserId = loginResult.userId
         playerState.token = loginResult.token
 
         val targetServer = loginResult.servers.firstOrNull {
@@ -214,12 +215,12 @@ class AqwSession {
                 }
 
                 onLog?.invoke("Moved to ${event.areaName} [${event.playerCell}, ${event.playerPad}]")
-                socketClient.send("%xt%zm%retrieveUserDatas%${event.areaId}%${playerState.userId}%")
+                socketClient.send("%xt%zm%retrieveUserDatas%${event.areaId}%${playerState.roomUserId}%")
             }
 
             is AqwEvent.YouJoinedMap -> {
                 playerState.isJoiningMap = false
-                socketClient.send("%xt%zm%retrieveUserDatas%${playerState.areaId}%${playerState.userId}%")
+                socketClient.send("%xt%zm%retrieveUserDatas%${playerState.areaId}%${playerState.roomUserId}%")
             }
 
             is AqwEvent.UserDatasLoaded -> {
@@ -242,7 +243,7 @@ class AqwSession {
                         onLog?.invoke("Bank loaded (${bankItems.size} items)")
                     }
                 }
-                socketClient.send("%xt%zm%retrieveInventory%${playerState.areaId}%${playerState.userId}%")
+                socketClient.send("%xt%zm%retrieveInventory%${playerState.areaId}%${playerState.roomUserId}%")
             }
 
             is AqwEvent.SingleUserDataLoaded -> {
@@ -357,7 +358,7 @@ class AqwSession {
             }
 
             is AqwEvent.PlayerDied -> {
-                if (event.userId == playerState.userId || event.userId == playerState.charId || event.userId == 0) {
+                if (event.userId == playerState.roomUserId || event.userId == playerState.charId || event.userId == 0) {
                     triggerDeathHandler()
                 } else {
                     playerState.playersInMap.values.firstOrNull { it.userId == event.userId }?.let {

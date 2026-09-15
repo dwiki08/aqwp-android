@@ -191,6 +191,7 @@ object NativeSlaveryBot {
         }
 
         val session = AqwSession()
+        session.socketClient.tag = "$slotKey ($username)"
         activeSessions[slotKey] = session
 
         val cooldowns = ConcurrentHashMap<Int, Double>()
@@ -457,6 +458,7 @@ object NativeSlaveryBot {
                 mp = p.mp,
                 maxMp = p.maxMp,
                 isDead = p.isDead,
+                isInCombat = p.isInCombat,
                 cooldowns = cooldowns,
                 soeQty = soeQty,
                 monsters = cellMonsters,

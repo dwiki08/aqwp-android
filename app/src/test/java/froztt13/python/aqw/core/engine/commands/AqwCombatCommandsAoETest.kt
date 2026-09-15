@@ -210,4 +210,49 @@ class AqwCombatCommandsAoETest {
         assertEquals("%xt%zm%gar%1%0%a2>m:3,a2>m:7%wvz%", client.sentPackets.first())
         assertEquals("Minion A", combat.lastTargetMonster)
     }
+
+    @Test
+    fun testTaunt_updatesNextUseStatic15Seconds_withoutCdr() = runBlocking {
+        val client = FakeSocketClient()
+        val playerState = AqwPlayerState(
+            cell = "Boss",
+            currentHp = 1000,
+            maxHp = 1000,
+            cdReduction = 0.5 // 50% CDR should NOT affect taunt (must remain static 15s)
+        )
+        val monsters = listOf(
+            AqwMonster(
+                monMapId = "99",
+                name = "Boss Monster",
+                currentHp = 10000,
+                maxHp = 10000,
+                isAlive = true,
+                frame = "Boss"
+            )
+        )
+        val combat = AqwCombatCommands(
+            client = client,
+            playerState = playerState,
+            monstersProvider = { monsters }
+        )
+
+        // Initially skill 5 can be used
+        assertTrue(combat.canUseSkill(5))
+
+        val start = System.currentTimeMillis()
+        val sent = combat.taunt("99")
+        assertTrue(sent)
+
+        val skill5 = combat.getSkill(5)
+        org.junit.Assert.assertNotNull(skill5)
+        // Verify cooldown is ~15000 ms from start
+        val remaining = skill5!!.nextUseTimestamp - start
+        assertTrue(
+            "Remaining cooldown should be around 15000 ms, was $remaining",
+            remaining in 14800L..15200L
+        )
+        // canUseSkill(5) must now be false
+        org.junit.Assert.assertFalse(combat.canUseSkill(5))
+        assertEquals("Boss Monster", combat.lastTargetMonster)
+    }
 }

@@ -118,8 +118,10 @@ class AqwCommandHandler(
     suspend fun walkTo(x: Int, y: Int, speed: Int = 8): Boolean =
         movement.walkTo(x, y, speed)
 
-    suspend fun gotoPlayer(targetUsername: String): Boolean =
-        movement.gotoPlayer(targetUsername)
+    suspend fun gotoPlayer(targetUsername: String): Boolean {
+        leaveCombat()
+        return movement.gotoPlayer(targetUsername)
+    }
 
     suspend fun leaveCombat(safeLeave: Boolean = true): Boolean =
         movement.leaveCombat(safeLeave)
@@ -152,7 +154,8 @@ class AqwCommandHandler(
     fun getSkill(index: Int): AqwSkill? = combat.getSkill(index)
     fun canUseSkill(index: Int): Boolean = combat.canUseSkill(index)
     fun checkIsSkillSafe(index: Int): Boolean = combat.checkIsSkillSafe(index)
-    fun updateNextUse(index: Int) = combat.updateNextUse(index)
+    fun updateNextUse(index: Int, staticCooldownMs: Long? = null) =
+        combat.updateNextUse(index, staticCooldownMs)
 
     suspend fun resurrectPlayer(): Boolean = combat.resurrectPlayer()
     suspend fun ensureAlive(timeoutSeconds: Int = 11): Boolean =
@@ -190,7 +193,7 @@ class AqwCommandHandler(
     suspend fun killMonster(
         monsterNameOrId: String = "*",
         skills: List<Int> = listOf(0, 1, 2, 0, 3, 4),
-        delayMs: Long = 250L,
+        delayMs: Long = 500L,
         timeoutMs: Long = 120_000L,
         hunt: Boolean = false,
         isStopRequested: () -> Boolean = { false }

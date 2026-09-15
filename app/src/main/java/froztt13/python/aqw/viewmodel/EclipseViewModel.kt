@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import froztt13.python.aqw.core.eclipse.NativeEclipseBot
 import froztt13.python.aqw.data.EclipseConfig
+import froztt13.python.aqw.data.EclipseTauntInfo
 import froztt13.python.aqw.data.LogEntry
 import froztt13.python.aqw.data.PartyStats
 import froztt13.python.aqw.data.SlotConfig
@@ -30,6 +31,9 @@ class EclipseViewModel : ViewModel() {
 
     private val _partyStats = MutableStateFlow(PartyStats())
     val partyStats: StateFlow<PartyStats> = _partyStats.asStateFlow()
+
+    private val _tauntInfo = MutableStateFlow(EclipseTauntInfo())
+    val tauntInfo: StateFlow<EclipseTauntInfo> = _tauntInfo.asStateFlow()
 
     val isRunning: StateFlow<Boolean> = _eclipseStatus
         .map { map -> map.values.any { it.running } }
@@ -76,11 +80,33 @@ class EclipseViewModel : ViewModel() {
                     _partyStats.value = nativeStats
                 }
             }
+            launch {
+                NativeEclipseBot.tauntInfo.collect { nativeTauntInfo ->
+                    _tauntInfo.value = nativeTauntInfo
+                }
+            }
         }
     }
 
-    fun updateEclipseSettings(server: String, roomNumber: Int) {
-        _eclipseConfig.update { it.copy(server = server, roomNumber = roomNumber) }
+    fun updateEclipseSettings(
+        server: String,
+        roomNumber: Int,
+        lightGatherMode: String = _eclipseConfig.value.lightGatherMode
+    ) {
+        _eclipseConfig.update {
+            it.copy(
+                server = server,
+                roomNumber = roomNumber,
+                lightGatherMode = lightGatherMode
+            ).enforceFixedRoles()
+        }
+        saveEclipseConfig()
+    }
+
+    fun updateLightGatherMode(mode: String) {
+        _eclipseConfig.update {
+            it.copy(lightGatherMode = mode).enforceFixedRoles()
+        }
         saveEclipseConfig()
     }
 
@@ -97,10 +123,17 @@ class EclipseViewModel : ViewModel() {
         } else {
             slotConfig.defaultTarget
         }
+        val isSlot4Only = _eclipseConfig.value.lightGatherMode == "slot4_only"
+        val isLightGather = if (isSlot4Only) {
+            slotKey == "slot4"
+        } else {
+            slotKey in listOf("slot2", "slot3", "slot4")
+        }
         val fixedConfig = slotConfig.copy(
             isTaunter = true,
             sunsetKnightTaunter = isSun,
             moonHazeTaunter = !isSun,
+            lightGatherTaunter = isLightGather,
             defaultTarget = normalizedTarget
         )
         _eclipseConfig.update {

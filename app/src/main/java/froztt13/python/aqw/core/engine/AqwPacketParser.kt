@@ -521,13 +521,23 @@ object AqwPacketParser {
                 }
 
                 val animMsgs = mutableListOf<String>()
-                val animsArr = data.optJSONArray("anims")
+                val animsArr = data.optJSONArray("anims") ?: data.optJSONArray("anim")
                 if (animsArr != null) {
                     for (i in 0 until animsArr.length()) {
                         val aObj = animsArr.optJSONObject(i) ?: continue
-                        val msg = aObj.optString("msg", "")
-                        if (msg.isNotEmpty()) animMsgs.add(msg)
+                        val msg = aObj.optString("msg", "").ifEmpty { aObj.optString("str", "") }
+                        if (msg.isNotEmpty() && !animMsgs.contains(msg)) animMsgs.add(msg)
                     }
+                } else {
+                    val aObj = data.optJSONObject("anims") ?: data.optJSONObject("anim")
+                    if (aObj != null) {
+                        val msg = aObj.optString("msg", "").ifEmpty { aObj.optString("str", "") }
+                        if (msg.isNotEmpty() && !animMsgs.contains(msg)) animMsgs.add(msg)
+                    }
+                }
+                val directMsg = data.optString("msg", "")
+                if (directMsg.isNotEmpty() && !animMsgs.contains(directMsg)) {
+                    animMsgs.add(directMsg)
                 }
 
                 val aurasList = mutableListOf<Pair<String, String>>()
@@ -615,6 +625,7 @@ object AqwPacketParser {
             }
 
             "initUserDatas" -> {
+                Log.i(TAG, "initUserDatas: $data")
                 var cId: Int? = null
                 var g: Long? = null
                 val staffList = mutableListOf<String>()

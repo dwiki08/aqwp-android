@@ -493,18 +493,7 @@ fun SlaveryContent(
                 val slotConf = config.slots[slotKey] ?: SlaveSlotConfig()
                 val slotTel = telemetryMap[slotKey] ?: SlotTelemetry()
 
-                // Filter logs for this specific slot
                 val slotUsername = slotConf.username.trim()
-                val slotLogs = logs.filter { log ->
-                    if (slotUsername.isNotEmpty()) {
-                        log.username.equals(slotUsername, ignoreCase = true) || log.username.equals(
-                            slotKey,
-                            ignoreCase = true
-                        )
-                    } else {
-                        log.username.equals(slotKey, ignoreCase = true)
-                    }
-                }
 
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -523,7 +512,9 @@ fun SlaveryContent(
 
                     // 2. Dedicated Log Console for this Slot
                     LiveLogConsole(
-                        logs = slotLogs,
+                        logs = logs,
+                        slotKey = slotKey,
+                        targetUsername = slotUsername,
                         title = "Logs - Slot ${page + 1}${if (slotUsername.isNotEmpty()) " ($slotUsername)" else ""}",
                         onClearLogs = onClearLogs
                     )

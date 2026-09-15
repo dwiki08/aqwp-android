@@ -119,12 +119,12 @@ fun BotSessionStatsBar(
                 }
 
                 // Stats items: Time Running & Cleared Loops
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Time Running
-                    if (isRunning) {
+                if (isRunning)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Time Running
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -143,10 +143,8 @@ fun BotSessionStatsBar(
                                 color = TextPrimary
                             )
                         }
-                    }
 
-                    // Total Cleared Loops
-                    if (stats.clearedCount > 0) {
+                        // Total Cleared Loops
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -165,7 +163,6 @@ fun BotSessionStatsBar(
                             )
                         }
                     }
-                }
             }
 
             // Start / Stop Action Button

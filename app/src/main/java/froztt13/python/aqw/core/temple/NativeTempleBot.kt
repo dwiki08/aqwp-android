@@ -102,6 +102,22 @@ object NativeTempleBot {
         BotHelper.dispatchLog("temple", "System", "=== Temple Shrine Party stopped by user ===")
     }
 
+    private suspend fun waitForSlavesInCell(targetCell: String, maxWaitMs: Long = 4000L) {
+        val start = System.currentTimeMillis()
+        val slaveKeys = listOf("slot2", "slot3", "slot4")
+        while (!stopRequested && (System.currentTimeMillis() - start) < maxWaitMs) {
+            val allArrived = slaveKeys.all { key ->
+                val s = activeSessions[key]
+                s == null || !s.isConnected.value || s.playerState.cell.equals(
+                    targetCell,
+                    ignoreCase = true
+                )
+            }
+            if (allArrived) break
+            delay(200.milliseconds)
+        }
+    }
+
     private suspend fun runParty(config: TempleConfig) {
         val server = config.server.ifBlank { "Alteon" }
         val botType = config.templeBotType
@@ -184,6 +200,7 @@ object NativeTempleBot {
         val targetMonsters = slotConfig.defaultTarget.ifBlank { defaultTargetMonsters }
 
         val session = AqwSession()
+        session.socketClient.tag = "$slotKey ($username)"
         activeSessions[slotKey] = session
 
         val cooldowns = ConcurrentHashMap<Int, Double>()
@@ -210,7 +227,7 @@ object NativeTempleBot {
 
                         // Check auras on player
                         for ((auraName, targetInf) in event.auras) {
-                            if (targetInf.contains(session.playerState.userId.toString()) || targetInf.contains(
+                            if (targetInf.contains(session.playerState.roomUserId.toString()) || targetInf.contains(
                                     username,
                                     ignoreCase = true
                                 )
@@ -401,6 +418,7 @@ object NativeTempleBot {
                                 )
                                 session.commands.jumpCell("r1", "Left")
                                 delay(1200.milliseconds)
+                                waitForSlavesInCell("r1")
                             }
 
                             "r1" -> {
@@ -411,6 +429,7 @@ object NativeTempleBot {
                                 )
                                 session.commands.jumpCell("r2", "Left")
                                 delay(1200.milliseconds)
+                                waitForSlavesInCell("r2")
                             }
 
                             "r2" -> {
@@ -421,6 +440,7 @@ object NativeTempleBot {
                                 )
                                 session.commands.jumpCell("r3", "Left")
                                 delay(1200.milliseconds)
+                                waitForSlavesInCell("r3")
                             }
 
                             "r3" -> {
@@ -440,12 +460,37 @@ object NativeTempleBot {
                         }
                     }
                 } else {
-                    // Slave: follow master if not in the same cell
+                    // Slave: follow master if not in the same cell or map
                     val masterSession = activeSessions["slot1"]
                     val masterCell = masterSession?.playerState?.cell
-                    if (masterCell != null && !masterCell.equals(currentCell, ignoreCase = true)) {
-                        session.commands.gotoPlayer(masterUsername)
-                        delay(1000.milliseconds)
+                    val masterMap = masterSession?.playerState?.mapName ?: ""
+                    val isDifferentMap =
+                        masterMap.isNotBlank() && !currentMap.equals(masterMap, ignoreCase = true)
+                    val isDifferentCell =
+                        masterCell != null && !masterCell.equals(currentCell, ignoreCase = true)
+
+                    if (isDifferentMap || isDifferentCell) {
+                        BotHelper.dispatchLog(
+                            "temple",
+                            username,
+                            "[$slotKey] Master is in $masterMap:$masterCell (current: $currentMap:$currentCell). Moving to master..."
+                        )
+                        val inDungeonMap = currentMap.contains(dungeonMap, ignoreCase = true) ||
+                                masterMap.contains(dungeonMap, ignoreCase = true)
+
+                        if (inDungeonMap && masterCell != null) {
+                            val masterPad =
+                                masterSession?.playerState?.pad?.ifBlank { "Left" } ?: "Left"
+                            session.commands.jumpCell(masterCell, masterPad)
+                        } else if (!isDifferentMap && masterCell != null) {
+                            val masterPad =
+                                masterSession?.playerState?.pad?.ifBlank { "Left" } ?: "Left"
+                            session.commands.jumpCell(masterCell, masterPad)
+                        } else {
+                            session.commands.gotoPlayer(masterUsername)
+                        }
+                        delay(1200.milliseconds)
+                        continue
                     }
                 }
 
@@ -512,7 +557,7 @@ object NativeTempleBot {
                     isAttacking = false
                 }
 
-                delay(220.milliseconds)
+                delay(500.milliseconds)
             }
         } catch (e: Exception) {
             BotHelper.dispatchLog("temple", username, "Worker error: ${e.message}")
@@ -557,6 +602,7 @@ object NativeTempleBot {
                 mp = p.mp,
                 maxMp = p.maxMp,
                 isDead = p.isDead,
+                isInCombat = p.isInCombat,
                 cooldowns = cooldowns,
                 soeQty = soeQty,
                 monsters = cellMonsters,

@@ -1,5 +1,6 @@
 package froztt13.python.aqw.core.engine.commands
 
+import android.util.Log
 import froztt13.python.aqw.core.model.AqwMonster
 import froztt13.python.aqw.core.model.AqwPlayerState
 import froztt13.python.aqw.core.model.AqwSkill
@@ -24,6 +25,9 @@ class AqwCombatCommands(
     private val jumpCell: suspend (cell: String, pad: String) -> Boolean = { _, _ -> false },
     private val jumpToMonster: suspend (monsterName: String) -> Boolean = { false }
 ) {
+    companion object {
+        private const val TAG = "AqwCombatCommands"
+    }
 
     // ==========================================
     // AGGRO MANAGEMENT
@@ -80,8 +84,8 @@ class AqwCombatCommands(
                 id = scrollId.ifBlank { "scroll" },
                 index = 5,
                 name = "Scroll of Enrage",
-                cdSeconds = 10.0,
-                cdMillis = 10000.0,
+                cdSeconds = 15.0,
+                cdMillis = 15000.0,
                 mpCost = 0.0,
                 tgt = "h",
                 tgtMax = 1
@@ -155,15 +159,18 @@ class AqwCombatCommands(
         return true
     }
 
-    fun updateNextUse(index: Int) {
+    fun updateNextUse(index: Int, staticCooldownMs: Long? = null) {
         val skill = getSkill(index) ?: return
 
         val baseCd = if (skill.cdMillis > 0.0) skill.cdMillis else (skill.cdSeconds * 1000.0)
-        val effectiveCd = if (index == 0 || skill.index == 0) {
-            baseCd
-        } else {
-            val cdr = minOf(maxOf(playerState.cdReduction, 0.0), 0.5)
-            baseCd * (1.0 - cdr)
+        val effectiveCd = when {
+            staticCooldownMs != null -> staticCooldownMs.toDouble()
+            index == 5 || skill.index == 5 -> 15_000 // static 15 sec for pots and scrolls
+            index == 0 || skill.index == 0 -> baseCd
+            else -> {
+                val cdr = minOf(maxOf(playerState.cdReduction, 0.0), 0.5)
+                baseCd * (1.0 - cdr)
+            }
         }
 
         val nextUseTime = System.currentTimeMillis() + effectiveCd.toLong()
@@ -180,7 +187,8 @@ class AqwCombatCommands(
     }
 
     suspend fun resurrectPlayer(): Boolean {
-        val sent = client.send("%xt%zm%resPlayerTimed%${playerState.areaId}%${playerState.userId}%")
+        val sent =
+            client.send("%xt%zm%resPlayerTimed%${playerState.areaId}%${playerState.roomUserId}%")
         delay(500.milliseconds)
         jumpCell(playerState.cell.ifBlank { "Enter" }, playerState.pad.ifBlank { "Spawn" })
         playerState.isDead = false
@@ -222,8 +230,7 @@ class AqwCombatCommands(
         val skill = getSkill(index)
         val tgtType = skill?.tgt ?: "h"
 
-        val usernameId =
-            if (playerState.roomUserId > 0) playerState.roomUserId else playerState.userId
+        val usernameId = playerState.roomUserId
         var targetedMonId: String? = null
         val targetParam = when (tgtType) {
             "s" -> "a${index}>p:${usernameId}" // self
@@ -314,11 +321,8 @@ class AqwCombatCommands(
     }
 
     suspend fun useSkillToPlayer(skillIndex: Int, maxTarget: Int = 1): Boolean {
-        val usernameId =
-            if (playerState.roomUserId > 0) playerState.roomUserId else playerState.userId
-        val userIds = if (playerState.roomUserIds.isNotEmpty()) {
-            playerState.roomUserIds
-        } else {
+        val usernameId = playerState.roomUserId
+        val userIds = playerState.roomUserIds.ifEmpty {
             playerState.playersInMap.values.mapNotNull {
                 if (it.roomUserId > 0) it.roomUserId else if (it.userId > 0) it.userId else null
             }
@@ -366,16 +370,20 @@ class AqwCombatCommands(
     }
 
     suspend fun taunt(monMapId: String): Boolean {
+        Log.i(TAG, "taunting : $monMapId")
+
+        // %xt%zm%gar%1%1%i1>m:1%12917%wvz%
+
         val targetParam =
             if (scrollId.isNotBlank()) "i1>m:${monMapId}%${scrollId}" else "a5>m:${monMapId}"
         val packet = "%xt%zm%gar%1%0%${targetParam}%wvz%"
         val sent = client.send(packet)
         if (sent) {
-            updateNextUse(5)
+            updateNextUse(5, 10_000L)
             val mon = monstersProvider().firstOrNull { it.monMapId == monMapId }
             val resolvedName = mon?.name?.trim()?.ifEmpty { null }
             lastTargetMonster = resolvedName ?: monMapId
-            delay(200.milliseconds)
+            delay(500.milliseconds)
         }
         return sent
     }

@@ -454,7 +454,7 @@ private fun PlayerSummaryHeaderCard(state: AqwPlayerState) {
                         color = TextPrimary
                     )
                     Text(
-                        text = "CharID: ${state.charId} | UserID: ${state.userId}",
+                        text = "CharID: ${state.charId} | RoomUserID: ${state.roomUserId}",
                         fontSize = 11.sp,
                         color = TextMuted,
                         fontFamily = FontFamily.Monospace
@@ -1206,7 +1206,7 @@ private fun PlayerStateContentLoadedPreview() {
         val mockPlayer = AqwPlayerState(
             username = "HeroOfLore",
             charId = 12345,
-            userId = 67890,
+            authUserId = 67890,
             roomUserId = 1,
             cell = "r5",
             pad = "Left",

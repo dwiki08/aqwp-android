@@ -791,7 +791,6 @@ object NativeLegionRevenantBot {
             session.commands.killMonster(
                 monsterNameOrId = monsterName,
                 skills = skillRotation,
-                delayMs = 220L,
                 timeoutMs = 15000L,
                 hunt = cell == null,
                 isStopRequested = isStopRequested

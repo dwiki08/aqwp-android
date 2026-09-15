@@ -411,6 +411,7 @@ fun GeneralBotContent(
                     ) {
                         LiveLogConsole(
                             logs = logs,
+                            targetUsername = config.username,
                             onClearLogs = onClearLogs,
                             modifier = Modifier.fillMaxSize()
                         )

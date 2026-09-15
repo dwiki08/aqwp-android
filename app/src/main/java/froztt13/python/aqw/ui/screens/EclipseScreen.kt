@@ -24,9 +24,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -48,6 +51,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
@@ -56,6 +61,7 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -67,6 +73,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -76,6 +83,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import froztt13.python.aqw.data.EclipseConfig
+import froztt13.python.aqw.data.EclipseTauntInfo
 import froztt13.python.aqw.data.LogEntry
 import froztt13.python.aqw.data.MonsterTelemetry
 import froztt13.python.aqw.data.PartyStats
@@ -86,6 +94,7 @@ import froztt13.python.aqw.service.BotForegroundService
 import froztt13.python.aqw.ui.components.BotSessionStatsBar
 import froztt13.python.aqw.ui.components.CustomOutlinedTextField
 import froztt13.python.aqw.ui.components.DefaultTopBar
+import froztt13.python.aqw.ui.components.EclipseTauntOverviewCard
 import froztt13.python.aqw.ui.components.LiveLogConsole
 import froztt13.python.aqw.ui.components.MonsterTelemetryCard
 import froztt13.python.aqw.ui.components.ServerDropdown
@@ -106,6 +115,10 @@ import froztt13.python.aqw.ui.theme.TextSecondary
 import froztt13.python.aqw.viewmodel.EclipseViewModel
 import kotlinx.coroutines.launch
 
+object EclipseAuthManager {
+    var isAuthorized: Boolean = false
+}
+
 @Composable
 fun EclipseScreen(
     onBack: () -> Unit,
@@ -116,6 +129,7 @@ fun EclipseScreen(
     val config by viewModel.eclipseConfig.collectAsState()
     val telemetryMap by viewModel.eclipseStatus.collectAsState()
     val partyStats by viewModel.partyStats.collectAsState()
+    val tauntInfo by viewModel.tauntInfo.collectAsState()
     val logs by viewModel.eclipseLogs.collectAsState()
     val isRunning by viewModel.isRunning.collectAsState()
 
@@ -127,11 +141,17 @@ fun EclipseScreen(
         config = config,
         telemetryMap = telemetryMap,
         partyStats = partyStats,
+        tauntInfo = tauntInfo,
         logs = logs,
         isRunning = isRunning,
+        isAuthorized = EclipseAuthManager.isAuthorized,
+        onAuthorize = { EclipseAuthManager.isAuthorized = true },
         onBack = onBack,
         onUpdateSettings = { server, room ->
             viewModel.updateEclipseSettings(server, room)
+        },
+        onUpdateLightGatherMode = { mode ->
+            viewModel.updateLightGatherMode(mode)
         },
         onUpdateSlot = { slotKey, slotConfig ->
             viewModel.updateEclipseSlot(slotKey, slotConfig)
@@ -173,10 +193,14 @@ fun EclipseContent(
     config: EclipseConfig,
     telemetryMap: Map<String, SlotTelemetry>,
     partyStats: PartyStats = PartyStats(),
+    tauntInfo: EclipseTauntInfo = EclipseTauntInfo(),
     logs: List<LogEntry>,
     isRunning: Boolean,
+    isAuthorized: Boolean = EclipseAuthManager.isAuthorized,
+    onAuthorize: () -> Unit = { EclipseAuthManager.isAuthorized = true },
     onBack: () -> Unit,
     onUpdateSettings: (server: String, roomNumber: Int) -> Unit,
+    onUpdateLightGatherMode: (mode: String) -> Unit = {},
     onUpdateSlot: (slotKey: String, slotConfig: SlotConfig) -> Unit,
     onResetSettings: () -> Unit = {},
     onStartParty: () -> Unit,
@@ -187,6 +211,15 @@ fun EclipseContent(
     val scrollState = rememberScrollState()
     var showSettings by remember { mutableStateOf(false) }
     var showResetConfirmDialog by remember { mutableStateOf(false) }
+
+    var authorized by remember { mutableStateOf(isAuthorized || isRunning) }
+
+    LaunchedEffect(isRunning) {
+        if (isRunning && !authorized) {
+            authorized = true
+            onAuthorize()
+        }
+    }
 
     var showPasswordDialog by remember { mutableStateOf(false) }
     var passwordInput by remember { mutableStateOf("") }
@@ -293,6 +326,127 @@ fun EclipseContent(
                             )
                         }
 
+                        // Light Gather Taunter Radio Selection
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "Light Gather Taunter",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary
+                            )
+
+                            val isSlot4Only = config.lightGatherMode == "slot4_only"
+                            val isRotation = !isSlot4Only
+
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .selectableGroup(),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                // Option 1: Rotation Slot 2, 3, 4
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(
+                                            if (isRotation) EclipseMagenta.copy(alpha = 0.12f)
+                                            else Color(0xFF131522)
+                                        )
+                                        .border(
+                                            1.dp,
+                                            if (isRotation) EclipseMagenta.copy(alpha = 0.5f)
+                                            else Color(0xFF232840),
+                                            RoundedCornerShape(10.dp)
+                                        )
+                                        .selectable(
+                                            selected = isRotation,
+                                            enabled = !isRunning,
+                                            role = Role.RadioButton,
+                                            onClick = { onUpdateLightGatherMode("rotation") }
+                                        )
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = isRotation,
+                                        onClick = null,
+                                        enabled = !isRunning,
+                                        colors = RadioButtonDefaults.colors(
+                                            selectedColor = EclipseMagenta,
+                                            unselectedColor = TextMuted
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Rotation Taunt (Slot 2, 3, 4)",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (isRotation) TextPrimary else TextSecondary
+                                        )
+                                        Text(
+                                            text = "Rotasi taunt berurutan antar Slot 2, 3, dan 4",
+                                            fontSize = 10.sp,
+                                            color = TextMuted
+                                        )
+                                    }
+                                }
+
+                                // Option 2: Slot 4 Only
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(
+                                            if (isSlot4Only) EclipseMagenta.copy(alpha = 0.12f)
+                                            else Color(0xFF131522)
+                                        )
+                                        .border(
+                                            1.dp,
+                                            if (isSlot4Only) EclipseMagenta.copy(alpha = 0.5f)
+                                            else Color(0xFF232840),
+                                            RoundedCornerShape(10.dp)
+                                        )
+                                        .selectable(
+                                            selected = isSlot4Only,
+                                            enabled = !isRunning,
+                                            role = Role.RadioButton,
+                                            onClick = { onUpdateLightGatherMode("slot4_only") }
+                                        )
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = isSlot4Only,
+                                        onClick = null,
+                                        enabled = !isRunning,
+                                        colors = RadioButtonDefaults.colors(
+                                            selectedColor = EclipseMagenta,
+                                            unselectedColor = TextMuted
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Slot 4 Only",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (isSlot4Only) TextPrimary else TextSecondary
+                                        )
+                                        Text(
+                                            text = "Taunt Suffocated Light hanya pada Slot 4",
+                                            fontSize = 10.sp,
+                                            color = TextMuted
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
                         // Reset Settings Button
                         OutlinedButton(
                             onClick = { showResetConfirmDialog = true },
@@ -374,10 +528,14 @@ fun EclipseContent(
                 botType = "Maid Eclipse",
                 accentColor = EclipseMagenta,
                 onStart = {
-                    passwordInput = ""
-                    passwordError = false
-                    passwordVisible = false
-                    showPasswordDialog = true
+                    if (authorized || EclipseAuthManager.isAuthorized) {
+                        onStartParty()
+                    } else {
+                        passwordInput = ""
+                        passwordError = false
+                        passwordVisible = false
+                        showPasswordDialog = true
+                    }
                 },
                 onStop = onStopParty
             )
@@ -458,6 +616,8 @@ fun EclipseContent(
                                     showPasswordDialog = false
                                     passwordInput = ""
                                     passwordError = false
+                                    authorized = true
+                                    onAuthorize()
                                     onStartParty()
                                 } else {
                                     passwordError = true
@@ -511,6 +671,18 @@ fun EclipseContent(
                 )
             }
 
+            // Miscellaneous / Taunt Rotation Telemetry Card
+            AnimatedVisibility(
+                visible = isRunning,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                EclipseTauntOverviewCard(
+                    tauntInfo = tauntInfo,
+                    isRunning = isRunning
+                )
+            }
+
             // Compute active tab's taunt role and animated indicator color
             val activePage = pagerState.currentPage
             val targetIndicatorColor = if (activePage in 0..1) SunGold else MoonCyan
@@ -561,9 +733,13 @@ fun EclipseContent(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(8.dp)
+                                        .size(6.dp)
                                         .clip(CircleShape)
-                                        .background(if (slotTel.running) SuccessGreen else TextMuted)
+                                        .background(
+                                            if (slotTel.running) SuccessGreen else Color(
+                                                0xFF333852
+                                            )
+                                        )
                                 )
                                 Text(
                                     text = "P${index + 1}",
@@ -600,19 +776,7 @@ fun EclipseContent(
                 val slotConf = config.slots[slotKey] ?: SlotConfig()
                 val slotTel = telemetryMap[slotKey] ?: SlotTelemetry()
 
-                // Filter logs for this specific slot
                 val slotUsername = slotConf.username.trim()
-                val slotLogs = logs.filter { log ->
-                    if (slotUsername.isNotEmpty()) {
-                        log.username.equals(slotUsername, ignoreCase = true) || log.username.equals(
-                            slotKey,
-                            ignoreCase = true
-                        )
-                    } else {
-                        log.username.equals(slotKey, ignoreCase = true)
-                    }
-                }
-
                 val isSunSlot = (page == 0 || page == 1)
                 val slotAccentColor = if (isSunSlot) SunGold else MoonCyan
                 val fixedRoleText = if (isSunSlot) "Sunset Knight Taunter" else "Moon Haze Taunter"
@@ -643,7 +807,9 @@ fun EclipseContent(
 
                     // 2. Dedicated Log Console for this Slot
                     LiveLogConsole(
-                        logs = slotLogs,
+                        logs = logs,
+                        slotKey = slotKey,
+                        targetUsername = slotUsername,
                         title = "Logs - Slot ${page + 1}${if (slotUsername.isNotEmpty()) " ($slotUsername)" else ""}",
                         onClearLogs = onClearLogs
                     )

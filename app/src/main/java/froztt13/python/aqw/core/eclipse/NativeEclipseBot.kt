@@ -4,10 +4,12 @@ import android.util.Log
 import froztt13.python.aqw.core.engine.AqwEvent
 import froztt13.python.aqw.core.engine.AqwSession
 import froztt13.python.aqw.data.EclipseConfig
+import froztt13.python.aqw.data.EclipseTauntInfo
 import froztt13.python.aqw.data.MonsterTelemetry
 import froztt13.python.aqw.data.PartyStats
 import froztt13.python.aqw.data.SlotConfig
 import froztt13.python.aqw.data.SlotTelemetry
+import froztt13.python.aqw.data.TaunterTargetInfo
 import froztt13.python.aqw.helper.BotHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
@@ -31,6 +34,7 @@ object NativeEclipseBot {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var coordinatorJob: Job? = null
     private val activeSessions = ConcurrentHashMap<String, AqwSession>()
+    private var currentConfig: EclipseConfig? = null
 
     private val _status = MutableStateFlow<Map<String, SlotTelemetry>>(emptyMap())
     val status: StateFlow<Map<String, SlotTelemetry>> = _status.asStateFlow()
@@ -38,15 +42,199 @@ object NativeEclipseBot {
     private val _stats = MutableStateFlow(PartyStats())
     val stats: StateFlow<PartyStats> = _stats.asStateFlow()
 
+    private val _tauntInfo = MutableStateFlow(EclipseTauntInfo())
+    val tauntInfo: StateFlow<EclipseTauntInfo> = _tauntInfo.asStateFlow()
+
     private var stopRequested = false
     private var startTimeMillis = 0L
     private var clearedRuns = 0
 
-    // Shared counter across slots for alternating taunts
-    private val sunsetKnightCount = AtomicInteger(0)
-    private val moonHazeCount = AtomicInteger(0)
-    private var lastSunsetKnightTime = 0L
-    private var lastMoonHazeTime = 0L
+    internal val sunsetKnightCount = AtomicInteger(0)
+    internal val moonHazeCount = AtomicInteger(0)
+    internal val lightGatherCount = AtomicInteger(0)
+    internal var lastSunsetKnightTime = 0L
+    internal var lastMoonHazeTime = 0L
+    internal var lastLightGatherTime = 0L
+    internal var latestAnimMsg: String = ""
+    internal var latestAnimMsgTime: Long = 0L
+    private var animClearJob: Job? = null
+    private val tauntLock = Any()
+    internal val pendingTauntTargets = ConcurrentHashMap<String, String>()
+    private var lightGatherTaunterSlots = listOf("slot2", "slot3", "slot4")
+
+    internal fun refreshTauntInfo() {
+        val nextSunSlot = if ((sunsetKnightCount.get() + 1) % 2 == 1) "slot1" else "slot2"
+        val nextMoonSlot = if ((moonHazeCount.get() + 1) % 2 == 1) "slot3" else "slot4"
+        val taunters = lightGatherTaunterSlots.ifEmpty { listOf("slot2", "slot3", "slot4") }
+        val nextGatherSlot = taunters[lightGatherCount.get() % taunters.size]
+
+        fun resolveUsername(slotKey: String): String {
+            val sessionUser =
+                activeSessions[slotKey]?.playerState?.username?.takeIf { it.isNotBlank() }
+            if (sessionUser != null) return sessionUser
+            val configUser =
+                currentConfig?.slots?.get(slotKey)?.username?.takeIf { it.isNotBlank() }
+            if (configUser != null) return configUser
+            return when (slotKey) {
+                "slot1" -> "P1"
+                "slot2" -> "P2"
+                "slot3" -> "P3"
+                "slot4" -> "P4"
+                else -> slotKey
+            }
+        }
+
+        var pendingSunSlot: String? = null
+        var pendingMoonSlot: String? = null
+        var pendingGatherSlot: String? = null
+
+        for ((slot, target) in pendingTauntTargets) {
+            when (target) {
+                "Sunset Knight" -> pendingSunSlot = slot
+                "Moon Haze" -> pendingMoonSlot = slot
+                "Suffocated Light" -> pendingGatherSlot = slot
+            }
+        }
+
+        _tauntInfo.value = EclipseTauntInfo(
+            sunSide = TaunterTargetInfo(
+                nextSlot = nextSunSlot,
+                nextUsername = resolveUsername(nextSunSlot),
+                pendingSlot = pendingSunSlot,
+                pendingUsername = pendingSunSlot?.let { resolveUsername(it) },
+                waveCount = sunsetKnightCount.get()
+            ),
+            moonSide = TaunterTargetInfo(
+                nextSlot = nextMoonSlot,
+                nextUsername = resolveUsername(nextMoonSlot),
+                pendingSlot = pendingMoonSlot,
+                pendingUsername = pendingMoonSlot?.let { resolveUsername(it) },
+                waveCount = moonHazeCount.get()
+            ),
+            lightGather = TaunterTargetInfo(
+                nextSlot = nextGatherSlot,
+                nextUsername = resolveUsername(nextGatherSlot),
+                pendingSlot = pendingGatherSlot,
+                pendingUsername = pendingGatherSlot?.let { resolveUsername(it) },
+                waveCount = lightGatherCount.get()
+            ),
+            latestAnimMsg = latestAnimMsg,
+            animMsgTimestamp = latestAnimMsgTime
+        )
+    }
+
+    internal fun onSunWarmthDetected(sourceSlot: String, delayMs: Long = 5000L) {
+        val targetSlot: String
+        val waveCount: Int
+        synchronized(tauntLock) {
+            val now = System.currentTimeMillis()
+            if (now - lastSunsetKnightTime <= 8000L) {
+                return
+            }
+            lastSunsetKnightTime = now
+            waveCount = sunsetKnightCount.incrementAndGet()
+            targetSlot = if (waveCount % 2 == 1) "slot1" else "slot2"
+        }
+
+        refreshTauntInfo()
+
+        val targetSession = activeSessions[targetSlot]
+        val username = targetSession?.playerState?.username ?: targetSlot
+        BotHelper.dispatchLog(
+            "eclipse",
+            "System",
+            "Sun's Warmth #$waveCount (detected by $sourceSlot) -> Assigned taunt to $targetSlot ($username)"
+        )
+        queueTaunt(targetSlot, "Sunset Knight", delayMs)
+    }
+
+    internal fun onMoonGazeDetected(sourceSlot: String, delayMs: Long = 5000L) {
+        val targetSlot: String
+        val waveCount: Int
+        synchronized(tauntLock) {
+            val now = System.currentTimeMillis()
+            if (now - lastMoonHazeTime <= 8000L) {
+                return
+            }
+            lastMoonHazeTime = now
+            waveCount = moonHazeCount.incrementAndGet()
+            targetSlot = if (waveCount % 2 == 1) "slot3" else "slot4"
+        }
+
+        refreshTauntInfo()
+
+        val targetSession = activeSessions[targetSlot]
+        val username = targetSession?.playerState?.username ?: targetSlot
+        BotHelper.dispatchLog(
+            "eclipse",
+            "System",
+            "Moonlight Gaze #$waveCount (detected by $sourceSlot) -> Assigned taunt to $targetSlot ($username)"
+        )
+        queueTaunt(targetSlot, "Moon Haze", delayMs)
+    }
+
+    internal fun onLightGatherDetected(sourceSlot: String, delayMs: Long = 0L) {
+        val targetSlot: String
+        val waveCount: Int
+        synchronized(tauntLock) {
+            val now = System.currentTimeMillis()
+            if (now - lastLightGatherTime <= 6000L) {
+                return
+            }
+            lastLightGatherTime = now
+            waveCount = lightGatherCount.incrementAndGet()
+            val taunters = lightGatherTaunterSlots.ifEmpty { listOf("slot2", "slot3", "slot4") }
+            targetSlot = taunters[(waveCount - 1) % taunters.size]
+        }
+
+        refreshTauntInfo()
+
+        val targetSession = activeSessions[targetSlot]
+        val username = targetSession?.playerState?.username ?: targetSlot
+        BotHelper.dispatchLog(
+            "eclipse",
+            "System",
+            "Light Gather #$waveCount (detected by $sourceSlot) -> Assigned taunt to $targetSlot ($username)"
+        )
+        // Immediate taunt (no 5s delay, as in core_eclipse.py)
+        queueTaunt(targetSlot, "Suffocated Light", delayMs)
+    }
+
+    private fun queueTaunt(slotKey: String, targetMonster: String, delayMs: Long = 5000L) {
+        scope.launch(Dispatchers.IO) {
+            if (delayMs > 0) {
+                delay(delayMs.milliseconds)
+            }
+            if (stopRequested) return@launch
+            val session = activeSessions[slotKey]
+            if (session != null && session.isConnected.value && session.hasAliveMonsters()) {
+                val username = session.playerState.username
+                BotHelper.dispatchLog(
+                    "eclipse",
+                    username,
+                    "[$slotKey] Queuing taunt for $targetMonster..."
+                )
+                pendingTauntTargets[slotKey] = targetMonster
+                refreshTauntInfo()
+            }
+        }
+    }
+
+    private suspend fun waitForSlavesInCell(targetCell: String, maxWaitMs: Long = 4000L) {
+        val start = System.currentTimeMillis()
+        val slaveKeys = listOf("slot2", "slot3", "slot4")
+        while (!stopRequested && (System.currentTimeMillis() - start) < maxWaitMs) {
+            val allArrived = slaveKeys.all { key ->
+                val s = activeSessions[key]
+                s == null || !s.isConnected.value || s.playerState.cell.equals(
+                    targetCell,
+                    ignoreCase = true
+                )
+            }
+            if (allArrived) break
+            delay(200.milliseconds)
+        }
+    }
 
     val isRunning: Boolean
         get() = _status.value.values.any { it.running }
@@ -68,17 +256,37 @@ object NativeEclipseBot {
             return Pair(false, "Please configure credentials for all 4 slots.")
         }
 
+        val configuredGather = if (config.lightGatherMode == "slot4_only") {
+            listOf("slot4")
+        } else {
+            val fromSlots = config.slots.filter { it.value.lightGatherTaunter }.keys.sorted()
+            if (fromSlots.isNotEmpty()) fromSlots else listOf("slot2", "slot3", "slot4")
+        }
+        lightGatherTaunterSlots = configuredGather
+
         stopRequested = false
         startTimeMillis = System.currentTimeMillis()
         clearedRuns = 0
+        currentConfig = config
         sunsetKnightCount.set(0)
         moonHazeCount.set(0)
+        lightGatherCount.set(0)
         lastSunsetKnightTime = 0L
         lastMoonHazeTime = 0L
+        lastLightGatherTime = 0L
+        latestAnimMsg = ""
+        latestAnimMsgTime = 0L
+        animClearJob?.cancel()
+        animClearJob = null
+        pendingTauntTargets.clear()
+        refreshTauntInfo()
 
         val initialStatuses = mutableMapOf<String, SlotTelemetry>()
         for (key in listOf("slot1", "slot2", "slot3", "slot4")) {
-            initialStatuses[key] = SlotTelemetry(running = true)
+            initialStatuses[key] = SlotTelemetry(
+                running = true,
+                isNextTaunter = key in listOf("slot1", "slot3")
+            )
         }
         _status.value = initialStatuses
         _stats.value = PartyStats(timeRunning = 0L, clearedCount = 0)
@@ -100,6 +308,12 @@ object NativeEclipseBot {
             }
         }
         activeSessions.clear()
+        pendingTauntTargets.clear()
+        latestAnimMsg = ""
+        latestAnimMsgTime = 0L
+        animClearJob?.cancel()
+        animClearJob = null
+        refreshTauntInfo()
         coordinatorJob?.cancel()
 
         _status.update { current ->
@@ -150,10 +364,6 @@ object NativeEclipseBot {
             for (slotKey in listOf("slot1", "slot2", "slot3", "slot4")) {
                 val slotConf = config.slots[slotKey] ?: continue
                 val isMaster = (slotKey == "slot1")
-                val isSunsetKnightTaunter = slotKey in listOf("slot1", "slot2")
-                val isMoonHazeTaunter = slotKey in listOf("slot3", "slot4")
-                val tauntIndex = if (slotKey == "slot1" || slotKey == "slot3") 0 else 1
-
                 val defaultTarget = when (slotKey) {
                     "slot1" -> slotConf.defaultTarget.ifBlank { "Ascended Solstice,Blessless Deer" }
                     "slot2" -> slotConf.defaultTarget.ifBlank { "Ascended Solstice" }
@@ -172,16 +382,13 @@ object NativeEclipseBot {
                         masterUsername = masterUsername,
                         slaveUsernames = slaveUsernames,
                         defaultTarget = defaultTarget,
-                        isSunsetKnightTaunter = isSunsetKnightTaunter,
-                        isMoonHazeTaunter = isMoonHazeTaunter,
-                        tauntIndex = tauntIndex,
                         dropWhitelist = dropWhitelist
                     )
                 }
                 slotJobs.add(job)
             }
 
-            slotJobs.forEach { it.join() }
+            slotJobs.joinAll()
         } catch (e: Exception) {
             Log.e(TAG, "Error in Eclipse Party run: ${e.message}", e)
             BotHelper.dispatchLog("eclipse", "System", "Error in Eclipse Party run: ${e.message}")
@@ -200,15 +407,13 @@ object NativeEclipseBot {
         masterUsername: String,
         slaveUsernames: List<String>,
         defaultTarget: String,
-        isSunsetKnightTaunter: Boolean,
-        isMoonHazeTaunter: Boolean,
-        tauntIndex: Int,
         dropWhitelist: Set<String>
     ) {
         val username = slotConfig.username.trim()
         val password = slotConfig.password.trim()
 
         val session = AqwSession()
+        session.socketClient.tag = "$slotKey ($username)"
         activeSessions[slotKey] = session
 
         val cooldowns = ConcurrentHashMap<Int, Double>()
@@ -233,63 +438,41 @@ object NativeEclipseBot {
                             }
                         }
 
-                        val now = System.currentTimeMillis()
+                        if (event.animMsgs.isNotEmpty()) {
+                            val combined = event.animMsgs.joinToString(" | ")
+                            latestAnimMsg = combined
+                            latestAnimMsgTime = System.currentTimeMillis()
+                            refreshTauntInfo()
 
-                        // Handle Sun's Warmth -> Sunset Knight rotation (Slot 1 & 2)
-                        if (hasSunWarmth && (now - lastSunsetKnightTime > 8000L)) {
-                            lastSunsetKnightTime = now
-                            val count = sunsetKnightCount.incrementAndGet()
-                            // tauntIndex 0 -> odd counts (1, 3, ...), tauntIndex 1 -> even counts (2, 4, ...)
-                            val isMyTurn = isSunsetKnightTaunter && ((count - 1) % 2 == tauntIndex)
-                            if (isSunsetKnightTaunter) {
-                                BotHelper.dispatchLog(
-                                    "eclipse",
-                                    username,
-                                    "Sun's Warmth #$count (My turn: $isMyTurn, slot: $slotKey)"
-                                )
-                            }
-                            if (isMyTurn) {
-                                scope.launch(Dispatchers.IO) {
-                                    delay(5000.milliseconds)
-                                    if (session.isConnected.value && session.hasAliveMonsters()) {
-                                        BotHelper.dispatchLog(
-                                            "eclipse",
-                                            username,
-                                            "Queuing taunt for Sunset Knight..."
-                                        )
-                                        tauntTarget = "Sunset Knight"
-                                        doTaunt = true
+                            animClearJob?.cancel()
+                            animClearJob = scope.launch(Dispatchers.IO) {
+                                delay(4000.milliseconds)
+                                synchronized(tauntLock) {
+                                    if (System.currentTimeMillis() - latestAnimMsgTime >= 3900L) {
+                                        latestAnimMsg = ""
+                                        latestAnimMsgTime = 0L
+                                        refreshTauntInfo()
                                     }
                                 }
                             }
                         }
 
-                        // Handle Moonlight Gaze -> Moon Haze rotation (Slot 3 & 4)
-                        if (hasMoonGaze && (now - lastMoonHazeTime > 8000L)) {
-                            lastMoonHazeTime = now
-                            val count = moonHazeCount.incrementAndGet()
-                            val isMyTurn = isMoonHazeTaunter && ((count - 1) % 2 == tauntIndex)
-                            if (isMoonHazeTaunter) {
-                                BotHelper.dispatchLog(
-                                    "eclipse",
-                                    username,
-                                    "Moonlight Gaze #$count (My turn: $isMyTurn, slot: $slotKey)"
-                                )
+                        for (msg in event.animMsgs) {
+                            val lower = msg.lowercase()
+                            if (lower.contains("gather")) {
+                                onLightGatherDetected(slotKey)
+                            } else if (lower.contains("warmth") || lower.contains("sunset")) {
+                                hasSunWarmth = true
+                            } else if (lower.contains("gaze") || lower.contains("moon haze")) {
+                                hasMoonGaze = true
                             }
-                            if (isMyTurn) {
-                                scope.launch(Dispatchers.IO) {
-                                    delay(5000.milliseconds)
-                                    if (session.isConnected.value && session.hasAliveMonsters()) {
-                                        BotHelper.dispatchLog(
-                                            "eclipse",
-                                            username,
-                                            "Queuing taunt for Moon Haze..."
-                                        )
-                                        tauntTarget = "Moon Haze"
-                                        doTaunt = true
-                                    }
-                                }
-                            }
+                        }
+
+                        if (hasSunWarmth) {
+                            onSunWarmthDetected(slotKey)
+                        }
+                        if (hasMoonGaze) {
+                            onMoonGazeDetected(slotKey)
                         }
                     }
 
@@ -432,6 +615,20 @@ object NativeEclipseBot {
                 val currentCell = session.playerState.cell
                 val currentMap = session.playerState.mapName
 
+                if (!currentCell.equals("r1", ignoreCase = true) &&
+                    tauntTarget?.equals("Suffocated Light", ignoreCase = true) == true
+                ) {
+                    doTaunt = false
+                    tauntTarget = null
+                }
+
+                val queuedTaunt = pendingTauntTargets.remove(slotKey)
+                if (queuedTaunt != null) {
+                    doTaunt = true
+                    tauntTarget = queuedTaunt
+                    refreshTauntInfo()
+                }
+
                 val soeItemNow = session.playerState.inventory.firstOrNull {
                     it.name.equals("Scroll of Enrage", ignoreCase = true)
                 }
@@ -450,6 +647,10 @@ object NativeEclipseBot {
                     if (!hasMonsters && currentMap.contains(dungeonMap, ignoreCase = true)) {
                         when (currentCell) {
                             "Enter" -> {
+                                lightGatherCount.set(0)
+                                lastLightGatherTime = 0L
+                                pendingTauntTargets.clear()
+                                refreshTauntInfo()
                                 BotHelper.dispatchLog(
                                     "eclipse",
                                     username,
@@ -457,9 +658,14 @@ object NativeEclipseBot {
                                 )
                                 session.commands.jumpCell("r1", "Left")
                                 delay(1200.milliseconds)
+                                waitForSlavesInCell("r1")
                             }
 
                             "r1" -> {
+                                lightGatherCount.set(0)
+                                lastLightGatherTime = 0L
+                                pendingTauntTargets.clear()
+                                refreshTauntInfo()
                                 BotHelper.dispatchLog(
                                     "eclipse",
                                     username,
@@ -467,9 +673,18 @@ object NativeEclipseBot {
                                 )
                                 session.commands.jumpCell("r2", "Left")
                                 delay(1200.milliseconds)
+                                waitForSlavesInCell("r2")
                             }
 
                             "r2" -> {
+                                sunsetKnightCount.set(0)
+                                moonHazeCount.set(0)
+                                lightGatherCount.set(0)
+                                lastSunsetKnightTime = 0L
+                                lastMoonHazeTime = 0L
+                                lastLightGatherTime = 0L
+                                pendingTauntTargets.clear()
+                                refreshTauntInfo()
                                 BotHelper.dispatchLog(
                                     "eclipse",
                                     username,
@@ -477,10 +692,19 @@ object NativeEclipseBot {
                                 )
                                 session.commands.jumpCell("r3", "Left")
                                 delay(1200.milliseconds)
+                                waitForSlavesInCell("r3")
                             }
 
                             "r3" -> {
                                 clearedRuns++
+                                sunsetKnightCount.set(0)
+                                moonHazeCount.set(0)
+                                lightGatherCount.set(0)
+                                lastSunsetKnightTime = 0L
+                                lastMoonHazeTime = 0L
+                                lastLightGatherTime = 0L
+                                pendingTauntTargets.clear()
+                                refreshTauntInfo()
                                 BotHelper.dispatchLog(
                                     "eclipse",
                                     username,
@@ -498,9 +722,37 @@ object NativeEclipseBot {
                 } else {
                     val masterSession = activeSessions["slot1"]
                     val masterCell = masterSession?.playerState?.cell
-                    if (masterCell != null && !masterCell.equals(currentCell, ignoreCase = true)) {
-                        session.commands.gotoPlayer(masterUsername)
-                        delay(1000.milliseconds)
+                    val masterMap = masterSession?.playerState?.mapName ?: ""
+                    val isDifferentMap =
+                        masterMap.isNotBlank() && !currentMap.equals(masterMap, ignoreCase = true)
+                    val isDifferentCell =
+                        masterCell != null && !masterCell.equals(currentCell, ignoreCase = true)
+
+                    if (isDifferentMap || isDifferentCell) {
+                        BotHelper.dispatchLog(
+                            "eclipse",
+                            username,
+                            "[$slotKey] Master is in $masterMap:$masterCell (current: $currentMap:$currentCell). Moving to master..."
+                        )
+                        val inEclipseMap = currentMap.contains("eclipse", ignoreCase = true) ||
+                                masterMap.contains("eclipse", ignoreCase = true) ||
+                                currentMap.contains(dungeonMap, ignoreCase = true) ||
+                                masterMap.contains(dungeonMap, ignoreCase = true)
+
+                        if (inEclipseMap && masterCell != null) {
+                            // Di map ascendedeclipse tidak perlu goto, cukup gunakan jumpCell biasa
+                            val masterPad =
+                                masterSession?.playerState?.pad?.ifBlank { "Left" } ?: "Left"
+                            session.commands.jumpCell(masterCell, masterPad)
+                        } else if (!isDifferentMap && masterCell != null) {
+                            val masterPad =
+                                masterSession?.playerState?.pad?.ifBlank { "Left" } ?: "Left"
+                            session.commands.jumpCell(masterCell, masterPad)
+                        } else {
+                            session.commands.gotoPlayer(masterUsername)
+                        }
+                        delay(1200.milliseconds)
+                        continue
                     }
                 }
 
@@ -547,16 +799,52 @@ object NativeEclipseBot {
                             }
                         } ?: targetMonster
 
-                        BotHelper.dispatchLog(
-                            "eclipse",
-                            username,
-                            "Executing Taunt on ${targetToTaunt.name}!"
-                        )
-                        session.commands.taunt(targetToTaunt.monMapId)
-                        doTaunt = false
-                        tauntTarget = null
-                        delay(400.milliseconds)
-                        continue
+                        if (session.commands.canUseSkill(5)) {
+                            BotHelper.dispatchLog(
+                                "eclipse",
+                                username,
+                                "Executing Taunt on ${targetToTaunt.name}!"
+                            )
+                            delay(500.milliseconds)
+                            val sent = session.commands.taunt(targetToTaunt.monMapId)
+                            if (sent) {
+                                val isSuffocatedLightAlive = aliveMonsters.any {
+                                    it.name.contains(
+                                        "Suffocated Light",
+                                        ignoreCase = true
+                                    ) && it.isAlive && it.currentHp > 0
+                                }
+                                if (targetToTaunt.name.contains(
+                                        "Suffocated Light",
+                                        ignoreCase = true
+                                    ) && isSuffocatedLightAlive
+                                ) {
+                                    // Loop taunt: keep doTaunt = true and tauntTarget as is (as in core_eclipse.py)
+                                    doTaunt = true
+                                    tauntTarget = "Suffocated Light"
+                                } else {
+                                    doTaunt = false
+                                    tauntTarget = null
+                                }
+                                delay(400.milliseconds)
+                                continue
+                            }
+                        } else if (targetToTaunt.name.contains(
+                                "Suffocated Light",
+                                ignoreCase = true
+                            )
+                        ) {
+                            val isSuffocatedLightAlive = aliveMonsters.any {
+                                it.name.contains(
+                                    "Suffocated Light",
+                                    ignoreCase = true
+                                ) && it.isAlive && it.currentHp > 0
+                            }
+                            if (!isSuffocatedLightAlive) {
+                                doTaunt = false
+                                tauntTarget = null
+                            }
+                        }
                     }
 
                     val nextSkill = skillRotation[skillIdx]
@@ -606,6 +894,15 @@ object NativeEclipseBot {
             )
         }
 
+        val nextSun = if ((sunsetKnightCount.get() + 1) % 2 == 1) "slot1" else "slot2"
+        val nextMoon = if ((moonHazeCount.get() + 1) % 2 == 1) "slot3" else "slot4"
+        val isNext = when (slotKey) {
+            "slot1", "slot2" -> slotKey == nextSun
+            "slot3", "slot4" -> slotKey == nextMoon
+            else -> false
+        }
+        val isPending = pendingTauntTargets.containsKey(slotKey)
+
         _status.update { current ->
             val mutable = current.toMutableMap()
             mutable[slotKey] = SlotTelemetry(
@@ -619,6 +916,9 @@ object NativeEclipseBot {
                 mp = p.mp,
                 maxMp = p.maxMp,
                 isDead = p.isDead,
+                isInCombat = p.isInCombat,
+                isNextTaunter = isNext,
+                isPendingTaunt = isPending,
                 cooldowns = cooldowns,
                 soeQty = soeQty,
                 monsters = cellMonsters,

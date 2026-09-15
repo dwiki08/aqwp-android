@@ -298,6 +298,9 @@ object BotHelper {
                         mp = sObj.optInt("mp", 0),
                         maxMp = sObj.optInt("max_mp", 0),
                         isDead = sObj.optBoolean("is_dead", false),
+                        isInCombat = sObj.optBoolean("is_in_combat", false),
+                        isNextTaunter = sObj.optBoolean("is_next_taunter", false),
+                        isPendingTaunt = sObj.optBoolean("is_pending_taunt", false),
                         cooldowns = cooldownsMap,
                         tauntError = sObj.optBoolean("taunt_error", false),
                         soeQty = sObj.optInt("soe_qty", 0),
@@ -412,6 +415,7 @@ object BotHelper {
         val obj = JSONObject(jsonStr)
         val server = obj.optString("server", "Alteon")
         val room = obj.optInt("room_number", 9099)
+        val lightGatherMode = obj.optString("light_gather_mode", "rotation")
         val slotsObj = obj.optJSONObject("slots") ?: JSONObject()
 
         val slots = mutableMapOf<String, SlotConfig>()
@@ -440,16 +444,30 @@ object BotHelper {
                 ),
                 moonHazeTaunter = sObj.optBoolean("moon_haze_taunter", key == "slot3"),
                 sunsetKnightTaunter = sObj.optBoolean("sunset_knight_taunter", key == "slot4"),
+                lightGatherTaunter = sObj.optBoolean(
+                    "light_gather_taunter",
+                    if (lightGatherMode == "slot4_only") key == "slot4" else key in listOf(
+                        "slot2",
+                        "slot3",
+                        "slot4"
+                    )
+                ),
                 defaultTarget = sObj.optString("default_target", defaultTargets[key] ?: "")
             )
         }
-        return EclipseConfig(server = server, roomNumber = room, slots = slots)
+        return EclipseConfig(
+            server = server,
+            roomNumber = room,
+            lightGatherMode = lightGatherMode,
+            slots = slots
+        )
     }
 
     fun serializeEclipseConfig(cfg: EclipseConfig): String {
         val obj = JSONObject()
         obj.put("server", cfg.server)
         obj.put("room_number", cfg.roomNumber)
+        obj.put("light_gather_mode", cfg.lightGatherMode)
         val slotsObj = JSONObject()
         for ((k, v) in cfg.slots) {
             val s = JSONObject()
@@ -460,6 +478,7 @@ object BotHelper {
             s.put("is_taunter", v.isTaunter)
             s.put("moon_haze_taunter", v.moonHazeTaunter)
             s.put("sunset_knight_taunter", v.sunsetKnightTaunter)
+            s.put("light_gather_taunter", v.lightGatherTaunter)
             s.put("default_target", v.defaultTarget)
             slotsObj.put(k, s)
         }

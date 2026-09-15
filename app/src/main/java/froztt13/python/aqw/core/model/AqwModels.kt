@@ -127,7 +127,7 @@ data class AqwFaction(
 data class AqwPlayerState(
     var username: String = "",
     var charId: Int = 0,
-    var userId: Int = 0,
+    var authUserId: Int = 0,
     var roomUserId: Int = 0,
     var token: String = "",
     var cell: String = "Enter",

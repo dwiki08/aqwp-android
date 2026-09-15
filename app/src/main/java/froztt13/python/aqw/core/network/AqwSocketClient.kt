@@ -1,6 +1,7 @@
 package froztt13.python.aqw.core.network
 
 import android.util.Log
+import froztt13.python.aqw.data.LogEntry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -24,9 +26,30 @@ import java.net.Socket
 
 open class AqwSocketClient {
 
+    var tag: String = ""
+
     companion object {
         private const val TAG = "AqwSocketClient"
         private const val CONNECT_TIMEOUT_MS = 8000
+        private const val MAX_PACKET_LOGS = 500
+
+        private val _packetLogs = MutableStateFlow<List<LogEntry>>(emptyList())
+        val packetLogs: StateFlow<List<LogEntry>> = _packetLogs.asStateFlow()
+
+        fun logPacketSent(tag: String, packet: String) {
+            val entry = LogEntry(
+                botType = "Packet",
+                username = tag,
+                message = packet
+            )
+            _packetLogs.update { current ->
+                (current + entry).takeLast(MAX_PACKET_LOGS)
+            }
+        }
+
+        fun clearPacketLogs() {
+            _packetLogs.value = emptyList()
+        }
     }
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -114,6 +137,7 @@ open class AqwSocketClient {
                 val bytes = (packet + "\u0000").toByteArray(Charsets.UTF_8)
                 stream.write(bytes)
                 stream.flush()
+                logPacketSent(tag, packet)
                 true
             } catch (e: Exception) {
                 Log.e(TAG, "Error writing packet: ${e.message}")

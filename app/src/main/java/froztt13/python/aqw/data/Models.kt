@@ -8,6 +8,7 @@ data class SlotConfig(
     val isTaunter: Boolean = false,
     val moonHazeTaunter: Boolean = false,
     val sunsetKnightTaunter: Boolean = false,
+    val lightGatherTaunter: Boolean = false,
     val defaultTarget: String = ""
 )
 
@@ -46,6 +47,7 @@ data class TempleConfig(
 data class EclipseConfig(
     val server: String = "Alteon",
     val roomNumber: Int = 9099,
+    val lightGatherMode: String = "rotation",
     val slots: Map<String, SlotConfig> = mapOf(
         "slot1" to SlotConfig(
             charClass = "Legion Revenant",
@@ -61,6 +63,7 @@ data class EclipseConfig(
             isTaunter = true,
             moonHazeTaunter = false,
             sunsetKnightTaunter = true,
+            lightGatherTaunter = true,
             defaultTarget = "Ascended Solstice"
         ),
         "slot3" to SlotConfig(
@@ -69,6 +72,7 @@ data class EclipseConfig(
             isTaunter = true,
             moonHazeTaunter = true,
             sunsetKnightTaunter = false,
+            lightGatherTaunter = true,
             defaultTarget = "Ascended Midnight"
         ),
         "slot4" to SlotConfig(
@@ -77,13 +81,20 @@ data class EclipseConfig(
             isTaunter = true,
             moonHazeTaunter = true,
             sunsetKnightTaunter = false,
+            lightGatherTaunter = true,
             defaultTarget = "Ascended Midnight"
         )
     )
 ) {
     fun enforceFixedRoles(): EclipseConfig {
+        val isSlot4Only = lightGatherMode == "slot4_only"
         val updatedSlots = slots.mapValues { (key, config) ->
             val isSun = key in listOf("slot1", "slot2")
+            val isLightGather = if (isSlot4Only) {
+                key == "slot4"
+            } else {
+                key in listOf("slot2", "slot3", "slot4")
+            }
             val fixedPrimary = if (isSun) "Ascended Solstice" else "Ascended Midnight"
             val targets =
                 config.defaultTarget.split(",").map { it.trim() }.filter { it.isNotEmpty() }
@@ -99,6 +110,7 @@ data class EclipseConfig(
                 isTaunter = true,
                 sunsetKnightTaunter = isSun,
                 moonHazeTaunter = !isSun,
+                lightGatherTaunter = isLightGather,
                 defaultTarget = normalizedTarget
             )
         }
@@ -192,6 +204,9 @@ data class SlotTelemetry(
     val mp: Int = 0,
     val maxMp: Int = 0,
     val isDead: Boolean = false,
+    val isInCombat: Boolean = false,
+    val isNextTaunter: Boolean = false,
+    val isPendingTaunt: Boolean = false,
     val cooldowns: Map<Int, Double> = emptyMap(),
     val tauntError: Boolean = false,
     val soeQty: Int = 0,
@@ -223,6 +238,22 @@ data class PartyStats(
             }
         }
 }
+
+data class TaunterTargetInfo(
+    val nextSlot: String = "",
+    val nextUsername: String = "",
+    val pendingSlot: String? = null,
+    val pendingUsername: String? = null,
+    val waveCount: Int = 0
+)
+
+data class EclipseTauntInfo(
+    val sunSide: TaunterTargetInfo = TaunterTargetInfo(nextSlot = "slot1"),
+    val moonSide: TaunterTargetInfo = TaunterTargetInfo(nextSlot = "slot3"),
+    val lightGather: TaunterTargetInfo = TaunterTargetInfo(nextSlot = "slot3"),
+    val latestAnimMsg: String = "",
+    val animMsgTimestamp: Long = 0L
+)
 
 data class BotSummary(
     val running: Boolean = false,
