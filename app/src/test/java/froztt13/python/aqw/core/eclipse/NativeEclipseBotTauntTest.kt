@@ -11,9 +11,13 @@ class NativeEclipseBotTauntTest {
         NativeEclipseBot.sunsetKnightCount.set(0)
         NativeEclipseBot.moonHazeCount.set(0)
         NativeEclipseBot.lightGatherCount.set(0)
+        NativeEclipseBot.sunConvergeCount.set(0)
+        NativeEclipseBot.moonConvergeCount.set(0)
         NativeEclipseBot.lastSunsetKnightTime = 0L
         NativeEclipseBot.lastMoonHazeTime = 0L
         NativeEclipseBot.lastLightGatherTime = 0L
+        NativeEclipseBot.lastSunConvergeTime = 0L
+        NativeEclipseBot.lastMoonConvergeTime = 0L
         NativeEclipseBot.pendingTauntTargets.clear()
     }
 
@@ -121,6 +125,54 @@ class NativeEclipseBotTauntTest {
         val moonInfo = NativeEclipseBot.tauntInfo.value
         assertEquals("slot4", moonInfo.moonSide.nextSlot)
         assertEquals(1, moonInfo.moonSide.waveCount)
+    }
+
+    @Test
+    fun testSunConvergeAlternatesBetweenSlot1AndSlot2() {
+        // Wave 1: Detected by slot 1 -> assigned to slot 1
+        NativeEclipseBot.onSunConvergeDetected("slot1", delayMs = 0)
+        assertEquals(1, NativeEclipseBot.sunConvergeCount.get())
+        assertEquals("slot2", NativeEclipseBot.tauntInfo.value.sunConverge.nextSlot)
+
+        // Immediate duplicate call must be debounced
+        NativeEclipseBot.onSunConvergeDetected("slot2", delayMs = 0)
+        assertEquals(1, NativeEclipseBot.sunConvergeCount.get())
+
+        // Wave 2: Next wave -> slot 2
+        NativeEclipseBot.lastSunConvergeTime = 0L
+        NativeEclipseBot.onSunConvergeDetected("slot2", delayMs = 0)
+        assertEquals(2, NativeEclipseBot.sunConvergeCount.get())
+        assertEquals("slot1", NativeEclipseBot.tauntInfo.value.sunConverge.nextSlot)
+
+        // Wave 3: Alternates back to slot 1
+        NativeEclipseBot.lastSunConvergeTime = 0L
+        NativeEclipseBot.onSunConvergeDetected("slot1", delayMs = 0)
+        assertEquals(3, NativeEclipseBot.sunConvergeCount.get())
+        assertEquals("slot2", NativeEclipseBot.tauntInfo.value.sunConverge.nextSlot)
+    }
+
+    @Test
+    fun testMoonConvergeAlternatesBetweenSlot3AndSlot4() {
+        // Wave 1: Detected by slot 3 -> assigned to slot 3
+        NativeEclipseBot.onMoonConvergeDetected("slot3", delayMs = 0)
+        assertEquals(1, NativeEclipseBot.moonConvergeCount.get())
+        assertEquals("slot4", NativeEclipseBot.tauntInfo.value.moonConverge.nextSlot)
+
+        // Immediate duplicate call must be debounced
+        NativeEclipseBot.onMoonConvergeDetected("slot4", delayMs = 0)
+        assertEquals(1, NativeEclipseBot.moonConvergeCount.get())
+
+        // Wave 2: Next wave -> slot 4
+        NativeEclipseBot.lastMoonConvergeTime = 0L
+        NativeEclipseBot.onMoonConvergeDetected("slot4", delayMs = 0)
+        assertEquals(2, NativeEclipseBot.moonConvergeCount.get())
+        assertEquals("slot3", NativeEclipseBot.tauntInfo.value.moonConverge.nextSlot)
+
+        // Wave 3: Alternates back to slot 3
+        NativeEclipseBot.lastMoonConvergeTime = 0L
+        NativeEclipseBot.onMoonConvergeDetected("slot3", delayMs = 0)
+        assertEquals(3, NativeEclipseBot.moonConvergeCount.get())
+        assertEquals("slot4", NativeEclipseBot.tauntInfo.value.moonConverge.nextSlot)
     }
 
     @Test

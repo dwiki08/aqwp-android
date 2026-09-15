@@ -274,14 +274,7 @@ class AqwSession {
             }
 
             is AqwEvent.CombatTick -> {
-//                event.playerHp?.let {
-//                    playerState.currentHp = it
-//                    if (it <= 0 && !playerState.isDead) {
-//                        triggerDeathHandler()
-//                    } else if (it > 0 && playerState.isDead) {
-//                        playerState.isDead = false
-//                    }
-//                }
+                event.playerHp?.let { playerState.currentHp = it }
                 event.playerMp?.let { playerState.mp = it }
                 event.playerInCombat?.let { playerState.isInCombat = it }
                 if (event.monsterHpMap.isNotEmpty()) {
@@ -358,7 +351,8 @@ class AqwSession {
             }
 
             is AqwEvent.PlayerDied -> {
-                if (event.userId == playerState.roomUserId || event.userId == playerState.charId || event.userId == 0) {
+                if (event.userId == playerState.authUserId) {
+                    Log.d(TAG, "playerDeath: ${playerState.username} is DEAD")
                     triggerDeathHandler()
                 } else {
                     playerState.playersInMap.values.firstOrNull { it.userId == event.userId }?.let {
@@ -366,6 +360,16 @@ class AqwSession {
                         it.hp = 0
                     }
                 }
+            }
+
+            is AqwEvent.PlayerRespawned -> {
+                playerState.playersInMap.values.firstOrNull { it.userId == event.userId }?.let {
+                    it.isDead = false
+                    it.hp = 100
+                }
+
+                commands.jumpCell(playerState.cell, playerState.pad)
+                logCallback?.invoke("Respawn complete. Current at ${playerState.cell} [${playerState.pad}]")
             }
 
             is AqwEvent.MonsterStateUpdated -> {
@@ -740,7 +744,7 @@ class AqwSession {
 
             is AqwEvent.Warning -> {
 //                if (event.isSpamWarning.not())
-                    onLog?.invoke("[Warning] ${event.message}")
+                onLog?.invoke("[Warning] ${event.message}")
             }
 
             is AqwEvent.AfkNotice -> {
@@ -766,32 +770,28 @@ class AqwSession {
     }
 
     private var deathHandlerJob: Job? = null
-    private var deathSavedCell: String = "Enter"
-    private var deathSavedPad: String = "Spawn"
 
     /**
      * Triggers asynchronous death handler timer (11s) and respawns automatically (matching Python death_handler_task).
      */
     fun triggerDeathHandler() {
         if (playerState.isDead && deathHandlerJob?.isActive == true) return
+
+        val respawnTime = 11
         playerState.isDead = true
         playerState.currentHp = 0
         playerState.isInCombat = false
-        deathSavedCell = playerState.cell.ifBlank { "Enter" }
-        deathSavedPad = playerState.pad.ifBlank { "Spawn" }
 
-        logCallback?.invoke("Player DIED! Respawn countdown started (11s)...")
+        logCallback?.invoke("Player DIED! Respawn countdown started (${respawnTime}s)...")
 
         deathHandlerJob?.cancel()
         deathHandlerJob = sessionScope.launch(Dispatchers.IO) {
-            for (i in 11 downTo 1) {
+            for (i in respawnTime downTo 1) {
                 if (!socketClient.isConnected.value) break
                 delay(1000.milliseconds)
             }
             if (socketClient.isConnected.value && playerState.isDead) {
-                logCallback?.invoke("Respawning player at $deathSavedCell [$deathSavedPad]...")
                 commands.resurrectPlayer()
-                logCallback?.invoke("Respawn complete.")
             }
         }
     }

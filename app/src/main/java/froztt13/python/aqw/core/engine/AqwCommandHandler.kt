@@ -84,7 +84,6 @@ class AqwCommandHandler(
 
     fun aggro(monsId: List<String>, delayMs: Long = 1500L) = combat.aggro(monsId, delayMs)
     fun stopAggro() = combat.stopAggro()
-    fun stop_aggro() = combat.stop_aggro()
 
     // ==========================================
     // MOVEMENT DELEGATIONS
@@ -92,8 +91,6 @@ class AqwCommandHandler(
 
     fun isInMap(mapName: String): Boolean = movement.isInMap(mapName)
     fun isNotInMap(mapName: String): Boolean = movement.isNotInMap(mapName)
-    fun is_in_map(mapName: String): Boolean = movement.is_in_map(mapName)
-    fun is_not_in_map(mapName: String): Boolean = movement.is_not_in_map(mapName)
 
     suspend fun joinMap(
         mapName: String,
@@ -102,12 +99,6 @@ class AqwCommandHandler(
         pad: String = "Spawn",
         safeLeave: Boolean = true
     ): Boolean = movement.joinMap(mapName, roomNumber, cell, pad, safeLeave)
-
-    suspend fun join_map(
-        mapName: String,
-        roomNumber: Int? = null,
-        safeLeave: Boolean = true
-    ): Boolean = movement.join_map(mapName, roomNumber, safeLeave)
 
     suspend fun joinHouse(houseName: String, safeLeave: Boolean = true): Boolean =
         movement.joinHouse(houseName, safeLeave)
@@ -166,6 +157,11 @@ class AqwCommandHandler(
         targetMonMapId: String? = null,
         reloadDelayMs: Long = 200L
     ): Boolean = combat.useSkill(index, targetMonMapId, reloadDelayMs)
+
+    suspend fun useBuff(
+        index: Int,
+        reloadDelayMs: Long = 200L
+    ): Boolean = combat.useBuff(index, reloadDelayMs)
 
     suspend fun useSkillToPlayer(skillIndex: Int, maxTarget: Int = 1): Boolean =
         combat.useSkillToPlayer(skillIndex, maxTarget)

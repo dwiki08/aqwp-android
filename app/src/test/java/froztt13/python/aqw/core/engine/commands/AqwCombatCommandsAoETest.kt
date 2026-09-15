@@ -212,13 +212,13 @@ class AqwCombatCommandsAoETest {
     }
 
     @Test
-    fun testTaunt_updatesNextUseStatic15Seconds_withoutCdr() = runBlocking {
+    fun testTaunt_updatesNextUseStatic10Seconds_withoutCdr() = runBlocking {
         val client = FakeSocketClient()
         val playerState = AqwPlayerState(
             cell = "Boss",
             currentHp = 1000,
             maxHp = 1000,
-            cdReduction = 0.5 // 50% CDR should NOT affect taunt (must remain static 15s)
+            cdReduction = 0.5 // 50% CDR should NOT affect taunt (must remain static 10s)
         )
         val monsters = listOf(
             AqwMonster(
@@ -245,14 +245,105 @@ class AqwCombatCommandsAoETest {
 
         val skill5 = combat.getSkill(5)
         org.junit.Assert.assertNotNull(skill5)
-        // Verify cooldown is ~15000 ms from start
+        // Verify cooldown is ~10000 ms from start
         val remaining = skill5!!.nextUseTimestamp - start
         assertTrue(
-            "Remaining cooldown should be around 15000 ms, was $remaining",
-            remaining in 14800L..15200L
+            "Remaining cooldown should be around 10000 ms, was $remaining",
+            remaining in 9800L..10200L
         )
         // canUseSkill(5) must now be false
         org.junit.Assert.assertFalse(combat.canUseSkill(5))
         assertEquals("Boss Monster", combat.lastTargetMonster)
+    }
+
+    @Test
+    fun testUseBuff_withSelfTgtType_sendsPacketToSelfAndReturnsTrue() = runBlocking {
+        val client = FakeSocketClient()
+        val playerState = AqwPlayerState(
+            cell = "Boss",
+            currentHp = 1000,
+            maxHp = 1000,
+            roomUserId = 42
+        )
+        playerState.skills.add(
+            AqwSkill(
+                index = 2,
+                name = "Self Shield",
+                tgt = "s",
+                mpCost = 10.0,
+                cdMillis = 1000.0
+            )
+        )
+        val combat = AqwCombatCommands(
+            client = client,
+            playerState = playerState,
+            monstersProvider = { emptyList() }
+        )
+
+        val success = combat.useBuff(index = 2, reloadDelayMs = 0)
+        assertTrue(success)
+        assertEquals(1, client.sentPackets.size)
+        assertEquals("%xt%zm%gar%1%0%a2>p:42%wvz%", client.sentPackets.first())
+    }
+
+    @Test
+    fun testUseBuff_withFriendlyTgtType_sendsPacketToPartyAndReturnsTrue() = runBlocking {
+        val client = FakeSocketClient()
+        val playerState = AqwPlayerState(
+            cell = "Boss",
+            currentHp = 1000,
+            maxHp = 1000,
+            roomUserId = 10,
+            roomUserIds = mutableListOf(20, 30)
+        )
+        playerState.skills.add(
+            AqwSkill(
+                index = 3,
+                name = "Party Heal",
+                tgt = "f",
+                tgtMax = 3,
+                mpCost = 15.0,
+                cdMillis = 1000.0
+            )
+        )
+        val combat = AqwCombatCommands(
+            client = client,
+            playerState = playerState,
+            monstersProvider = { emptyList() }
+        )
+
+        val success = combat.useBuff(index = 3, reloadDelayMs = 0)
+        assertTrue(success)
+        assertEquals(1, client.sentPackets.size)
+        assertEquals("%xt%zm%gar%1%0%a3>p:10,a3>p:20,a3>p:30%wvz%", client.sentPackets.first())
+    }
+
+    @Test
+    fun testUseBuff_withHostileTgtType_returnsFalseAndDoesNotSendPacket() = runBlocking {
+        val client = FakeSocketClient()
+        val playerState = AqwPlayerState(
+            cell = "Boss",
+            currentHp = 1000,
+            maxHp = 1000,
+            roomUserId = 10
+        )
+        playerState.skills.add(
+            AqwSkill(
+                index = 1,
+                name = "Fireball",
+                tgt = "h",
+                mpCost = 10.0,
+                cdMillis = 1000.0
+            )
+        )
+        val combat = AqwCombatCommands(
+            client = client,
+            playerState = playerState,
+            monstersProvider = { emptyList() }
+        )
+
+        val success = combat.useBuff(index = 1, reloadDelayMs = 0)
+        org.junit.Assert.assertFalse(success)
+        assertTrue(client.sentPackets.isEmpty())
     }
 }

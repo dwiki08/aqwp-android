@@ -251,6 +251,8 @@ data class EclipseTauntInfo(
     val sunSide: TaunterTargetInfo = TaunterTargetInfo(nextSlot = "slot1"),
     val moonSide: TaunterTargetInfo = TaunterTargetInfo(nextSlot = "slot3"),
     val lightGather: TaunterTargetInfo = TaunterTargetInfo(nextSlot = "slot3"),
+    val sunConverge: TaunterTargetInfo = TaunterTargetInfo(nextSlot = "slot1"),
+    val moonConverge: TaunterTargetInfo = TaunterTargetInfo(nextSlot = "slot3"),
     val latestAnimMsg: String = "",
     val animMsgTimestamp: Long = 0L
 )

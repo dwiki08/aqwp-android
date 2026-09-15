@@ -18,6 +18,10 @@ class AqwMovementCommands(
     private val stopAggro: () -> Unit = {}
 ) {
 
+    companion object {
+        private const val TAG = "AqwMovementCommands"
+    }
+
     fun isInMap(mapName: String): Boolean {
         val current = playerState.mapName.ifBlank { playerState.areaName }
         if (current.equals(mapName, ignoreCase = true)) return true

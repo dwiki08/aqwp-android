@@ -135,6 +135,7 @@ sealed interface AqwEvent {
     data class WheelSpun(val dropNames: List<String>) : AqwEvent
 
     data class PlayerDied(val userId: Int) : AqwEvent
+    data class PlayerRespawned(val userId: Int) : AqwEvent
     data class ServerBroadcast(val message: String) : AqwEvent
     data class Warning(val message: String, val isSpamWarning: Boolean = false) : AqwEvent
     data class ExitArea(val username: String) : AqwEvent
@@ -265,6 +266,10 @@ object AqwPacketParser {
                         val text = if (parts.size > 4) parts[4] else ""
                         val sender = if (parts.size > 5) parts[5] else ""
                         return AqwEvent.WhisperMessage(sender, text)
+                    }
+
+                    cmdType.equals("resTimed", ignoreCase = true) -> {
+
                     }
                 }
             }
@@ -497,6 +502,8 @@ object AqwPacketParser {
                 var pCurHp: Int? = null
                 var pCurMp: Int? = null
                 var pInCombat: Boolean? = null
+
+                // Player stats
                 val pObj = data.optJSONObject("p")
                 if (pObj != null) {
                     val pMe = pObj.optJSONObject(currentUsername)
@@ -507,6 +514,7 @@ object AqwPacketParser {
                     }
                 }
 
+                // Monster stats
                 val monsterHpMap = mutableMapOf<String, Int>()
                 val mObj = data.optJSONObject("m")
                 if (mObj != null) {
@@ -520,6 +528,7 @@ object AqwPacketParser {
                     }
                 }
 
+                // Animation messages
                 val animMsgs = mutableListOf<String>()
                 val animsArr = data.optJSONArray("anims") ?: data.optJSONArray("anim")
                 if (animsArr != null) {
@@ -540,6 +549,7 @@ object AqwPacketParser {
                     animMsgs.add(directMsg)
                 }
 
+                // Auras
                 val aurasList = mutableListOf<Pair<String, String>>()
                 val aurasRemovedList = mutableListOf<Pair<String, String>>()
                 val actionsArr = data.optJSONArray("a")
@@ -918,7 +928,6 @@ object AqwPacketParser {
             }
 
             "playerDeath" -> {
-                Log.d(TAG, "playerDeath: $data")
                 val userId = data.optInt("userID", 0)
                 AqwEvent.PlayerDied(userId)
             }

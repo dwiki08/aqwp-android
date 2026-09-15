@@ -679,6 +679,7 @@ fun EclipseContent(
             ) {
                 EclipseTauntOverviewCard(
                     tauntInfo = tauntInfo,
+                    currentCell = activeCell,
                     isRunning = isRunning
                 )
             }

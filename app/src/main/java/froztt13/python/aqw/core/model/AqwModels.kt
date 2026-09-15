@@ -79,6 +79,20 @@ data class AqwSkill(
     fun remainingCooldownMs(): Long = maxOf(0L, nextUseTimestamp - System.currentTimeMillis())
 }
 
+data class AqwAura(
+    val name: String = "",
+    val count: Int = 0,
+    val duration: Int = 0,
+    val appliedAt: Long = 0L,
+    val expiredAt: Long = 0L // applied at + duration
+) {
+    val isExpired: Boolean
+        get() = System.currentTimeMillis() >= expiredAt
+
+    val remainingDurationMs: Long
+        get() = maxOf(0L, expiredAt - System.currentTimeMillis())
+}
+
 data class AqwShop(
     val shopId: Int = 0,
     val shopName: String = "",

@@ -132,7 +132,7 @@ open class AqwSocketClient {
         if (!_isConnected.value) return@withContext false
         writeMutex.withLock {
             try {
-                Log.d(TAG, "send: $packet")
+//                Log.d(TAG, "send: $packet")
                 val stream = outputStream ?: return@withLock false
                 val bytes = (packet + "\u0000").toByteArray(Charsets.UTF_8)
                 stream.write(bytes)

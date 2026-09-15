@@ -43,6 +43,7 @@ import froztt13.python.aqw.ui.theme.TextSecondary
 fun EclipseTauntOverviewCard(
     modifier: Modifier = Modifier,
     tauntInfo: EclipseTauntInfo,
+    currentCell: String = "",
     isRunning: Boolean = true
 ) {
 
@@ -101,47 +102,88 @@ fun EclipseTauntOverviewCard(
                 }
             }
 
-            HorizontalDivider(
-                color = Color(0xFF1E2338),
-                thickness = 1.dp
-            )
+            val isCellR1 = currentCell.equals("r1", ignoreCase = true)
+            val isCellR2 = currentCell.equals("r2", ignoreCase = true)
+            val isCellR3 = currentCell.equals("r3", ignoreCase = true)
 
-//            // Sun Side Row
-//            TauntTargetRow(
-//                title = "SUN SIDE",
-//                monsterName = "Sunset Knight",
-//                accentColor = SunGold,
-//                targetInfo = tauntInfo.sunSide,
-//                defaultSlotLabel = "P1 / P2"
-//            )
-//
-//            HorizontalDivider(
-//                color = Color(0xFF1E2338),
-//                thickness = 1.dp
-//            )
-//
-//            // Moon Side Row
-//            TauntTargetRow(
-//                title = "MOON SIDE",
-//                monsterName = "Moon Haze",
-//                accentColor = MoonCyan,
-//                targetInfo = tauntInfo.moonSide,
-//                defaultSlotLabel = "P3 / P4"
-//            )
-//
-//            HorizontalDivider(
-//                color = Color(0xFF1E2338),
-//                thickness = 1.dp
-//            )
+            // Sun & Moon Side Rows - cell r2 only
+            if (isCellR2) {
+                HorizontalDivider(
+                    color = Color(0xFF1E2338),
+                    thickness = 1.dp
+                )
 
-            // Light Gather Row
-            TauntTargetRow(
-                title = "GATHER EVENT",
-                monsterName = "Suffocated Light",
-                accentColor = EclipseMagenta,
-                targetInfo = tauntInfo.lightGather,
-                defaultSlotLabel = "P3 / P4"
-            )
+                // Sun Side Row - cell r2
+                TauntTargetRow(
+                    title = "SUN SIDE",
+                    monsterName = "Sunset Knight",
+                    accentColor = SunGold,
+                    targetInfo = tauntInfo.sunSide,
+                    defaultSlotLabel = "P1 / P2"
+                )
+
+                HorizontalDivider(
+                    color = Color(0xFF1E2338),
+                    thickness = 1.dp
+                )
+
+                // Moon Side Row - cell r2
+                TauntTargetRow(
+                    title = "MOON SIDE",
+                    monsterName = "Moon Haze",
+                    accentColor = MoonCyan,
+                    targetInfo = tauntInfo.moonSide,
+                    defaultSlotLabel = "P3 / P4"
+                )
+            }
+
+            // Light Gather Row - cell r1 only
+            if (isCellR1) {
+                HorizontalDivider(
+                    color = Color(0xFF1E2338),
+                    thickness = 1.dp
+                )
+
+                // Light Gather Row - cell r1
+                TauntTargetRow(
+                    title = "GATHER EVENT",
+                    monsterName = "Suffocated Light",
+                    accentColor = EclipseMagenta,
+                    targetInfo = tauntInfo.lightGather,
+                    defaultSlotLabel = "P3 / P4"
+                )
+            }
+
+            // Sun & Moon Converge Rows - cell r3 only
+            if (isCellR3) {
+                HorizontalDivider(
+                    color = Color(0xFF1E2338),
+                    thickness = 1.dp
+                )
+
+                // Sun Converge Row - cell r3
+                TauntTargetRow(
+                    title = "SUN CONVERGE",
+                    monsterName = "Ascended Solstice",
+                    accentColor = SunGold,
+                    targetInfo = tauntInfo.sunConverge,
+                    defaultSlotLabel = "P1 / P2"
+                )
+
+                HorizontalDivider(
+                    color = Color(0xFF1E2338),
+                    thickness = 1.dp
+                )
+
+                // Moon Converge Row - cell r3
+                TauntTargetRow(
+                    title = "MOON CONVERGE",
+                    monsterName = "Ascended Midnight",
+                    accentColor = MoonCyan,
+                    targetInfo = tauntInfo.moonConverge,
+                    defaultSlotLabel = "P3 / P4"
+                )
+            }
 
             HorizontalDivider(
                 color = Color(0xFF1E2338),
