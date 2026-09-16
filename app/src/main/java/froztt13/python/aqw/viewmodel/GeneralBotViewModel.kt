@@ -33,6 +33,8 @@ class GeneralBotViewModel : ViewModel() {
         .map { it.running }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val isPaused: StateFlow<Boolean> = froztt13.python.aqw.core.general.NativeGeneralBot.isPaused
+
     private val _subModules = MutableStateFlow<List<GeneralSubModuleInfo>>(emptyList())
     val subModules: StateFlow<List<GeneralSubModuleInfo>> = _subModules.asStateFlow()
 
@@ -199,6 +201,14 @@ class GeneralBotViewModel : ViewModel() {
 
     fun stopBot() {
         froztt13.python.aqw.core.general.NativeGeneralBot.stop()
+    }
+
+    fun pauseBot() {
+        froztt13.python.aqw.core.general.NativeGeneralBot.pause()
+    }
+
+    fun resumeBot() {
+        froztt13.python.aqw.core.general.NativeGeneralBot.resume()
     }
 
     override fun onCleared() {

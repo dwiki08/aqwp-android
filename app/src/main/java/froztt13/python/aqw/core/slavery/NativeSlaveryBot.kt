@@ -363,7 +363,12 @@ object NativeSlaveryBot {
 
                     // Check boss Counter Attack debuff
                     val hasCounterAttack =
-                        targetMonster.auras.any { it.contains("Counter Attack", ignoreCase = true) }
+                        targetMonster.auras.any {
+                            it.name.contains(
+                                "Counter Attack",
+                                ignoreCase = true
+                            ) && !it.isExpired()
+                        }
 
                     // Process Skill
                     if (skillIdx >= skills.size) skillIdx = 0
@@ -387,12 +392,8 @@ object NativeSlaveryBot {
                     if (canUseThisSkill) {
                         if (currentSkill.index == 5 && isTaunter) {
                             // Taunt Handling
-                            val hasForbiddenAuras = p.auras.any {
-                                it.contains(
-                                    "Elegy of Madness",
-                                    ignoreCase = true
-                                ) || it.contains("Seed Planted", ignoreCase = true)
-                            }
+                            val hasForbiddenAuras =
+                                p.hasAura("Elegy of Madness") || p.hasAura("Seed Planted")
                             if (!hasForbiddenAuras && soeQty > 0 && tauntCoordinator.requestTaunt(
                                     username
                                 )

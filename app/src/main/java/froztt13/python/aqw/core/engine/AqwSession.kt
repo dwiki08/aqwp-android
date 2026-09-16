@@ -22,7 +22,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 
 class AqwSession {
@@ -79,6 +78,19 @@ class AqwSession {
 
     val commands: AqwCommandHandler =
         AqwCommandHandler(socketClient, playerState, { _allMonsters.value }, sessionScope)
+
+    var isPaused: () -> Boolean = { false }
+
+    init {
+        commands.combat.isPaused = { isPaused() }
+        commands.quest.isPaused = { isPaused() }
+    }
+
+    suspend fun waitIfPaused(isStopRequested: () -> Boolean = { false }) {
+        while (isPaused() && !isStopRequested() && isConnected.value) {
+            delay(500.milliseconds)
+        }
+    }
 
     var latestPartyId: Int? = null
         private set
@@ -286,7 +298,8 @@ class AqwSession {
                     }
                 }
                 for (aura in event.auras) {
-                    val auraName = aura.first
+                    val auraObj = aura.first
+                    val auraName = auraObj.name
                     val tInf = aura.second
 
                     val isPlayerTarget =
@@ -295,16 +308,14 @@ class AqwSession {
                                 (tInf.startsWith("p:") && playerState.roomUserId == 0 && !playerState.playersInMap.values.any { tInf == "p:${it.roomUserId}" || tInf == "p:${it.userId}" })
 
                     if (isPlayerTarget) {
-                        if (!playerState.auras.any { it.equals(auraName, ignoreCase = true) }) {
-                            playerState.auras.add(auraName)
-                        }
-                    } else if (tInf.startsWith("m:")) {
-                        val monId = tInf.substringAfter("m:")
-                        _allMonsters.value.firstOrNull { it.monMapId == monId }?.let { mon ->
-                            if (!mon.auras.any { it.equals(auraName, ignoreCase = true) }) {
-                                mon.auras.add(auraName)
-                            }
-                        }
+                        playerState.addAura(auraObj)
+                    } else if (tInf.startsWith("m")) {
+                        val monId =
+                            if (tInf.startsWith("m:")) tInf.substringAfter("m:") else tInf.removePrefix(
+                                "m"
+                            )
+                        _allMonsters.value.firstOrNull { it.monMapId == monId || "m:${it.monMapId}" == tInf }
+                            ?.addAura(auraObj)
                     } else if (tInf.startsWith("p:")) {
                         val pTargetId = tInf.substringAfter("p:")
                         playerState.playersInMap.values.firstOrNull {
@@ -330,12 +341,14 @@ class AqwSession {
                                 (tInf.startsWith("p:") && playerState.roomUserId == 0)
 
                     if (isPlayerTarget) {
-                        playerState.auras.removeAll { it.equals(auraName, ignoreCase = true) }
-                    } else if (tInf.startsWith("m:")) {
-                        val monId = tInf.substringAfter("m:")
-                        _allMonsters.value.firstOrNull { it.monMapId == monId }?.let { mon ->
-                            mon.auras.removeAll { it.equals(auraName, ignoreCase = true) }
-                        }
+                        playerState.removeAura(auraName)
+                    } else if (tInf.startsWith("m")) {
+                        val monId =
+                            if (tInf.startsWith("m:")) tInf.substringAfter("m:") else tInf.removePrefix(
+                                "m"
+                            )
+                        _allMonsters.value.firstOrNull { it.monMapId == monId || "m:${it.monMapId}" == tInf }
+                            ?.removeAura(auraName)
                     } else if (tInf.startsWith("p:")) {
                         val pTargetId = tInf.substringAfter("p:")
                         playerState.playersInMap.values.firstOrNull {
@@ -551,15 +564,22 @@ class AqwSession {
                     val (itemId, qty) = deduction
                     val invItem = playerState.getItemInventoryById(itemId)
                     if (invItem != null) {
-                        invItem.qty -= qty
-                        if (invItem.qty <= 0) playerState.inventory.remove(invItem)
+                        if (invItem.qty - qty <= 0) {
+                            playerState.inventory.removeAll { it.itemId == itemId || (it.charItemId != 0 && it.charItemId == itemId) }
+                        } else {
+                            invItem.qty -= qty
+                        }
                     }
                     val tempItem = playerState.getItemTempById(itemId)
                     if (tempItem != null) {
-                        tempItem.qty -= qty
-                        if (tempItem.qty <= 0) playerState.tempInventory.remove(tempItem)
+                        if (tempItem.qty - qty <= 0) {
+                            playerState.tempInventory.removeAll { it.itemId == itemId || (it.charItemId != 0 && it.charItemId == itemId) }
+                        } else {
+                            tempItem.qty -= qty
+                        }
                     }
                 }
+                onLog?.invoke("TurnIn deducted: ${event.deductions.joinToString { "${it.first} x${it.second}" }}")
                 commands.quest.triggerAutoQuestCheck()
             }
 
@@ -608,11 +628,16 @@ class AqwSession {
                                 ?: (if (req.name.isNotBlank()) playerState.getItemTemp(req.name) else null)
                             if (tempItem != null) {
                                 val deductTemp = minOf(tempItem.qty, remainingToDeduct)
-                                tempItem.qty -= deductTemp
-                                remainingToDeduct -= deductTemp
-                                if (tempItem.qty <= 0) {
-                                    playerState.tempInventory.remove(tempItem)
+                                if (tempItem.qty - deductTemp <= 0) {
+                                    playerState.tempInventory.removeAll {
+                                        it.itemId == req.itemId || (it.charItemId != 0 && it.charItemId == req.itemId) || it.matches(
+                                            req.name
+                                        )
+                                    }
+                                } else {
+                                    tempItem.qty -= deductTemp
                                 }
+                                remainingToDeduct -= deductTemp
                             }
                             // 2. Check regular inventory
                             if (remainingToDeduct > 0) {
@@ -620,11 +645,16 @@ class AqwSession {
                                     ?: (if (req.name.isNotBlank()) playerState.getItemInventory(req.name) else null)
                                 if (invItem != null) {
                                     val deductInv = minOf(invItem.qty, remainingToDeduct)
-                                    invItem.qty -= deductInv
-                                    remainingToDeduct -= deductInv
-                                    if (invItem.qty <= 0) {
-                                        playerState.inventory.remove(invItem)
+                                    if (invItem.qty - deductInv <= 0) {
+                                        playerState.inventory.removeAll {
+                                            it.itemId == req.itemId || (it.charItemId != 0 && it.charItemId == req.itemId) || it.matches(
+                                                req.name
+                                            )
+                                        }
+                                    } else {
+                                        invItem.qty -= deductInv
                                     }
+                                    remainingToDeduct -= deductInv
                                 }
                             }
                         }
@@ -659,7 +689,7 @@ class AqwSession {
             }
 
             is AqwEvent.AurasCleared -> {
-                playerState.auras.clear()
+                playerState.removeAllAuras()
                 _allMonsters.value.forEach { it.auras.clear() }
                 playerState.playersInMap.values.forEach { it.auras.clear() }
             }
@@ -792,21 +822,16 @@ class AqwSession {
             }
             if (socketClient.isConnected.value && playerState.isDead) {
                 commands.resurrectPlayer()
+                commands.jumpCell(playerState.cell, playerState.pad)
             }
         }
     }
 
     fun getCooldowns(): Map<Int, Double> {
-        val now = System.currentTimeMillis()
         val result = mutableMapOf<Int, Double>()
         for (i in 0..5) {
             val skill = commands.getSkill(i)
-            if (skill != null && skill.nextUseTimestamp > now) {
-                val sec = (skill.nextUseTimestamp - now) / 1000.0
-                result[i] = (sec * 10.0).roundToInt() / 10.0
-            } else {
-                result[i] = 0.0
-            }
+            result[i] = skill?.remainingCooldownMs()?.toDouble() ?: 0.0
         }
         return result
     }

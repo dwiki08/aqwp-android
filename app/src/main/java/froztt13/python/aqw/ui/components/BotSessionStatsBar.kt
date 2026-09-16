@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
@@ -48,21 +49,30 @@ fun BotSessionStatsBar(
     modifier: Modifier = Modifier,
     stats: PartyStats = PartyStats(),
     isRunning: Boolean,
+    isPaused: Boolean = false,
     botType: String,
     accentColor: Color = PrimaryPurple,
     showActionButton: Boolean = true,
     enabled: Boolean = true,
     startLabel: String = "START",
     stopLabel: String = "STOP",
+    pauseLabel: String = "PAUSE",
+    resumeLabel: String = "RESUME",
     onStart: () -> Unit = {},
-    onStop: () -> Unit = {}
+    onStop: () -> Unit = {},
+    onPause: (() -> Unit)? = null,
+    onResume: (() -> Unit)? = null
 ) {
     Card(
         modifier = modifier
             .fillMaxWidth()
             .border(
                 1.dp,
-                if (isRunning) accentColor.copy(alpha = 0.4f) else Color(0xFF2E3350),
+                when {
+                    !isRunning -> Color(0xFF2E3350)
+                    isPaused -> SunGold.copy(alpha = 0.5f)
+                    else -> accentColor.copy(alpha = 0.4f)
+                },
                 RoundedCornerShape(14.dp)
             ),
         shape = RoundedCornerShape(14.dp),
@@ -92,7 +102,13 @@ fun BotSessionStatsBar(
                             modifier = Modifier
                                 .size(8.dp)
                                 .clip(CircleShape)
-                                .background(if (isRunning) SuccessGreen else Color(0xFF64748B))
+                                .background(
+                                    when {
+                                        !isRunning -> Color(0xFF64748B)
+                                        isPaused -> SunGold
+                                        else -> SuccessGreen
+                                    }
+                                )
                         )
                         Text(
                             text = botType,
@@ -112,6 +128,20 @@ fun BotSessionStatsBar(
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = TextSecondary
+                                )
+                            }
+                        } else if (isPaused) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(SunGold.copy(alpha = 0.2f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "PAUSED",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SunGold
                                 )
                             }
                         }
@@ -165,30 +195,81 @@ fun BotSessionStatsBar(
                     }
             }
 
-            // Start / Stop Action Button
+            // Start / Stop / Pause Action Buttons
             if (showActionButton) {
-                Button(
-                    onClick = {
-                        if (isRunning) onStop() else onStart()
-                    },
-                    enabled = enabled,
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isRunning) ErrorRed else SuccessGreen
-                    ),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isRunning) Icons.Filled.Stop else Icons.Filled.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Spacer(modifier = Modifier.size(8.dp))
-                    Text(
-                        text = if (isRunning) stopLabel else startLabel,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
+                if (isRunning && onPause != null && onResume != null) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = {
+                                if (isPaused) onResume() else onPause()
+                            },
+                            enabled = enabled,
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isPaused) SuccessGreen else SunGold
+                            ),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                                contentDescription = if (isPaused) "Resume" else "Pause",
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.size(4.dp))
+                            Text(
+                                text = if (isPaused) resumeLabel else pauseLabel,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        Button(
+                            onClick = onStop,
+                            enabled = enabled,
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = ErrorRed),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Stop,
+                                contentDescription = "Stop",
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.size(4.dp))
+                            Text(
+                                text = stopLabel,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                } else {
+                    Button(
+                        onClick = {
+                            if (isRunning) onStop() else onStart()
+                        },
+                        enabled = enabled,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isRunning) ErrorRed else SuccessGreen
+                        ),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isRunning) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text(
+                            text = if (isRunning) stopLabel else startLabel,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
                 }
             }
         }

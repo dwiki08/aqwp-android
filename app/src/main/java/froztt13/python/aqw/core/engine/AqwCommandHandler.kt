@@ -199,7 +199,7 @@ class AqwCommandHandler(
     suspend fun killMonster(
         target: AqwMonster,
         skills: List<Int> = listOf(0, 1, 2, 0, 3, 4),
-        delayMs: Long = 250L,
+        delayMs: Long = 500L,
         timeoutMs: Long = 60000L,
         hunt: Boolean = false,
         isStopRequested: () -> Boolean = { false }

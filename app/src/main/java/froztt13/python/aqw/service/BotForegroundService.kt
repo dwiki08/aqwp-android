@@ -136,19 +136,27 @@ class BotForegroundService : Service() {
 
                     if (isGeneralRunning) {
                         val generalTelemetry = NativeGeneralBot.telemetry.value
+                        val isGeneralPaused = NativeGeneralBot.isPaused.value
                         activeTitle =
-                            "General Bot: ${generalTelemetry.subModuleName.ifEmpty { "Farm" }}"
-                        statusText =
+                            if (isGeneralPaused) "General Bot [PAUSED]" else "General Bot: ${generalTelemetry.subModuleName.ifEmpty { "Farm" }}"
+                        statusText = if (isGeneralPaused) {
+                            "PAUSED: ${generalTelemetry.taskName} (${generalTelemetry.currentQty}/${generalTelemetry.targetQty})"
+                        } else {
                             "${generalTelemetry.taskName}: ${generalTelemetry.currentQty}/${generalTelemetry.targetQty} | ${generalTelemetry.formattedTime}"
+                        }
                     } else if (isDoomRunning) {
                         val doomTelemetry = NativeWeeklyDoomBot.telemetry.value
                         activeTitle = "Weekly Doom Bot"
                         statusText =
                             "Account: ${doomTelemetry.currentUsername} (${doomTelemetry.currentIndex}/${doomTelemetry.totalAccounts}) | ${doomTelemetry.formattedTime}"
                     } else if (isTempleRunning) {
-                        activeTitle = "Temple Shrine Bot"
+                        val isTemplePaused = NativeTempleBot.isPaused.value
+                        activeTitle =
+                            if (isTemplePaused) "Temple Shrine Bot [PAUSED]" else "Temple Shrine Bot"
                         val stats = NativeTempleBot.stats.value
-                        statusText = if (stats.timeRunning > 0L) {
+                        statusText = if (isTemplePaused) {
+                            "PAUSED | Cleared: ${stats.clearedCount}"
+                        } else if (stats.timeRunning > 0L) {
                             "Running: ${stats.formattedTime} | Cleared: ${stats.clearedCount}"
                         } else {
                             "Party active in background"

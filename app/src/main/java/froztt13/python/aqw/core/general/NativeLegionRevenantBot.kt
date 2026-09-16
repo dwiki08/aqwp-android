@@ -742,6 +742,8 @@ object NativeLegionRevenantBot {
         onProgressUpdate: ((currentQty: Int) -> Unit)? = null
     ) {
         if (isStopRequested() || !session.isConnected.value) return
+        session.waitIfPaused(isStopRequested)
+        if (isStopRequested() || !session.isConnected.value) return
 
         if (session.commands.hasItemInBank(itemName)) {
             session.commands.bankToInv(itemName)
@@ -770,6 +772,9 @@ object NativeLegionRevenantBot {
         val skillRotation = listOf(0, 1, 2, 0, 3, 4)
 
         while (!isStopRequested() && session.isConnected.value) {
+            session.waitIfPaused(isStopRequested)
+            if (isStopRequested() || !session.isConnected.value) break
+
             val currentQty = session.commands.getItemQty(itemName, isTemp)
             onProgressUpdate?.invoke(currentQty)
 
@@ -791,6 +796,7 @@ object NativeLegionRevenantBot {
             session.commands.killMonster(
                 monsterNameOrId = monsterName,
                 skills = skillRotation,
+                delayMs = 700,
                 timeoutMs = 15000L,
                 hunt = cell == null,
                 isStopRequested = isStopRequested

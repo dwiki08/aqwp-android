@@ -117,6 +117,7 @@ fun TempleScreen(
     val partyStats by viewModel.partyStats.collectAsState()
     val logs by viewModel.templeLogs.collectAsState()
     val isRunning by viewModel.isRunning.collectAsState()
+    val isPaused by viewModel.isPaused.collectAsState()
 
     val notifPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -128,6 +129,7 @@ fun TempleScreen(
         partyStats = partyStats,
         logs = logs,
         isRunning = isRunning,
+        isPaused = isPaused,
         onBack = onBack,
         onUpdateSettings = { server, room, botType ->
             viewModel.updateTempleSettings(server, room, botType)
@@ -138,6 +140,8 @@ fun TempleScreen(
         onResetSettings = {
             viewModel.resetTempleConfig()
         },
+        onPauseParty = { viewModel.pauseTemple() },
+        onResumeParty = { viewModel.resumeTemple() },
         onStartParty = {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 !BatteryOptimizationHelper.hasNotificationPermission(context)
@@ -174,10 +178,13 @@ fun TempleContent(
     partyStats: PartyStats = PartyStats(),
     logs: List<LogEntry>,
     isRunning: Boolean,
+    isPaused: Boolean = false,
     onBack: () -> Unit,
     onUpdateSettings: (server: String, roomNumber: Int, botType: String) -> Unit,
     onUpdateSlot: (slotKey: String, slotConfig: SlotConfig) -> Unit,
     onResetSettings: () -> Unit = {},
+    onPauseParty: () -> Unit = {},
+    onResumeParty: () -> Unit = {},
     onStartParty: () -> Unit,
     onStopParty: () -> Unit,
     onClearLogs: () -> Unit
@@ -429,10 +436,13 @@ fun TempleContent(
             BotSessionStatsBar(
                 stats = partyStats,
                 isRunning = isRunning,
+                isPaused = isPaused,
                 botType = config.templeBotType,
                 accentColor = themeColor,
                 onStart = onStartParty,
-                onStop = onStopParty
+                onStop = onStopParty,
+                onPause = onPauseParty,
+                onResume = onResumeParty
             )
 
             val activeMonsters =

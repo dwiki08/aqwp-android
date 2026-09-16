@@ -32,6 +32,8 @@ class AqwCombatCommands(
     // AGGRO MANAGEMENT
     // ==========================================
 
+    var isPaused: () -> Boolean = { false }
+
     private var aggroJob: Job? = null
     val aggroMonsId: MutableList<String> = mutableListOf()
     var aggroDelayMs: Long = 1500L
@@ -46,6 +48,10 @@ class AqwCombatCommands(
         aggroJob?.cancel()
         aggroJob = coroutineScope.launch {
             while (isActive && isAggroRunning && client.isConnected.value) {
+                if (isPaused()) {
+                    delay(500.milliseconds)
+                    continue
+                }
                 if (aggroMonsId.isNotEmpty() && playerState.areaId > 0) {
                     val aggroPacket =
                         "%xt%zm%aggroMon%${playerState.areaId}%${aggroMonsId.joinToString("%")}%"
@@ -104,11 +110,7 @@ class AqwCombatCommands(
         }
 
         // Cooldown check
-        if (System.currentTimeMillis() < skill.nextUseTimestamp) {
-            return false
-        }
-
-        return true
+        return skill.isReady()
     }
 
     fun checkIsSkillSafe(index: Int): Boolean {
@@ -188,12 +190,11 @@ class AqwCombatCommands(
     suspend fun resurrectPlayer(): Boolean {
         val sent =
             client.send("%xt%zm%resPlayerTimed%${playerState.areaId}%${playerState.roomUserId}%")
-//        jumpCell(playerState.cell.ifBlank { "Enter" }, playerState.pad.ifBlank { "Spawn" })
         playerState.isDead = false
         playerState.currentHp = playerState.maxHp
         playerState.mp = 100
         playerState.isInCombat = false
-        playerState.auras.clear()
+        playerState.removeAllAuras()
         return sent
     }
 
@@ -511,6 +512,11 @@ class AqwCombatCommands(
         } else monsterNameOrId
 
         while (client.isConnected.value && !isStopRequested()) {
+            while (isPaused() && !isStopRequested() && client.isConnected.value) {
+                delay(500.milliseconds)
+            }
+            if (isStopRequested() || !client.isConnected.value) break
+
             if (!ensureAlive()) {
                 return false
             }

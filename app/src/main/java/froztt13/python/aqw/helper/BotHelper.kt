@@ -1,6 +1,7 @@
 package froztt13.python.aqw.helper
 
 import android.util.Log
+import froztt13.python.aqw.core.model.AqwAura
 import froztt13.python.aqw.data.BotSummary
 import froztt13.python.aqw.data.DoomAccount
 import froztt13.python.aqw.data.DoomAccountTelemetry
@@ -307,7 +308,7 @@ object BotHelper {
                         monsters = monstersList,
                         targetMonsters = sObj.optString("target_monsters", ""),
                         targetedMonster = sObj.optString("targeted_monster", ""),
-                        auras = parseStringList(sObj.optJSONArray("auras"))
+                        auras = parseStringList(sObj.optJSONArray("auras")).map { AqwAura(name = it) }
                     )
                 } else {
                     result[key] = SlotTelemetry(running = false)

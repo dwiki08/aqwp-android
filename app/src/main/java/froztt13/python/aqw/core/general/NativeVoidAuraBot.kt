@@ -159,6 +159,9 @@ object NativeVoidAuraBot {
         var killCount = 0
 
         while (!isStopRequested() && session.isConnected.value) {
+            session.waitIfPaused(isStopRequested)
+            if (isStopRequested() || !session.isConnected.value) break
+
             if (session.playerState.isDead) {
                 delay(500.milliseconds)
                 continue

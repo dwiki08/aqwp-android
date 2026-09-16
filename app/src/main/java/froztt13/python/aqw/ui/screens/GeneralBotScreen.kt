@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MilitaryTech
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -108,6 +109,7 @@ import froztt13.python.aqw.ui.theme.LegionBlue
 import froztt13.python.aqw.ui.theme.MyApplicationTheme
 import froztt13.python.aqw.ui.theme.PrimaryPurple
 import froztt13.python.aqw.ui.theme.SuccessGreen
+import froztt13.python.aqw.ui.theme.SunGold
 import froztt13.python.aqw.ui.theme.SurfaceDark
 import froztt13.python.aqw.ui.theme.TextMuted
 import froztt13.python.aqw.ui.theme.TextPrimary
@@ -124,6 +126,7 @@ fun GeneralBotScreen(
     val config by viewModel.config.collectAsState()
     val telemetry by viewModel.telemetry.collectAsState()
     val isRunning by viewModel.isRunning.collectAsState()
+    val isPaused by viewModel.isPaused.collectAsState()
     val subModules by viewModel.subModules.collectAsState()
     val logs by viewModel.logs.collectAsState()
 
@@ -141,6 +144,7 @@ fun GeneralBotScreen(
         config = config,
         telemetry = telemetry,
         isRunning = isRunning,
+        isPaused = isPaused,
         subModules = subModules,
         logs = logs,
         onBack = onBack,
@@ -148,6 +152,8 @@ fun GeneralBotScreen(
             viewModel.resetState()
             BotForegroundService.stop(context)
         },
+        onPause = { viewModel.pauseBot() },
+        onResume = { viewModel.resumeBot() },
         onStart = {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 !BatteryOptimizationHelper.hasNotificationPermission(context)
@@ -186,10 +192,13 @@ fun GeneralBotContent(
     config: GeneralBotConfig,
     telemetry: GeneralBotTelemetry,
     isRunning: Boolean,
+    isPaused: Boolean = false,
     subModules: List<GeneralSubModuleInfo>,
     logs: List<LogEntry>,
     onBack: () -> Unit,
     onResetState: () -> Unit,
+    onPause: () -> Unit = {},
+    onResume: () -> Unit = {},
     onStart: () -> Unit,
     onStop: () -> Unit,
     onClearLogs: () -> Unit,
@@ -303,8 +312,11 @@ fun GeneralBotContent(
             GeneralBotStatusHeader(
                 telemetry = telemetry,
                 isRunning = isRunning,
+                isPaused = isPaused,
                 onStart = onStart,
-                onStop = onStop
+                onStop = onStop,
+                onPause = onPause,
+                onResume = onResume
             )
 
             // Tabs Row
@@ -426,15 +438,23 @@ fun GeneralBotContent(
 fun GeneralBotStatusHeader(
     telemetry: GeneralBotTelemetry,
     isRunning: Boolean,
+    isPaused: Boolean = false,
     onStart: () -> Unit,
-    onStop: () -> Unit
+    onStop: () -> Unit,
+    onPause: () -> Unit = {},
+    onResume: () -> Unit = {}
 ) {
-    val statusColor = when (telemetry.status.lowercase()) {
-        "running" -> SuccessGreen
-        "starting", "connecting" -> LegionBlue
-        "error" -> ErrorRed
-        "finished" -> SuccessGreen
-        else -> TextMuted
+    val effectivelyPaused = isPaused || telemetry.isPaused
+    val statusColor = if (effectivelyPaused) {
+        SunGold
+    } else {
+        when (telemetry.status.lowercase()) {
+            "running", "farming" -> SuccessGreen
+            "starting", "connecting" -> LegionBlue
+            "error" -> ErrorRed
+            "finished" -> SuccessGreen
+            else -> TextMuted
+        }
     }
 
     Card(
@@ -468,7 +488,7 @@ fun GeneralBotStatusHeader(
                                 .background(statusColor)
                         )
                         Text(
-                            text = if (isRunning) telemetry.status else "Idle",
+                            text = if (effectivelyPaused) "PAUSED" else if (isRunning) telemetry.status else "Idle",
                             color = statusColor,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp
@@ -488,25 +508,53 @@ fun GeneralBotStatusHeader(
                     )
                 }
 
-                Button(
-                    onClick = { if (isRunning) onStop() else onStart() },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isRunning) ErrorRed else GeneralTeal
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = if (isRunning) Icons.Filled.Stop else Icons.Filled.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (isRunning) "Stop" else "Start",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.sp
-                    )
+                    if (isRunning) {
+                        Button(
+                            onClick = { if (effectivelyPaused) onResume() else onPause() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (effectivelyPaused) SuccessGreen else SunGold
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (effectivelyPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                                contentDescription = if (effectivelyPaused) "Resume" else "Pause",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (effectivelyPaused) "Resume" else "Pause",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = { if (isRunning) onStop() else onStart() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isRunning) ErrorRed else GeneralTeal
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isRunning) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isRunning) "Stop" else "Start",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp
+                        )
+                    }
                 }
             }
         }

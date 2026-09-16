@@ -40,11 +40,73 @@ object NativeGeneralBot {
     private val _telemetry = MutableStateFlow(GeneralBotTelemetry())
     val telemetry: StateFlow<GeneralBotTelemetry> = _telemetry.asStateFlow()
 
+    private val _isPaused = MutableStateFlow(false)
+    val isPaused: StateFlow<Boolean> = _isPaused.asStateFlow()
+
     private var stopRequested = false
     private var startTimeMillis = 0L
+    private var pausedAtMillis = 0L
 
     val isRunning: Boolean
         get() = _telemetry.value.running
+
+    fun pause() {
+        if (!isRunning || _isPaused.value) return
+        _isPaused.value = true
+        pausedAtMillis = System.currentTimeMillis()
+
+        scope.launch(Dispatchers.IO) {
+            BotHelper.dispatchLog(
+                "general",
+                "System",
+                "Pausing General Bot: leaving combat and jumping to current cell..."
+            )
+            val session = currentSession
+            if (session != null) {
+                try {
+                    val currentCell = session.playerState.cell.ifBlank { "Enter" }
+                    val currentPad = session.playerState.pad.ifBlank { "Spawn" }
+                    session.commands.jumpCell(currentCell, currentPad)
+                    delay(200.milliseconds)
+                    session.commands.rest()
+                    session.playerState.isInCombat = false
+                    BotHelper.dispatchLog(
+                        "general",
+                        session.playerState.username,
+                        "Left combat, jumped to $currentCell [$currentPad]"
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error leaving combat on pause: ${e.message}")
+                }
+            }
+            _telemetry.update {
+                it.copy(
+                    isPaused = true,
+                    status = "PAUSED",
+                    message = "General Bot is paused"
+                )
+            }
+            BotHelper.dispatchLog("general", "System", "=== General Bot PAUSED ===")
+        }
+    }
+
+    fun resume() {
+        if (!isRunning || !_isPaused.value) return
+        if (pausedAtMillis > 0) {
+            startTimeMillis += (System.currentTimeMillis() - pausedAtMillis)
+            pausedAtMillis = 0L
+        }
+        _isPaused.value = false
+        _telemetry.update {
+            it.copy(
+                isPaused = false,
+                status = "Farming",
+                message = "Resuming ${it.taskName}..."
+            )
+        }
+        currentSession?.commands?.quest?.triggerAutoQuestCheck()
+        BotHelper.dispatchLog("general", "System", "=== General Bot RESUMED ===")
+    }
 
     val availableSubModules: List<GeneralSubModuleInfo> by lazy {
         listOf(
@@ -72,6 +134,8 @@ object NativeGeneralBot {
             ?: return Pair(false, "Unknown task: ${config.task}")
 
         stopRequested = false
+        _isPaused.value = false
+        pausedAtMillis = 0L
         startTimeMillis = System.currentTimeMillis()
 
         _telemetry.value = GeneralBotTelemetry(
@@ -99,6 +163,8 @@ object NativeGeneralBot {
 
     fun stop() {
         stopRequested = true
+        _isPaused.value = false
+        pausedAtMillis = 0L
         currentSession?.stop()
         runnerJob?.cancel()
 
@@ -106,6 +172,7 @@ object NativeGeneralBot {
             it.copy(
                 running = false,
                 isConnected = false,
+                isPaused = false,
                 status = "Stopped",
                 message = "Stopped by user",
                 timeRunning = (System.currentTimeMillis() - startTimeMillis) / 1000L
@@ -116,6 +183,8 @@ object NativeGeneralBot {
 
     fun resetState() {
         stop()
+        _isPaused.value = false
+        pausedAtMillis = 0L
         _telemetry.value = GeneralBotTelemetry()
     }
 
@@ -125,6 +194,7 @@ object NativeGeneralBot {
         val server = config.server.ifBlank { "Alteon" }
 
         val session = AqwSession()
+        session.isPaused = { _isPaused.value }
         currentSession = session
 
         val targetQty = config.targetQty
@@ -132,25 +202,35 @@ object NativeGeneralBot {
 
         val timerJob = scope.launch(Dispatchers.IO) {
             while (isActive && !stopRequested) {
-                val elapsed = (System.currentTimeMillis() - startTimeMillis) / 1000L
-                val currentCds = session.getCooldowns()
-                val p = session.playerState
-                val questReqs = resolveQuestRequirements(session, config, task)
-                _telemetry.update {
-                    it.copy(
-                        timeRunning = elapsed,
-                        cooldowns = currentCds,
-                        hp = p.currentHp,
-                        maxHp = p.maxHp,
-                        mp = p.mp,
-                        maxMp = p.maxMp,
-                        map = p.mapName.ifBlank { it.map },
-                        cell = p.cell.ifBlank { it.cell },
-                        pad = p.pad.ifBlank { it.pad },
-                        isDead = p.isDead,
-                        isConnected = session.isConnected.value,
-                        questRequirements = questReqs
-                    )
+                if (!_isPaused.value) {
+                    val elapsed = (System.currentTimeMillis() - startTimeMillis) / 1000L
+                    val currentCds = session.getCooldowns()
+                    val p = session.playerState
+                    val questReqs = resolveQuestRequirements(session, config, task)
+                    _telemetry.update {
+                        it.copy(
+                            timeRunning = elapsed,
+                            isPaused = _isPaused.value,
+                            cooldowns = currentCds,
+                            hp = p.currentHp,
+                            maxHp = p.maxHp,
+                            mp = p.mp,
+                            maxMp = p.maxMp,
+                            map = p.mapName.ifBlank { it.map },
+                            cell = p.cell.ifBlank { it.cell },
+                            pad = p.pad.ifBlank { it.pad },
+                            isDead = p.isDead,
+                            isConnected = session.isConnected.value,
+                            questRequirements = questReqs
+                        )
+                    }
+                } else {
+                    _telemetry.update {
+                        it.copy(
+                            isPaused = true,
+                            isConnected = session.isConnected.value
+                        )
+                    }
                 }
                 delay(150.milliseconds)
             }
@@ -158,6 +238,7 @@ object NativeGeneralBot {
 
         val eventJob = scope.launch(Dispatchers.IO) {
             session.events.collect { event ->
+                if (_isPaused.value) return@collect
                 when (event) {
                     is AqwEvent.ItemDropped -> {
                         val isWhitelisted = when (config.subModule) {

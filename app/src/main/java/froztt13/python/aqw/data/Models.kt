@@ -1,5 +1,12 @@
 package froztt13.python.aqw.data
 
+import froztt13.python.aqw.core.eclipse.PartyMemberType
+import froztt13.python.aqw.core.eclipse.PartySlot
+import froztt13.python.aqw.core.model.AqwAura
+
+typealias PartyMemberType = PartyMemberType
+typealias PartySlot = PartySlot
+
 data class SlotConfig(
     val username: String = "",
     val password: String = "",
@@ -87,13 +94,13 @@ data class EclipseConfig(
     )
 ) {
     fun enforceFixedRoles(): EclipseConfig {
-        val isSlot4Only = lightGatherMode == "slot4_only"
         val updatedSlots = slots.mapValues { (key, config) ->
             val isSun = key in listOf("slot1", "slot2")
-            val isLightGather = if (isSlot4Only) {
-                key == "slot4"
-            } else {
-                key in listOf("slot2", "slot3", "slot4")
+            val isLightGather = when {
+                key == "slot1" -> false
+                lightGatherMode == "slot4_only" -> key == "slot4"
+                lightGatherMode == "rotation" -> key in listOf("slot2", "slot3", "slot4")
+                else -> config.lightGatherTaunter
             }
             val fixedPrimary = if (isSun) "Ascended Solstice" else "Ascended Midnight"
             val targets =
@@ -196,6 +203,7 @@ data class MonsterTelemetry(
 data class SlotTelemetry(
     val running: Boolean = false,
     val isConnected: Boolean = false,
+    val isPaused: Boolean = false,
     val map: String = "-",
     val cell: String = "-",
     val pad: String = "-",
@@ -213,7 +221,7 @@ data class SlotTelemetry(
     val monsters: List<MonsterTelemetry> = emptyList(),
     val targetMonsters: String = "",
     val targetedMonster: String = "",
-    val auras: List<String> = emptyList()
+    val auras: List<AqwAura> = emptyList()
 )
 
 data class PartyStats(
@@ -413,6 +421,7 @@ data class QuestRequirementTelemetry(
 data class GeneralBotTelemetry(
     val running: Boolean = false,
     val isConnected: Boolean = false,
+    val isPaused: Boolean = false,
     val username: String = "",
     val subModule: String = "",
     val subModuleName: String = "",

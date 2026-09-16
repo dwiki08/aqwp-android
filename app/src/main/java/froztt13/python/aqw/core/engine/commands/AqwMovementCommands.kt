@@ -1,5 +1,6 @@
 package froztt13.python.aqw.core.engine.commands
 
+import android.util.Log
 import froztt13.python.aqw.core.model.AqwMonster
 import froztt13.python.aqw.core.model.AqwPlayerState
 import froztt13.python.aqw.core.network.AqwSocketClient
@@ -31,9 +32,6 @@ class AqwMovementCommands(
     }
 
     fun isNotInMap(mapName: String): Boolean = !isInMap(mapName)
-
-    fun is_in_map(mapName: String): Boolean = isInMap(mapName)
-    fun is_not_in_map(mapName: String): Boolean = isNotInMap(mapName)
 
     suspend fun joinMap(
         mapName: String,
@@ -82,12 +80,6 @@ class AqwMovementCommands(
         return sent
     }
 
-    suspend fun join_map(
-        mapName: String,
-        roomNumber: Int? = null,
-        safeLeave: Boolean = true
-    ): Boolean = joinMap(mapName = mapName, roomNumber = roomNumber, safeLeave = safeLeave)
-
     suspend fun joinHouse(houseName: String, safeLeave: Boolean = true): Boolean {
         if (!ensureAlive()) return false
         if (isInMap(houseName)) return true
@@ -101,6 +93,7 @@ class AqwMovementCommands(
         val packet = "%xt%zm%moveToCell%${playerState.areaId}%${cell}%${pad}%"
         playerState.cell = cell
         playerState.pad = pad
+        Log.i(TAG, "${playerState.username} jumpCell: $cell $pad")
         return client.send(packet)
     }
 
@@ -116,14 +109,14 @@ class AqwMovementCommands(
 
     suspend fun leaveCombat(safeLeave: Boolean = true): Boolean {
         if (playerState.isInCombat) {
-            jumpCell("Enter", "Spawn")
+            jumpCell(playerState.cell, playerState.pad)
             delay(1000.milliseconds)
             if (playerState.isInCombat) {
                 rest()
                 delay(1000.milliseconds)
             }
         } else if (safeLeave) {
-            jumpCell("Enter", "Spawn")
+            jumpCell(playerState.cell, playerState.pad)
             delay(500.milliseconds)
         }
         return !playerState.isInCombat

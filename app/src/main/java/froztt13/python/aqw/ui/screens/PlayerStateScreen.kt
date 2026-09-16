@@ -5,8 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -58,6 +56,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import froztt13.python.aqw.core.engine.AqwSession
+import froztt13.python.aqw.core.model.AqwAura
 import froztt13.python.aqw.core.model.AqwFaction
 import froztt13.python.aqw.core.model.AqwItem
 import froztt13.python.aqw.core.model.AqwOtherPlayer
@@ -65,6 +64,7 @@ import froztt13.python.aqw.core.model.AqwPlayerState
 import froztt13.python.aqw.core.model.AqwQuest
 import froztt13.python.aqw.core.model.AqwShop
 import froztt13.python.aqw.core.model.AqwSkill
+import froztt13.python.aqw.ui.components.AurasSection
 import froztt13.python.aqw.ui.components.CustomOutlinedTextField
 import froztt13.python.aqw.ui.components.DefaultTopBar
 import froztt13.python.aqw.ui.theme.BgDark
@@ -710,51 +710,11 @@ private fun SkillsSection(skills: List<AqwSkill>) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun AurasSection(auras: List<String>) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        Text(
-            text = "Active Auras / Buffs (${auras.size})",
-            style = MaterialTheme.typography.titleSmall,
-            color = TextPrimary,
-            fontWeight = FontWeight.Bold
-        )
-        if (auras.isEmpty()) {
-            Text("No active auras currently applied.", fontSize = 12.sp, color = TextMuted)
-        } else {
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                auras.forEach { aura ->
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(PrimaryPurple.copy(alpha = 0.2f))
-                            .border(
-                                1.dp,
-                                PrimaryPurple.copy(alpha = 0.4f),
-                                RoundedCornerShape(6.dp)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            aura,
-                            fontSize = 11.sp,
-                            color = PrimaryPurple,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-            }
-        }
+
+private fun String.capitalizeWords(): String {
+    if (isBlank()) return this
+    return split(" ").joinToString(" ") { word ->
+        word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
     }
 }
 
@@ -848,7 +808,7 @@ private fun ItemListSection(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    item.name.ifBlank { "Item ${item.itemId}" },
+                                    item.name.ifBlank { "Item ${item.itemId}" }.capitalizeWords(),
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = TextPrimary
@@ -1060,7 +1020,7 @@ private fun QuestsSection(quests: List<AqwQuest>, playerState: AqwPlayerState? =
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "• $itemName",
+                                        text = "• ${itemName.capitalizeWords()}",
                                         fontSize = 11.sp,
                                         color = if (isComplete) SuccessGreen else TextSecondary,
                                         modifier = Modifier.weight(1f)
@@ -1264,7 +1224,12 @@ private fun PlayerStateContentLoadedPreview() {
                     tgt = "h"
                 )
             ),
-            auras = mutableListOf("Shackle", "Unshackle", "Highlord's Gaze", "Aspect of the Void"),
+            auras = mutableListOf(
+                AqwAura(name = "Shackle", count = 1, duration = 15),
+                AqwAura(name = "Unshackle", count = 1, duration = 15),
+                AqwAura(name = "Highlord's Gaze", count = 3, duration = 10),
+                AqwAura(name = "Aspect of the Void", count = 1, duration = 0)
+            ),
             inventory = mutableListOf(
                 AqwItem(
                     itemId = 101,

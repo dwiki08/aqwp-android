@@ -39,6 +39,8 @@ class EclipseViewModel : ViewModel() {
         .map { map -> map.values.any { it.running } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val isPaused: StateFlow<Boolean> = NativeEclipseBot.isPaused
+
     private val _eclipseLogs = MutableStateFlow<List<LogEntry>>(emptyList())
     val eclipseLogs: StateFlow<List<LogEntry>> = _eclipseLogs.asStateFlow()
 
@@ -103,9 +105,22 @@ class EclipseViewModel : ViewModel() {
         saveEclipseConfig()
     }
 
-    fun updateLightGatherMode(mode: String) {
-        _eclipseConfig.update {
-            it.copy(lightGatherMode = mode).enforceFixedRoles()
+    fun toggleLightGatherSlot(slotKey: String) {
+        if (slotKey == "slot1") return
+        _eclipseConfig.update { current ->
+            val slot = current.slots[slotKey] ?: return@update current
+            val newLightGather = !slot.lightGatherTaunter
+            val newSlots = current.slots.toMutableMap()
+            newSlots[slotKey] = slot.copy(lightGatherTaunter = newLightGather)
+
+            val activeGatherSlots =
+                newSlots.filter { it.key != "slot1" && it.value.lightGatherTaunter }.keys
+            val newMode = when {
+                activeGatherSlots == setOf("slot4") -> "slot4_only"
+                activeGatherSlots == setOf("slot2", "slot3", "slot4") -> "rotation"
+                else -> "custom"
+            }
+            current.copy(slots = newSlots, lightGatherMode = newMode).enforceFixedRoles()
         }
         saveEclipseConfig()
     }
@@ -123,12 +138,7 @@ class EclipseViewModel : ViewModel() {
         } else {
             slotConfig.defaultTarget
         }
-        val isSlot4Only = _eclipseConfig.value.lightGatherMode == "slot4_only"
-        val isLightGather = if (isSlot4Only) {
-            slotKey == "slot4"
-        } else {
-            slotKey in listOf("slot2", "slot3", "slot4")
-        }
+        val isLightGather = if (slotKey == "slot1") false else slotConfig.lightGatherTaunter
         val fixedConfig = slotConfig.copy(
             isTaunter = true,
             sunsetKnightTaunter = isSun,
@@ -176,6 +186,14 @@ class EclipseViewModel : ViewModel() {
 
     fun stopEclipse() {
         NativeEclipseBot.stop()
+    }
+
+    fun pauseEclipse() {
+        NativeEclipseBot.pause()
+    }
+
+    fun resumeEclipse() {
+        NativeEclipseBot.resume()
     }
 
     fun clearLogs(botType: String = "eclipse") {

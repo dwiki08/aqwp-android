@@ -35,7 +35,7 @@ fun SkillCooldownsRow(
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         for (i in 0..5) {
-            val cd = cooldowns[i] ?: 0.0
+            val cd = (cooldowns[i] ?: 0.0) / 1000
             val isReady = cd <= 0.0
             val isItem = i == 5
             val label = if (isItem) "Item" else "$i"
@@ -98,11 +98,11 @@ private fun SkillCooldownsRowPreview() {
         SkillCooldownsRow(
             cooldowns = mapOf(
                 0 to 0.0,
-                1 to 2.3,
-                2 to 0.0,
-                3 to 5.8,
+                1 to 2000.3,
+                2 to 2000.0,
+                3 to 5800.0,
                 4 to 0.0,
-                5 to 12.0
+                5 to 12000.0
             )
         )
     }

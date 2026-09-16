@@ -35,6 +35,8 @@ class TempleViewModel : ViewModel() {
         .map { map -> map.values.any { it.running } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val isPaused: StateFlow<Boolean> = NativeTempleBot.isPaused
+
     private val _templeLogs = MutableStateFlow<List<LogEntry>>(emptyList())
     val templeLogs: StateFlow<List<LogEntry>> = _templeLogs.asStateFlow()
 
@@ -131,6 +133,14 @@ class TempleViewModel : ViewModel() {
 
     fun stopTemple() {
         NativeTempleBot.stop()
+    }
+
+    fun pauseTemple() {
+        NativeTempleBot.pause()
+    }
+
+    fun resumeTemple() {
+        NativeTempleBot.resume()
     }
 
     fun clearLogs(botType: String = "temple") {

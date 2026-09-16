@@ -1,5 +1,7 @@
 package froztt13.python.aqw.core.model
 
+import froztt13.python.aqw.helper.Utils
+
 data class AqwServer(
     val name: String = "",
     val ip: String = "",
@@ -27,13 +29,68 @@ data class AqwMonster(
     var maxHp: Int = 0,
     var isAlive: Boolean = true,
     var frame: String = "",
-    val auras: MutableList<String> = mutableListOf()
+    val auras: MutableList<AqwAura> = mutableListOf()
 ) {
     val hpFraction: Float
         get() = if (maxHp > 0) (currentHp.toFloat() / maxHp.toFloat()).coerceIn(0f, 1f) else 0f
 
     val hpPercent: Int
         get() = if (maxHp > 0) ((currentHp.toDouble() / maxHp.toDouble()) * 100).toInt() else 0
+
+    fun addAura(auras: List<AqwAura>) {
+        for (aura in auras) {
+            val isNew = aura.isNew
+            val name = Utils.normalize(aura.name)
+            if (isNew) {
+                this.auras.add(aura.copy(name = name))
+            } else {
+                for (existingAura in this.auras) {
+                    if (existingAura.name == name || Utils.normalize(existingAura.name) == name) {
+                        existingAura.refresh(aura.duration)
+                    }
+                }
+            }
+        }
+    }
+
+    fun addAura(aura: AqwAura) {
+        addAura(listOf(aura))
+    }
+
+    fun addAura(auraName: String, duration: Int = 0, isNew: Boolean = true) {
+        addAura(listOf(AqwAura(name = auraName, duration = duration, isNew = isNew)))
+    }
+
+    fun removeAura(auraName: String?) {
+        if (auraName.isNullOrEmpty()) return
+        val normalizedName = Utils.normalize(auraName)
+        val iterator = this.auras.iterator()
+        while (iterator.hasNext()) {
+            val aura = iterator.next()
+            if (Utils.normalize(aura.name) == normalizedName) {
+                iterator.remove()
+                break
+            }
+        }
+    }
+
+    fun removeAllAuras() {
+        this.auras.clear()
+    }
+
+    fun getAura(auraName: String): AqwAura? {
+        val normalizedName = Utils.normalize(auraName)
+        for (aura in this.auras) {
+            if (Utils.normalize(aura.name) == normalizedName && !aura.isExpired()) {
+                return aura
+            }
+        }
+        return null
+    }
+
+    fun hasAura(auraName: String): Boolean {
+        return getAura(auraName) != null
+    }
 }
 
 data class AqwItem(
@@ -47,7 +104,14 @@ data class AqwItem(
     val sMeta: String = "",
     val sType: String = "",
     var isEquipped: Boolean = false
-)
+) {
+    val normalizedName: String
+        get() = Utils.normalize(name)
+
+    fun matches(otherName: String?): Boolean {
+        return Utils.normalize(name) == Utils.normalize(otherName)
+    }
+}
 
 data class AqwOtherPlayer(
     val username: String = "",
@@ -80,17 +144,30 @@ data class AqwSkill(
 }
 
 data class AqwAura(
-    val name: String = "",
-    val count: Int = 0,
-    val duration: Int = 0,
-    val appliedAt: Long = 0L,
-    val expiredAt: Long = 0L // applied at + duration
+    var name: String = "",
+    var count: Int = 1,
+    var duration: Int = 0,
+    var appliedAt: Long = System.currentTimeMillis(),
+    var expiredAt: Long = if (duration > 0) System.currentTimeMillis() + (duration * 1000L) else 0L,
+    var isNew: Boolean = false
 ) {
-    val isExpired: Boolean
-        get() = System.currentTimeMillis() >= expiredAt
+    fun isExpired(): Boolean = expiredAt > 0L && System.currentTimeMillis() >= expiredAt
+
+    fun refresh(dur: Int) {
+        duration = dur
+        appliedAt = System.currentTimeMillis()
+        expiredAt = if (dur > 0) appliedAt + (dur * 1000L) else 0L
+    }
 
     val remainingDurationMs: Long
-        get() = maxOf(0L, expiredAt - System.currentTimeMillis())
+        get() = if (expiredAt <= 0L) Long.MAX_VALUE else maxOf(
+            0L,
+            expiredAt - System.currentTimeMillis()
+        )
+
+    companion object {
+        fun normalize(name: String?): String = Utils.normalize(name)
+    }
 }
 
 data class AqwShop(
@@ -100,7 +177,8 @@ data class AqwShop(
     val items: List<AqwItem> = emptyList()
 ) {
     fun getItem(itemName: String): AqwItem? {
-        return items.firstOrNull { it.name.equals(itemName, ignoreCase = true) }
+        val norm = Utils.normalize(itemName)
+        return items.firstOrNull { Utils.normalize(it.name) == norm }
     }
 }
 
@@ -169,7 +247,7 @@ data class AqwPlayerState(
     val droppedItems: MutableList<AqwItem> = mutableListOf(),
     val bank: MutableList<AqwItem> = mutableListOf(),
     val skills: MutableList<AqwSkill> = mutableListOf(),
-    val auras: MutableList<String> = mutableListOf(),
+    val auras: MutableList<AqwAura> = mutableListOf(),
     val factions: MutableList<AqwFaction> = mutableListOf(),
     val loadedShops: MutableList<AqwShop> = mutableListOf(),
     val loadedQuests: MutableList<AqwQuest> = mutableListOf(),
@@ -182,32 +260,95 @@ data class AqwPlayerState(
     val roomUserIds: MutableList<Int> = mutableListOf(),
     val playersInMap: MutableMap<String, AqwOtherPlayer> = mutableMapOf()
 ) {
+    fun addAura(auras: List<AqwAura>) {
+        for (aura in auras) {
+            val isNew = aura.isNew
+            val name = Utils.normalize(aura.name)
+            if (isNew) {
+                this.auras.add(aura.copy(name = name))
+            } else {
+                for (existingAura in this.auras) {
+                    if (existingAura.name == name || Utils.normalize(existingAura.name) == name) {
+                        existingAura.refresh(aura.duration)
+                    }
+                }
+            }
+        }
+    }
+
+    fun addAura(aura: AqwAura) {
+        addAura(listOf(aura))
+    }
+
+    fun addAura(auraName: String, duration: Int = 0, isNew: Boolean = true) {
+        addAura(listOf(AqwAura(name = auraName, duration = duration, isNew = isNew)))
+    }
+
+    fun removeAura(auraName: String?) {
+        if (auraName.isNullOrEmpty()) return
+        val normalizedName = Utils.normalize(auraName)
+        val iterator = this.auras.iterator()
+        while (iterator.hasNext()) {
+            val aura = iterator.next()
+            if (Utils.normalize(aura.name) == normalizedName) {
+                iterator.remove()
+                break
+            }
+        }
+    }
+
+    fun removeAllAuras() {
+        this.auras.clear()
+    }
+
+    fun getAura(auraName: String): AqwAura? {
+        val normalizedName = Utils.normalize(auraName)
+        for (aura in this.auras) {
+            if (Utils.normalize(aura.name) == normalizedName && !aura.isExpired()) {
+                return aura
+            }
+        }
+        return null
+    }
+
+    fun hasAura(auraName: String): Boolean {
+        return getAura(auraName) != null
+    }
+
+    companion object {
+        fun normalize(name: String?): String = Utils.normalize(name)
+    }
+
     fun getItemInventory(name: String): AqwItem? {
-        return inventory.firstOrNull { it.name.equals(name, ignoreCase = true) }
+        val norm = Utils.normalize(name)
+        return inventory.firstOrNull { Utils.normalize(it.name) == norm }
     }
 
     fun getItemBank(name: String): AqwItem? {
-        return bank.firstOrNull { it.name.equals(name, ignoreCase = true) }
+        val norm = Utils.normalize(name)
+        return bank.firstOrNull { Utils.normalize(it.name) == norm }
     }
 
     fun getItemTemp(name: String): AqwItem? {
-        return tempInventory.firstOrNull { it.name.equals(name, ignoreCase = true) }
+        val norm = Utils.normalize(name)
+        return tempInventory.firstOrNull { Utils.normalize(it.name) == norm }
     }
 
     fun getItemDropped(name: String): AqwItem? {
-        return droppedItems.firstOrNull { it.name.equals(name, ignoreCase = true) }
+        val norm = Utils.normalize(name)
+        return droppedItems.firstOrNull { Utils.normalize(it.name) == norm }
     }
 
     fun getItemInventoryById(id: Int): AqwItem? {
-        return inventory.firstOrNull { it.itemId == id }
+        return inventory.firstOrNull { it.itemId == id || (it.charItemId != 0 && it.charItemId == id) }
     }
 
     fun getItemBankById(id: Int): AqwItem? {
-        return bank.firstOrNull { it.itemId == id }
+        return bank.firstOrNull { it.itemId == id || (it.charItemId != 0 && it.charItemId == id) }
     }
 
     fun getItemTempById(id: Int): AqwItem? {
-        return tempInventory.firstOrNull { it.itemId == id }
+        return tempInventory.firstOrNull { it.itemId == id || (it.charItemId != 0 && it.charItemId == id) }
     }
 
     fun getItemDroppedById(id: Int): AqwItem? {
@@ -239,7 +380,7 @@ data class AqwPlayerState(
             droppedItems = droppedItems.map { it.copy() }.toMutableList(),
             bank = bank.map { it.copy() }.toMutableList(),
             skills = skills.map { it.copy() }.toMutableList(),
-            auras = auras.toMutableList(),
+            auras = auras.map { it.copy() }.toMutableList(),
             factions = factions.map { it.copy() }.toMutableList(),
             loadedShops = loadedShops.map { it.copy() }.toMutableList(),
             loadedQuests = loadedQuests.map { it.copy() }.toMutableList(),

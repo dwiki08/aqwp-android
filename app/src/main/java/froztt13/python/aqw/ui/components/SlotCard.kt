@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -51,6 +50,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import froztt13.python.aqw.core.model.AqwAura
 import froztt13.python.aqw.data.SlotConfig
 import froztt13.python.aqw.data.SlotTelemetry
 import froztt13.python.aqw.ui.theme.CardDark
@@ -153,6 +153,7 @@ fun SlotCard(
                     if (telemetry.running) {
                         val (stateText, stateColor) = when {
                             telemetry.isDead || (telemetry.hp <= 0 && telemetry.maxHp > 0) -> "DEAD" to ErrorRed
+                            telemetry.isPaused -> "PAUSED" to SunGold
                             telemetry.isInCombat -> "IN_COMBAT" to SunGold
                             else -> "IDLE" to MoonCyan
                         }
@@ -426,43 +427,12 @@ fun SlotCard(
                         }
 
                         AnimatedVisibility(visible = showAuras) {
-                            if (telemetry.auras.isEmpty()) {
-                                Text(
-                                    text = "No active auras on player",
-                                    fontSize = 10.sp,
-                                    color = TextMuted,
-                                    modifier = Modifier.padding(start = 2.dp, top = 2.dp)
-                                )
-                            } else {
-                                FlowRow(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 2.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    telemetry.auras.forEach { aura ->
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .background(PrimaryPurple.copy(alpha = 0.15f))
-                                                .border(
-                                                    1.dp,
-                                                    PrimaryPurple.copy(alpha = 0.4f),
-                                                    RoundedCornerShape(6.dp)
-                                                )
-                                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                                        ) {
-                                            Text(
-                                                text = aura,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = Color(0xFFE2D4F0)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                            AurasList(
+                                auras = telemetry.auras,
+                                accentColor = accentColor,
+                                emptyText = "No active auras on player",
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
                         }
                     }
 
@@ -876,7 +846,12 @@ private fun SlotCardActivePreview() {
                 soeQty = 150,
                 targetMonsters = "Ascended Solstice,Blessless Deer,Dawn Knight",
                 targetedMonster = "Ascended Solstice",
-                auras = listOf("Focus", "Radiance", "Sun's Warmth", "Potent Vigor")
+                auras = listOf(
+                    AqwAura(name = "Focus", duration = 15),
+                    AqwAura(name = "Radiance", duration = 30),
+                    AqwAura(name = "Sun's Warmth", duration = 8),
+                    AqwAura(name = "Potent Vigor", count = 3, duration = 0)
+                )
             ),
             isPartyRunning = true,
             accentColor = PrimaryPurple,

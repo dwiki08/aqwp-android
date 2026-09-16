@@ -199,6 +199,9 @@ object NativeNulgathBot {
 
         try {
             while (!isStopRequested() && session.isConnected.value) {
+                session.waitIfPaused(isStopRequested)
+                if (isStopRequested() || !session.isConnected.value) break
+
                 // Check tracking / target condition
                 val currentQty = if (trackedItem.isNotBlank()) {
                     session.commands.getItemQty(trackedItem)
@@ -267,11 +270,13 @@ object NativeNulgathBot {
 
                     // Attack loop for this task item using killMonster with hunt
                     while (!isStopRequested() && session.isConnected.value && getTaskItemQty() < farmTask.qty) {
+                        session.waitIfPaused(isStopRequested)
+                        if (isStopRequested() || !session.isConnected.value) break
+
                         val targetName = farmTask.targetMonster.ifBlank { "*" }
                         session.commands.killMonster(
                             monsterNameOrId = targetName,
                             skills = skillRotation,
-                            delayMs = 250L,
                             isStopRequested = isStopRequested
                         )
                         delay(250.milliseconds)

@@ -20,6 +20,8 @@ class AqwQuestCommands(
     private val getItemQty: (itemId: Int, isTemp: Boolean) -> Int = { _, _ -> 0 },
     private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 ) {
+    var isPaused: () -> Boolean = { false }
+
     private val autoQuestMutex = Mutex()
 
     suspend fun acceptQuest(questId: Int): Boolean {
@@ -34,6 +36,10 @@ class AqwQuestCommands(
     ): Boolean {
         var retries = 0
         while (questNotInProgress(questId) && client.isConnected.value && retries < maxRetries) {
+            while (isPaused() && client.isConnected.value) {
+                delay(500.milliseconds)
+            }
+            if (!client.isConnected.value) break
             if (playerState.failedQuestIds.contains(questId)) return false
             acceptQuest(questId)
             delay(retryDelayMs.milliseconds)
@@ -60,6 +66,10 @@ class AqwQuestCommands(
     ): Boolean {
         var retries = 0
         while (questInProgress(questId) && client.isConnected.value && retries < maxRetries) {
+            while (isPaused() && client.isConnected.value) {
+                delay(500.milliseconds)
+            }
+            if (!client.isConnected.value) break
             if (playerState.failedQuestIds.contains(questId)) return false
             turnInQuest(questId, itemId, qty)
             delay(retryDelayMs.milliseconds)
@@ -78,19 +88,19 @@ class AqwQuestCommands(
     }
 
     fun triggerAutoQuestCheck() {
-        if (playerState.registeredAutoQuestIds.isEmpty() || !client.isConnected.value) return
+        if (isPaused() || playerState.registeredAutoQuestIds.isEmpty() || !client.isConnected.value) return
         coroutineScope.launch {
             checkAndProcessRegisteredQuests()
         }
     }
 
     suspend fun checkAndProcessRegisteredQuests() {
-        if (playerState.registeredAutoQuestIds.isEmpty() || !client.isConnected.value) return
+        if (isPaused() || playerState.registeredAutoQuestIds.isEmpty() || !client.isConnected.value) return
         if (!autoQuestMutex.tryLock()) return
         try {
             val registeredList = playerState.registeredAutoQuestIds.toList()
             for (questId in registeredList) {
-                if (!client.isConnected.value) break
+                if (isPaused() || !client.isConnected.value) break
 
                 // 1. Ensure quest definition is loaded
                 if (playerState.loadedQuests.none { it.questId == questId }) {
@@ -98,16 +108,23 @@ class AqwQuestCommands(
                     delay(400.milliseconds)
                 }
 
+                if (isPaused() || !client.isConnected.value) break
+
                 // 2. Ensure quest is accepted / in progress
                 if (questNotInProgress(questId)) {
                     acceptQuest(questId)
                     delay(400.milliseconds)
                 }
 
+                if (isPaused() || !client.isConnected.value) break
+
                 // 3. Check if ready to turn in
                 if (canTurnInQuest(questId)) {
                     turnInQuest(questId)
-                    delay(800.milliseconds)
+                    delay(1000.milliseconds)
+                    if (!isPaused() && client.isConnected.value) {
+                        acceptQuest(questId)
+                    }
                 }
             }
         } finally {

@@ -215,4 +215,85 @@ class NativeEclipseBotTauntTest {
             NativeEclipseBot.stop()
         }
     }
+
+    @Test
+    fun testLightGatherCustomSlots() {
+        // Slot 2 and Slot 4 selected
+        val config = froztt13.python.aqw.data.EclipseConfig(
+            lightGatherMode = "custom",
+            slots = mapOf(
+                "slot1" to froztt13.python.aqw.data.SlotConfig(username = "u1", password = "p1"),
+                "slot2" to froztt13.python.aqw.data.SlotConfig(
+                    username = "u2",
+                    password = "p2",
+                    lightGatherTaunter = true
+                ),
+                "slot3" to froztt13.python.aqw.data.SlotConfig(
+                    username = "u3",
+                    password = "p3",
+                    lightGatherTaunter = false
+                ),
+                "slot4" to froztt13.python.aqw.data.SlotConfig(
+                    username = "u4",
+                    password = "p4",
+                    lightGatherTaunter = true
+                )
+            )
+        ).enforceFixedRoles()
+
+        org.junit.Assert.assertFalse(config.slots["slot1"]!!.lightGatherTaunter)
+        org.junit.Assert.assertTrue(config.slots["slot2"]!!.lightGatherTaunter)
+        org.junit.Assert.assertFalse(config.slots["slot3"]!!.lightGatherTaunter)
+        org.junit.Assert.assertTrue(config.slots["slot4"]!!.lightGatherTaunter)
+
+        val (started, err) = NativeEclipseBot.start(config)
+        org.junit.Assert.assertTrue(err ?: "", started)
+
+        try {
+            // Initially slot 2
+            assertEquals("slot2", NativeEclipseBot.tauntInfo.value.lightGather.nextSlot)
+
+            // Wave 1 -> should rotate to slot 4
+            NativeEclipseBot.onLightGatherDetected("slot1", delayMs = 0)
+            assertEquals(1, NativeEclipseBot.lightGatherCount.get())
+            assertEquals("slot4", NativeEclipseBot.tauntInfo.value.lightGather.nextSlot)
+
+            // Wave 2 -> should rotate back to slot 2
+            NativeEclipseBot.lastLightGatherTime = 0L
+            NativeEclipseBot.onLightGatherDetected("slot1", delayMs = 0)
+            assertEquals(2, NativeEclipseBot.lightGatherCount.get())
+            assertEquals("slot2", NativeEclipseBot.tauntInfo.value.lightGather.nextSlot)
+        } finally {
+            NativeEclipseBot.stop()
+        }
+    }
+
+    @Test
+    fun testBotPauseAndResume() {
+        val config = froztt13.python.aqw.data.EclipseConfig(
+            slots = mapOf(
+                "slot1" to froztt13.python.aqw.data.SlotConfig(username = "u1", password = "p1"),
+                "slot2" to froztt13.python.aqw.data.SlotConfig(username = "u2", password = "p2"),
+                "slot3" to froztt13.python.aqw.data.SlotConfig(username = "u3", password = "p3"),
+                "slot4" to froztt13.python.aqw.data.SlotConfig(username = "u4", password = "p4")
+            )
+        ).enforceFixedRoles()
+
+        val (started, err) = NativeEclipseBot.start(config)
+        org.junit.Assert.assertTrue(err ?: "", started)
+        org.junit.Assert.assertFalse(NativeEclipseBot.isPaused.value)
+
+        try {
+            // Pause the bot
+            NativeEclipseBot.pause()
+            org.junit.Assert.assertTrue(NativeEclipseBot.isPaused.value)
+
+            // Resume the bot
+            NativeEclipseBot.resume()
+            org.junit.Assert.assertFalse(NativeEclipseBot.isPaused.value)
+        } finally {
+            NativeEclipseBot.stop()
+            org.junit.Assert.assertFalse(NativeEclipseBot.isPaused.value)
+        }
+    }
 }

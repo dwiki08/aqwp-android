@@ -40,12 +40,89 @@ object NativeTempleBot {
     private val _stats = MutableStateFlow(PartyStats())
     val stats: StateFlow<PartyStats> = _stats.asStateFlow()
 
+    private val _isPaused = MutableStateFlow(false)
+    val isPaused: StateFlow<Boolean> = _isPaused.asStateFlow()
+
     private var stopRequested = false
     private var startTimeMillis = 0L
+    private var pausedAtMillis = 0L
     private var clearedRuns = 0
+    private var currentConfig: TempleConfig? = null
 
     val isRunning: Boolean
         get() = _status.value.values.any { it.running }
+
+    fun pause() {
+        if (!isRunning || _isPaused.value) return
+        _isPaused.value = true
+        pausedAtMillis = System.currentTimeMillis()
+
+        scope.launch(Dispatchers.IO) {
+            BotHelper.dispatchLog(
+                "temple",
+                "System",
+                "Pausing Temple Party: all slots leaving combat and jumping to current cell..."
+            )
+            val jobs = activeSessions.map { (slotKey, session) ->
+                launch {
+                    try {
+                        val currentCell = session.playerState.cell.ifBlank { "Enter" }
+                        val currentPad = session.playerState.pad.ifBlank { "Spawn" }
+                        session.commands.jumpCell(currentCell, currentPad)
+                        delay(200.milliseconds)
+                        session.commands.rest()
+                        session.playerState.isInCombat = false
+                        BotHelper.dispatchLog(
+                            "temple",
+                            session.playerState.username,
+                            "[$slotKey] Left combat, jumped to $currentCell [$currentPad]"
+                        )
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error leaving combat on pause for $slotKey: ${e.message}")
+                    }
+                }
+            }
+            jobs.joinAll()
+            for ((slotKey, session) in activeSessions) {
+                updateTelemetry(
+                    slotKey = slotKey,
+                    session = session,
+                    targetMonsters = "PAUSED",
+                    isRunning = true
+                )
+            }
+            BotHelper.dispatchLog("temple", "System", "=== Temple Shrine Party PAUSED ===")
+        }
+    }
+
+    fun resume() {
+        if (!isRunning || !_isPaused.value) return
+        if (pausedAtMillis > 0) {
+            startTimeMillis += (System.currentTimeMillis() - pausedAtMillis)
+            pausedAtMillis = 0L
+        }
+        _isPaused.value = false
+        val dungeonMap = if (currentConfig?.templeBotType?.equals(
+                "SolsticeMoonBot",
+                ignoreCase = true
+            ) == true
+        ) "solsticemoon" else "midnightsun"
+        val defaultTargetMonsters =
+            if (dungeonMap == "solsticemoon") "Lunar Haze" else "Dying Light,Dawn Knight"
+        for ((slotKey, session) in activeSessions) {
+            session.commands.quest.triggerAutoQuestCheck()
+            val slotConf = currentConfig?.slots?.get(slotKey)
+            val defaultTarget =
+                slotConf?.defaultTarget?.ifBlank { defaultTargetMonsters } ?: defaultTargetMonsters
+            updateTelemetry(
+                slotKey = slotKey,
+                session = session,
+                targetMonsters = defaultTarget,
+                isRunning = true
+            )
+        }
+        BotHelper.dispatchLog("temple", "System", "=== Temple Shrine Party RESUMED ===")
+    }
 
     fun start(config: TempleConfig): Pair<Boolean, String?> {
         if (isRunning) {
@@ -64,7 +141,10 @@ object NativeTempleBot {
             return Pair(false, "Please configure credentials for all 4 slots.")
         }
 
+        currentConfig = config
         stopRequested = false
+        _isPaused.value = false
+        pausedAtMillis = 0L
         startTimeMillis = System.currentTimeMillis()
         clearedRuns = 0
         tauntCoordinator.reset()
@@ -86,6 +166,8 @@ object NativeTempleBot {
 
     fun stop() {
         stopRequested = true
+        _isPaused.value = false
+        pausedAtMillis = 0L
         for ((_, session) in activeSessions) {
             try {
                 session.stop()
@@ -96,7 +178,13 @@ object NativeTempleBot {
         coordinatorJob?.cancel()
 
         _status.update { current ->
-            current.mapValues { (_, tele) -> tele.copy(running = false, isConnected = false) }
+            current.mapValues { (_, tele) ->
+                tele.copy(
+                    running = false,
+                    isConnected = false,
+                    isPaused = false
+                )
+            }
         }
         _stats.update { it.copy(timeRunning = (System.currentTimeMillis() - startTimeMillis) / 1000L) }
         BotHelper.dispatchLog("temple", "System", "=== Temple Shrine Party stopped by user ===")
@@ -106,6 +194,10 @@ object NativeTempleBot {
         val start = System.currentTimeMillis()
         val slaveKeys = listOf("slot2", "slot3", "slot4")
         while (!stopRequested && (System.currentTimeMillis() - start) < maxWaitMs) {
+            if (_isPaused.value) {
+                delay(500.milliseconds)
+                continue
+            }
             val allArrived = slaveKeys.all { key ->
                 val s = activeSessions[key]
                 s == null || !s.isConnected.value || s.playerState.cell.equals(
@@ -146,8 +238,10 @@ object NativeTempleBot {
         // Launch telemetry timer loop
         val statsTimerJob = scope.launch(Dispatchers.IO) {
             while (isActive && !stopRequested) {
-                val elapsed = (System.currentTimeMillis() - startTimeMillis) / 1000L
-                _stats.update { it.copy(timeRunning = elapsed, clearedCount = clearedRuns) }
+                if (!_isPaused.value) {
+                    val elapsed = (System.currentTimeMillis() - startTimeMillis) / 1000L
+                    _stats.update { it.copy(timeRunning = elapsed, clearedCount = clearedRuns) }
+                }
                 delay(1000.milliseconds)
             }
         }
@@ -200,6 +294,7 @@ object NativeTempleBot {
         val targetMonsters = slotConfig.defaultTarget.ifBlank { defaultTargetMonsters }
 
         val session = AqwSession()
+        session.isPaused = { _isPaused.value }
         session.socketClient.tag = "$slotKey ($username)"
         activeSessions[slotKey] = session
 
@@ -212,6 +307,7 @@ object NativeTempleBot {
 
         val eventJob = scope.launch(Dispatchers.IO) {
             session.events.collect { event ->
+                if (_isPaused.value) return@collect
                 when (event) {
                     is AqwEvent.CombatTick -> {
                         // Check anims messages for taunt cues
@@ -226,13 +322,13 @@ object NativeTempleBot {
                         }
 
                         // Check auras on player
-                        for ((auraName, targetInf) in event.auras) {
+                        for ((aura, targetInf) in event.auras) {
                             if (targetInf.contains(session.playerState.roomUserId.toString()) || targetInf.contains(
                                     username,
                                     ignoreCase = true
                                 )
                             ) {
-                                if (auraName.equals("Sun's Warmth", ignoreCase = true)) {
+                                if (aura.name.equals("Sun's Warmth", ignoreCase = true)) {
                                     scope.launch(Dispatchers.IO) {
                                         delay(5000.milliseconds)
                                         targetMonstersOverride = "Dawn Knight"
@@ -384,6 +480,22 @@ object NativeTempleBot {
             var skillIdx = 0
 
             while (scope.isActive && !stopRequested && session.isConnected.value) {
+                if (_isPaused.value) {
+                    val soeItemNow = session.playerState.inventory.firstOrNull {
+                        it.name.equals("Scroll of Enrage", ignoreCase = true)
+                    }
+                    soeQty = soeItemNow?.qty ?: 0
+                    updateTelemetry(
+                        slotKey,
+                        session,
+                        "PAUSED",
+                        isRunning = true,
+                        soeQty = soeQty
+                    )
+                    delay(500.milliseconds)
+                    continue
+                }
+
                 if (session.playerState.isDead) {
                     delay(500.milliseconds)
                     continue
@@ -543,8 +655,7 @@ object NativeTempleBot {
                     skillIdx = (skillIdx + 1) % skillRotation.size
 
                     // Check inverted damage debuff "Sun's Heat"
-                    val hasSunsHeat =
-                        session.playerState.auras.any { it.equals("Sun's Heat", ignoreCase = true) }
+                    val hasSunsHeat = session.playerState.hasAura("Sun's Heat")
                     if (hasSunsHeat && (nextSkill == 2 || nextSkill == 3)) {
                         // Skip heal skills when debuffed with Sun's Heat
                         session.commands.attack(targetMonster.monMapId)
@@ -594,6 +705,7 @@ object NativeTempleBot {
             mutable[slotKey] = SlotTelemetry(
                 running = isRunning,
                 isConnected = session.isConnected.value,
+                isPaused = _isPaused.value,
                 map = p.mapName.ifBlank { "-" },
                 cell = p.cell.ifBlank { "-" },
                 pad = p.pad.ifBlank { "-" },

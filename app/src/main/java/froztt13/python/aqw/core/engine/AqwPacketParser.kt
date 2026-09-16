@@ -1,6 +1,7 @@
 package froztt13.python.aqw.core.engine
 
 import android.util.Log
+import froztt13.python.aqw.core.model.AqwAura
 import froztt13.python.aqw.core.model.AqwFaction
 import froztt13.python.aqw.core.model.AqwItem
 import froztt13.python.aqw.core.model.AqwMonster
@@ -9,6 +10,7 @@ import froztt13.python.aqw.core.model.AqwQuest
 import froztt13.python.aqw.core.model.AqwQuestItem
 import froztt13.python.aqw.core.model.AqwShop
 import froztt13.python.aqw.core.model.AqwSkill
+import froztt13.python.aqw.helper.Utils
 import org.json.JSONObject
 
 sealed interface AqwEvent {
@@ -60,7 +62,7 @@ sealed interface AqwEvent {
         val playerInCombat: Boolean? = null,
         val monsterHpMap: Map<String, Int>,
         val animMsgs: List<String> = emptyList(),
-        val auras: List<Pair<String, String>> = emptyList(),
+        val auras: List<Pair<AqwAura, String>> = emptyList(),
         val aurasRemoved: List<Pair<String, String>> = emptyList()
     ) : AqwEvent
 
@@ -299,7 +301,10 @@ object AqwPacketParser {
 
     private fun parseJsonMessage(jsonStr: String, currentUsername: String): AqwEvent {
         val root = JSONObject(jsonStr)
-        val data = root.optJSONObject("b")?.optJSONObject("o") ?: return AqwEvent.Unknown(jsonStr)
+        val data = root.optJSONObject("b")?.optJSONObject("o")
+            ?: root.optJSONObject("o")
+            ?: root.optJSONObject("b")
+            ?: root
         val cmd = data.optString("cmd", "")
 
 //        Log.i(TAG, "$cmd: $data")
@@ -550,7 +555,7 @@ object AqwPacketParser {
                 }
 
                 // Auras
-                val aurasList = mutableListOf<Pair<String, String>>()
+                val aurasList = mutableListOf<Pair<AqwAura, String>>()
                 val aurasRemovedList = mutableListOf<Pair<String, String>>()
                 val actionsArr = data.optJSONArray("a")
                 if (actionsArr != null) {
@@ -564,13 +569,49 @@ object AqwPacketParser {
                                 for (j in 0 until aurasArr.length()) {
                                     val auObj = aurasArr.optJSONObject(j) ?: continue
                                     val nam = cleanAuraName(auObj.optString("nam", ""))
-                                    if (nam.isNotEmpty()) aurasList.add(Pair(nam, tInf))
+                                    val dur = auObj.optInt("dur", 0)
+                                    val isNew = auObj.optBoolean("isNew", false) || auObj.optInt(
+                                        "isNew",
+                                        0
+                                    ) == 1
+                                    val cnt = auObj.optInt("cnt", 1)
+                                    if (nam.isNotEmpty()) {
+                                        aurasList.add(
+                                            Pair(
+                                                AqwAura(
+                                                    name = nam,
+                                                    duration = dur,
+                                                    isNew = isNew,
+                                                    count = cnt
+                                                ),
+                                                tInf
+                                            )
+                                        )
+                                    }
                                 }
                             }
                             val singleAura = actObj.optJSONObject("aura")
                             if (singleAura != null) {
                                 val nam = cleanAuraName(singleAura.optString("nam", ""))
-                                if (nam.isNotEmpty()) aurasList.add(Pair(nam, tInf))
+                                val dur = singleAura.optInt("dur", 0)
+                                val isNew = singleAura.optBoolean(
+                                    "isNew",
+                                    false
+                                ) || singleAura.optInt("isNew", 0) == 1
+                                val cnt = singleAura.optInt("cnt", 1)
+                                if (nam.isNotEmpty()) {
+                                    aurasList.add(
+                                        Pair(
+                                            AqwAura(
+                                                name = nam,
+                                                duration = dur,
+                                                isNew = isNew,
+                                                count = cnt
+                                            ),
+                                            tInf
+                                        )
+                                    )
+                                }
                             }
                         } else if (actCmd.contains("aura-") || actCmd.contains("aura")) {
                             val remAura = cleanAuraName(
@@ -621,21 +662,16 @@ object AqwPacketParser {
                 val mp = if (oObj != null && oObj.has("intMP")) oObj.optInt("intMP") else null
                 val state =
                     if (oObj != null && oObj.has("intState")) (oObj.optInt("intState") == 2) else null
-                val cell = oObj?.optString("strFrame")?.takeIf { it.isNotEmpty() }
-                val pad = oObj?.optString("strPad")?.takeIf { it.isNotEmpty() }
                 AqwEvent.PlayerStateUpdated(
                     username = unm,
                     hp = hp,
                     maxHp = maxHp,
                     mp = mp,
-                    inCombat = state,
-                    cell = cell,
-                    pad = pad
+                    inCombat = state
                 )
             }
 
             "initUserDatas" -> {
-                Log.i(TAG, "initUserDatas: $data")
                 var cId: Int? = null
                 var g: Long? = null
                 val staffList = mutableListOf<String>()
@@ -833,14 +869,15 @@ object AqwPacketParser {
             }
 
             "turnIn" -> {
+                Log.i(TAG, "turnIn: $data")
                 val sItems = data.optString("sItems", "")
                 val deductions = mutableListOf<Pair<Int, Int>>()
                 if (sItems.isNotEmpty()) {
                     sItems.split(",").forEach { pair ->
                         val parts = pair.split(":")
                         if (parts.size >= 2) {
-                            val itemId = parts[0].toIntOrNull() ?: 0
-                            val qty = parts[1].toIntOrNull() ?: 0
+                            val itemId = parts[0].trim().toIntOrNull() ?: 0
+                            val qty = parts[1].trim().toIntOrNull() ?: 0
                             if (itemId > 0) deductions.add(Pair(itemId, qty))
                         }
                     }
@@ -849,9 +886,10 @@ object AqwPacketParser {
             }
 
             "ccqr" -> {
+                Log.i(TAG, "ccqr: $data")
                 val questId = data.optInt("QuestID", 0)
                 val sName = data.optString("sName", "")
-                val bSuccess = data.optInt("bSuccess", 0) == 1
+                val bSuccess = data.opt("bSuccess") == 1 || data.opt("bSuccess") == "1"
                 val msg = data.optString("msg", "")
                 val rewardObj = data.optJSONObject("rewardObj")
                 val factionId = rewardObj?.optInt("FactionID", 0) ?: 0
@@ -937,7 +975,7 @@ object AqwPacketParser {
     }
 
     private fun cleanAuraName(raw: String): String {
-        return raw.trim().replace("`", "'").replace("’", "'").replace("❜", "'")
+        return Utils.normalize(raw)
     }
 }
 
