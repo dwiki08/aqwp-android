@@ -442,7 +442,8 @@ object NativeSlaveryBot {
                 monName = it.name,
                 hp = it.currentHp,
                 maxHp = it.maxHp,
-                isAlive = it.isAlive
+                isAlive = it.isAlive,
+                auras = it.auras.toList()
             )
         }
 

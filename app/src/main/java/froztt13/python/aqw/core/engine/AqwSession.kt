@@ -699,8 +699,8 @@ class AqwSession {
                 if (slot5 != null) {
                     slot5.anim = event.anim
                     slot5.strl = event.strl
-                    slot5.cdMillis = event.cd * 1000.0
-                    slot5.cdSeconds = event.cd
+                    slot5.cdMillis = event.cd
+                    slot5.cdSeconds = event.cd / 1000
                     slot5.tgt = event.tgt
                 } else {
                     playerState.skills.add(
@@ -710,8 +710,8 @@ class AqwSession {
                             name = "Equipped Scroll/Potion",
                             anim = event.anim,
                             strl = event.strl,
-                            cdSeconds = event.cd,
-                            cdMillis = event.cd * 1000.0,
+                            cdSeconds = event.cd / 1000,
+                            cdMillis = event.cd,
                             tgt = event.tgt
                         )
                     )

@@ -166,7 +166,6 @@ class AqwCombatCommands(
         val baseCd = if (skill.cdMillis > 0.0) skill.cdMillis else (skill.cdSeconds * 1000.0)
         val effectiveCd = when {
             staticCooldownMs != null -> staticCooldownMs.toDouble()
-            index == 5 || skill.index == 5 -> 15_000 // static 15 sec for pots and scrolls
             index == 0 || skill.index == 0 -> baseCd
             else -> {
                 val cdr = minOf(maxOf(playerState.cdReduction, 0.0), 0.5)
@@ -190,11 +189,16 @@ class AqwCombatCommands(
     suspend fun resurrectPlayer(): Boolean {
         val sent =
             client.send("%xt%zm%resPlayerTimed%${playerState.areaId}%${playerState.roomUserId}%")
-        playerState.isDead = false
-        playerState.currentHp = playerState.maxHp
-        playerState.mp = 100
-        playerState.isInCombat = false
-        playerState.removeAllAuras()
+        playerState.apply {
+            isDead = false
+            currentHp = maxHp
+            mp = 100
+            isInCombat = false
+            cdReduction = 0.0
+            manaCost = 1.0
+            removeAllAuras()
+            resetAllSkills()
+        }
         return sent
     }
 
@@ -400,7 +404,7 @@ class AqwCombatCommands(
         val packet = "%xt%zm%gar%1%0%${targetParam}%wvz%"
         val sent = client.send(packet)
         if (sent) {
-            updateNextUse(5, 10_000L)
+            updateNextUse(5)
             val mon = monstersProvider().firstOrNull { it.monMapId == monMapId }
             val resolvedName = mon?.name?.trim()?.ifEmpty { null }
             lastTargetMonster = resolvedName ?: monMapId

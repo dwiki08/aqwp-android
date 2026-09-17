@@ -346,4 +346,69 @@ class AqwCombatCommandsAoETest {
         org.junit.Assert.assertFalse(success)
         assertTrue(client.sentPackets.isEmpty())
     }
+
+    @Test
+    fun testResetAllSkills_clearsCooldownsOnAllSkills() {
+        val playerState = AqwPlayerState()
+        val skill1 = AqwSkill(
+            index = 1,
+            name = "Skill 1",
+            nextUseTimestamp = System.currentTimeMillis() + 10000L
+        )
+        val skill2 = AqwSkill(
+            index = 2,
+            name = "Skill 2",
+            nextUseTimestamp = System.currentTimeMillis() + 5000L
+        )
+        playerState.skills.addAll(listOf(skill1, skill2))
+
+        org.junit.Assert.assertFalse(skill1.isReady())
+        org.junit.Assert.assertFalse(skill2.isReady())
+
+        playerState.resetAllSkills()
+
+        assertEquals(0L, skill1.nextUseTimestamp)
+        assertEquals(0L, skill2.nextUseTimestamp)
+        assertTrue(skill1.isReady())
+        assertTrue(skill2.isReady())
+    }
+
+    @Test
+    fun testResurrectPlayer_resetsSkillsAndAuras() = runBlocking {
+        val client = FakeSocketClient()
+        val playerState = AqwPlayerState(
+            areaId = 1,
+            roomUserId = 10,
+            isDead = true,
+            currentHp = 0,
+            maxHp = 2000,
+            mp = 0
+        )
+        val skill = AqwSkill(
+            index = 1,
+            name = "Skill 1",
+            nextUseTimestamp = System.currentTimeMillis() + 15000L
+        )
+        playerState.skills.add(skill)
+        playerState.addAura("Poison", duration = 30)
+
+        val combat = AqwCombatCommands(
+            client = client,
+            playerState = playerState,
+            monstersProvider = { emptyList() }
+        )
+
+        org.junit.Assert.assertFalse(skill.isReady())
+        assertEquals(1, playerState.auras.size)
+
+        val result = combat.resurrectPlayer()
+
+        assertTrue(result)
+        org.junit.Assert.assertFalse(playerState.isDead)
+        assertEquals(2000, playerState.currentHp)
+        assertEquals(100, playerState.mp)
+        assertTrue(playerState.auras.isEmpty())
+        assertEquals(0L, skill.nextUseTimestamp)
+        assertTrue(skill.isReady())
+    }
 }

@@ -102,6 +102,9 @@ class EclipseViewModel : ViewModel() {
                 lightGatherMode = lightGatherMode
             ).enforceFixedRoles()
         }
+        if (NativeEclipseBot.isRunning) {
+            NativeEclipseBot.updateRuntimeConfig(_eclipseConfig.value)
+        }
         saveEclipseConfig()
     }
 
@@ -121,6 +124,9 @@ class EclipseViewModel : ViewModel() {
                 else -> "custom"
             }
             current.copy(slots = newSlots, lightGatherMode = newMode).enforceFixedRoles()
+        }
+        if (NativeEclipseBot.isRunning) {
+            NativeEclipseBot.updateRuntimeConfig(_eclipseConfig.value)
         }
         saveEclipseConfig()
     }
@@ -150,6 +156,9 @@ class EclipseViewModel : ViewModel() {
             val newSlots = it.slots.toMutableMap()
             newSlots[slotKey] = fixedConfig
             it.copy(slots = newSlots)
+        }
+        if (NativeEclipseBot.isRunning) {
+            NativeEclipseBot.updateRuntimeConfig(_eclipseConfig.value)
         }
         saveEclipseConfig()
     }

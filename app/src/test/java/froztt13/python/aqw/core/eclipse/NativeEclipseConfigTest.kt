@@ -1,5 +1,7 @@
 package froztt13.python.aqw.core.eclipse
 
+import froztt13.python.aqw.data.model.PartyMemberType
+import froztt13.python.aqw.data.model.PartySlot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

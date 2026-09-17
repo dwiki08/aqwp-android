@@ -296,4 +296,62 @@ class NativeEclipseBotTauntTest {
             org.junit.Assert.assertFalse(NativeEclipseBot.isPaused.value)
         }
     }
+
+    @Test
+    fun testUpdateRuntimeConfigWhilePaused() {
+        val config = froztt13.python.aqw.data.EclipseConfig(
+            slots = mapOf(
+                "slot1" to froztt13.python.aqw.data.SlotConfig(username = "u1", password = "p1"),
+                "slot2" to froztt13.python.aqw.data.SlotConfig(
+                    username = "u2",
+                    password = "p2",
+                    lightGatherTaunter = true
+                ),
+                "slot3" to froztt13.python.aqw.data.SlotConfig(
+                    username = "u3",
+                    password = "p3",
+                    lightGatherTaunter = true
+                ),
+                "slot4" to froztt13.python.aqw.data.SlotConfig(
+                    username = "u4",
+                    password = "p4",
+                    lightGatherTaunter = true
+                )
+            )
+        ).enforceFixedRoles()
+
+        val (started, err) = NativeEclipseBot.start(config)
+        org.junit.Assert.assertTrue(err ?: "", started)
+
+        try {
+            NativeEclipseBot.pause()
+            org.junit.Assert.assertTrue(NativeEclipseBot.isPaused.value)
+
+            // Initially light gather rotates between slot2, slot3, slot4
+            assertEquals("slot2", NativeEclipseBot.tauntInfo.value.lightGather.nextSlot)
+
+            // Update config: only slot4 is light gather taunter, and update slot1 target
+            val updatedConfig = config.copy(
+                slots = config.slots.toMutableMap().apply {
+                    this["slot1"] =
+                        this["slot1"]!!.copy(defaultTarget = "Ascended Solstice,Blessless Deer,CustomBoss")
+                    this["slot2"] = this["slot2"]!!.copy(lightGatherTaunter = false)
+                    this["slot3"] = this["slot3"]!!.copy(lightGatherTaunter = false)
+                    this["slot4"] = this["slot4"]!!.copy(lightGatherTaunter = true)
+                }
+            )
+            NativeEclipseBot.updateRuntimeConfig(updatedConfig)
+
+            // Taunt info should immediately reflect only slot4
+            assertEquals("slot4", NativeEclipseBot.tauntInfo.value.lightGather.nextSlot)
+
+            // Status slot1 targetMonsters should immediately reflect updated target
+            assertEquals(
+                "Ascended Solstice,Blessless Deer,CustomBoss",
+                NativeEclipseBot.status.value["slot1"]?.targetMonsters
+            )
+        } finally {
+            NativeEclipseBot.stop()
+        }
+    }
 }

@@ -383,7 +383,7 @@ fun EclipseContent(
                                                 else Color(0xFF232840),
                                                 RoundedCornerShape(10.dp)
                                             )
-                                            .clickable(enabled = !isRunning) {
+                                            .clickable(enabled = !isRunning || isPaused) {
                                                 onToggleLightGatherSlot(slotKey)
                                             }
                                             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -398,7 +398,7 @@ fun EclipseContent(
                                             Checkbox(
                                                 checked = isChecked,
                                                 onCheckedChange = { onToggleLightGatherSlot(slotKey) },
-                                                enabled = !isRunning,
+                                                enabled = !isRunning || isPaused,
                                                 colors = CheckboxDefaults.colors(
                                                     checkedColor = EclipseMagenta,
                                                     checkmarkColor = Color.White,
@@ -780,6 +780,7 @@ fun EclipseContent(
                         config = slotConf,
                         telemetry = slotTel,
                         isPartyRunning = isRunning,
+                        isPaused = isPaused,
                         accentColor = slotAccentColor,
                         showTauntToggle = false,
                         showEclipseTauntToggles = false,

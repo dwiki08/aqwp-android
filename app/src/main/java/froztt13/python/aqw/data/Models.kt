@@ -1,8 +1,8 @@
 package froztt13.python.aqw.data
 
-import froztt13.python.aqw.core.eclipse.PartyMemberType
-import froztt13.python.aqw.core.eclipse.PartySlot
 import froztt13.python.aqw.core.model.AqwAura
+import froztt13.python.aqw.data.model.PartyMemberType
+import froztt13.python.aqw.data.model.PartySlot
 
 typealias PartyMemberType = PartyMemberType
 typealias PartySlot = PartySlot
@@ -192,7 +192,8 @@ data class MonsterTelemetry(
     val monName: String = "",
     val hp: Int = 0,
     val maxHp: Int = 0,
-    val isAlive: Boolean = false
+    val isAlive: Boolean = false,
+    val auras: List<AqwAura> = emptyList()
 ) {
     val hpFraction: Float
         get() = if (maxHp > 0) (hp.toFloat() / maxHp.toFloat()).coerceIn(0f, 1f) else 0f

@@ -2,6 +2,8 @@ package froztt13.python.aqw.core.eclipse
 
 import froztt13.python.aqw.data.EclipseConfig
 import froztt13.python.aqw.data.SlotConfig
+import froztt13.python.aqw.data.model.PartyMemberType
+import froztt13.python.aqw.data.model.PartySlot
 
 /**
  * Default configuration presets for Eclipse bot.
@@ -57,17 +59,6 @@ object NativeEclipseConfig {
     const val DEFAULT_LIGHT_GATHER_MODE = "rotation"
     val DEFAULT_LIGHT_GATHER_SLOTS: List<String> =
         DEFAULT_SLOTS.filter { it.isLightGatherTaunter }.map { it.id }
-
-    // --- Legacy Constants for Quick Access ---
-    const val DEFAULT_CLASS_SLOT1 = "Legion Revenant"
-    const val DEFAULT_CLASS_SLOT2 = "StoneCrusher"
-    const val DEFAULT_CLASS_SLOT3 = "ArchPaladin"
-    const val DEFAULT_CLASS_SLOT4 = "Lord of Order"
-
-    const val DEFAULT_TARGET_SLOT1 = "Ascended Solstice,Blessless Deer"
-    const val DEFAULT_TARGET_SLOT2 = "Ascended Solstice"
-    const val DEFAULT_TARGET_SLOT3 = "Ascended Midnight"
-    const val DEFAULT_TARGET_SLOT4 = "Ascended Midnight"
 
     /**
      * Finds the default [PartySlot] for a given slot key.

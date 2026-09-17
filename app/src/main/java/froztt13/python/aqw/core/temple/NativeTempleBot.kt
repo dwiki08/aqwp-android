@@ -26,7 +26,34 @@ import kotlin.time.Duration.Companion.milliseconds
 
 object NativeTempleBot {
 
+    val Config = NativeTempleConfig
+
     private const val TAG = "NativeTempleBot"
+
+    // Internal Combat & Map Constants
+    private const val MAP_ASSEMBLY = "yulgar"
+    private const val MAP_ASSEMBLY_ROOM = 999999
+    private const val MAP_RESET = "templeshrine"
+    private const val MAP_RESET_ROOM = 999999
+
+    private const val CELL_ENTER = "Enter"
+    private const val CELL_R1 = "r1"
+    private const val CELL_R2 = "r2"
+    private const val CELL_R3 = "r3"
+    private const val PAD_LEFT = "Left"
+    private const val PAD_SPAWN = "Spawn"
+
+    private const val ITEM_SCROLL_OF_ENRAGE = "Scroll of Enrage"
+    private val DROP_WHITELIST =
+        setOf("Fragment of Midnight", "Fragment of Sunlight", "Ecliptic Offering")
+    private val DEFAULT_SKILL_ROTATION = listOf(0, 1, 2, 0, 3, 4)
+
+    private const val AURA_SUNS_WARMTH = "Sun's Warmth"
+    private const val AURA_SUNS_HEAT = "Sun's Heat"
+
+    private const val MONSTER_DYING_LIGHT = "Dying Light"
+    private const val MONSTER_DAWN_KNIGHT = "Dawn Knight"
+    private const val MONSTER_LUNAR_HAZE = "Lunar Haze"
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var coordinatorJob: Job? = null
@@ -66,8 +93,8 @@ object NativeTempleBot {
             val jobs = activeSessions.map { (slotKey, session) ->
                 launch {
                     try {
-                        val currentCell = session.playerState.cell.ifBlank { "Enter" }
-                        val currentPad = session.playerState.pad.ifBlank { "Spawn" }
+                        val currentCell = session.playerState.cell.ifBlank { CELL_ENTER }
+                        val currentPad = session.playerState.pad.ifBlank { PAD_SPAWN }
                         session.commands.jumpCell(currentCell, currentPad)
                         delay(200.milliseconds)
                         session.commands.rest()
@@ -102,13 +129,10 @@ object NativeTempleBot {
             pausedAtMillis = 0L
         }
         _isPaused.value = false
-        val dungeonMap = if (currentConfig?.templeBotType?.equals(
-                "SolsticeMoonBot",
-                ignoreCase = true
-            ) == true
-        ) "solsticemoon" else "midnightsun"
-        val defaultTargetMonsters =
-            if (dungeonMap == "solsticemoon") "Lunar Haze" else "Dying Light,Dawn Knight"
+        val dungeonMap = NativeTempleConfig.getDungeonMap(
+            currentConfig?.templeBotType ?: NativeTempleConfig.DEFAULT_BOT_TYPE
+        )
+        val defaultTargetMonsters = NativeTempleConfig.getDefaultTargetMonsters(dungeonMap)
         for ((slotKey, session) in activeSessions) {
             session.commands.quest.triggerAutoQuestCheck()
             val slotConf = currentConfig?.slots?.get(slotKey)
@@ -130,15 +154,21 @@ object NativeTempleBot {
         }
 
         val slots = config.slots
-        val slot1 = slots["slot1"]
-        if (slot1 == null || slot1.username.isBlank() || slot1.password.isBlank()) {
-            return Pair(false, "Master account (slot1) credentials must be filled.")
+        val masterSlot = slots[NativeTempleConfig.MASTER_SLOT_KEY]
+        if (masterSlot == null || masterSlot.username.isBlank() || masterSlot.password.isBlank()) {
+            return Pair(
+                false,
+                "Master account (${NativeTempleConfig.MASTER_SLOT_KEY}) credentials must be filled."
+            )
         }
 
         val filledSlots =
             slots.filter { it.value.username.isNotBlank() && it.value.password.isNotBlank() }
-        if (filledSlots.size < 4) {
-            return Pair(false, "Please configure credentials for all 4 slots.")
+        if (filledSlots.size < NativeTempleConfig.ALL_SLOTS.size) {
+            return Pair(
+                false,
+                "Please configure credentials for all ${NativeTempleConfig.ALL_SLOTS.size} slots."
+            )
         }
 
         currentConfig = config
@@ -150,7 +180,7 @@ object NativeTempleBot {
         tauntCoordinator.reset()
 
         val initialStatuses = mutableMapOf<String, SlotTelemetry>()
-        for (key in listOf("slot1", "slot2", "slot3", "slot4")) {
+        for (key in NativeTempleConfig.ALL_SLOTS) {
             initialStatuses[key] = SlotTelemetry(running = true)
         }
         _status.value = initialStatuses
@@ -192,7 +222,7 @@ object NativeTempleBot {
 
     private suspend fun waitForSlavesInCell(targetCell: String, maxWaitMs: Long = 4000L) {
         val start = System.currentTimeMillis()
-        val slaveKeys = listOf("slot2", "slot3", "slot4")
+        val slaveKeys = NativeTempleConfig.SLAVE_SLOT_KEYS
         while (!stopRequested && (System.currentTimeMillis() - start) < maxWaitMs) {
             if (_isPaused.value) {
                 delay(500.milliseconds)
@@ -211,26 +241,18 @@ object NativeTempleBot {
     }
 
     private suspend fun runParty(config: TempleConfig) {
-        val server = config.server.ifBlank { "Alteon" }
+        val server = config.server.ifBlank { NativeTempleConfig.DEFAULT_SERVER }
         val botType = config.templeBotType
-        val dungeonMap = if (botType.equals(
-                "SolsticeMoonBot",
-                ignoreCase = true
-            )
-        ) "solsticemoon" else "midnightsun"
-        val defaultTargetMonsters =
-            if (dungeonMap == "solsticemoon") "Lunar Haze" else "Dying Light,Dawn Knight"
-        val dropWhitelist =
-            setOf("Fragment of Midnight", "Fragment of Sunlight", "Ecliptic Offering")
+        val dungeonMap = NativeTempleConfig.getDungeonMap(botType)
+        val defaultTargetMonsters = NativeTempleConfig.getDefaultTargetMonsters(dungeonMap)
+        val dropWhitelist = DROP_WHITELIST
 
-        val masterSlot = config.slots["slot1"] ?: return
+        val masterSlot = config.slots[NativeTempleConfig.MASTER_SLOT_KEY] ?: return
         val masterUsername = masterSlot.username.trim()
 
-        val slaveSlots = listOfNotNull(
-            config.slots["slot2"]?.takeIf { it.username.isNotBlank() },
-            config.slots["slot3"]?.takeIf { it.username.isNotBlank() },
-            config.slots["slot4"]?.takeIf { it.username.isNotBlank() }
-        )
+        val slaveSlots = NativeTempleConfig.SLAVE_SLOT_KEYS.mapNotNull { key ->
+            config.slots[key]?.takeIf { it.username.isNotBlank() }
+        }
         val slaveUsernames = slaveSlots.map { it.username.trim() }
 
         val slotJobs = mutableListOf<Job>()
@@ -248,9 +270,11 @@ object NativeTempleBot {
 
         try {
             // Launch each slot
-            for (slotKey in listOf("slot1", "slot2", "slot3", "slot4")) {
+            for (slotKey in NativeTempleConfig.ALL_SLOTS) {
                 val slotConf = config.slots[slotKey] ?: continue
-                val isMaster = (slotKey == "slot1")
+                val isMaster = NativeTempleConfig.isMasterSlot(slotKey)
+                val defaultTarget =
+                    NativeTempleConfig.getDefaultTarget(slotKey, slotConf.defaultTarget, botType)
                 val job = scope.launch(Dispatchers.IO) {
                     runSlotWorker(
                         slotKey = slotKey,
@@ -260,7 +284,7 @@ object NativeTempleBot {
                         dungeonMap = dungeonMap,
                         masterUsername = masterUsername,
                         slaveUsernames = slaveUsernames,
-                        defaultTargetMonsters = defaultTargetMonsters,
+                        defaultTargetMonsters = defaultTarget,
                         dropWhitelist = dropWhitelist
                     )
                 }
@@ -314,7 +338,7 @@ object NativeTempleBot {
                         for (msg in event.animMsgs) {
                             val lower = msg.lowercase()
                             if (lower.contains("gather")) {
-                                targetMonstersOverride = "Dying Light"
+                                targetMonstersOverride = MONSTER_DYING_LIGHT
                                 doTaunt = true
                             } else if (lower.contains("converges")) {
                                 doTaunt = true
@@ -328,10 +352,10 @@ object NativeTempleBot {
                                     ignoreCase = true
                                 )
                             ) {
-                                if (aura.name.equals("Sun's Warmth", ignoreCase = true)) {
+                                if (aura.name.equals(AURA_SUNS_WARMTH, ignoreCase = true)) {
                                     scope.launch(Dispatchers.IO) {
                                         delay(5000.milliseconds)
-                                        targetMonstersOverride = "Dawn Knight"
+                                        targetMonstersOverride = MONSTER_DAWN_KNIGHT
                                         doTaunt = true
                                     }
                                 }
@@ -397,12 +421,12 @@ object NativeTempleBot {
             var soeQty: Int
             if (isTaunter) {
                 val soeItem = session.playerState.inventory.firstOrNull {
-                    it.name.equals("Scroll of Enrage", ignoreCase = true)
+                    it.name.equals(ITEM_SCROLL_OF_ENRAGE, ignoreCase = true)
                 }
                 soeQty = soeItem?.qty ?: 0
                 if (soeQty <= 0) {
                     val err =
-                        "Taunter '$username' does not have Scroll of Enrage (SoE). Minimum 1 Scroll of Enrage is required."
+                        "Taunter '$username' does not have $ITEM_SCROLL_OF_ENRAGE (SoE). Minimum 1 $ITEM_SCROLL_OF_ENRAGE is required."
                     BotHelper.dispatchLog("temple", username, err)
                     stop()
                     return
@@ -410,7 +434,7 @@ object NativeTempleBot {
                 BotHelper.dispatchLog(
                     "temple",
                     username,
-                    "Equipping Scroll of Enrage (Qty: $soeQty)..."
+                    "Equipping $ITEM_SCROLL_OF_ENRAGE (Qty: $soeQty)..."
                 )
                 session.commands.equipScroll(soeItem!!.itemId, soeItem.sMeta)
                 tauntCoordinator.registerTaunter(username)
@@ -422,9 +446,9 @@ object NativeTempleBot {
                 BotHelper.dispatchLog(
                     "temple",
                     username,
-                    "Master joining yulgar-999999 to assemble party..."
+                    "Master joining $MAP_ASSEMBLY-$MAP_ASSEMBLY_ROOM to assemble party..."
                 )
-                session.commands.joinMap("yulgar", 999999)
+                session.commands.joinMap(MAP_ASSEMBLY, MAP_ASSEMBLY_ROOM)
                 delay(3500.milliseconds)
 
                 // Wait until all slave sessions are connected
@@ -434,7 +458,7 @@ object NativeTempleBot {
                     "Waiting for party members to be online..."
                 )
                 var partyWait = 0
-                while (activeSessions.size < 4 && partyWait < 60 && !stopRequested) {
+                while (activeSessions.size < NativeTempleConfig.ALL_SLOTS.size && partyWait < 60 && !stopRequested) {
                     delay(500.milliseconds)
                     partyWait++
                 }
@@ -476,13 +500,13 @@ object NativeTempleBot {
             }
 
             // Main Combat & Cell Navigation Loop
-            val skillRotation = listOf(0, 1, 2, 0, 3, 4)
+            val skillRotation = DEFAULT_SKILL_ROTATION
             var skillIdx = 0
 
             while (scope.isActive && !stopRequested && session.isConnected.value) {
                 if (_isPaused.value) {
                     val soeItemNow = session.playerState.inventory.firstOrNull {
-                        it.name.equals("Scroll of Enrage", ignoreCase = true)
+                        it.name.equals(ITEM_SCROLL_OF_ENRAGE, ignoreCase = true)
                     }
                     soeQty = soeItemNow?.qty ?: 0
                     updateTelemetry(
@@ -506,7 +530,7 @@ object NativeTempleBot {
 
                 // Update Telemetry
                 val soeItemNow = session.playerState.inventory.firstOrNull {
-                    it.name.equals("Scroll of Enrage", ignoreCase = true)
+                    it.name.equals(ITEM_SCROLL_OF_ENRAGE, ignoreCase = true)
                 }
                 soeQty = soeItemNow?.qty ?: 0
                 updateTelemetry(
@@ -522,40 +546,40 @@ object NativeTempleBot {
                     val hasMonsters = session.hasAliveMonsters(currentCell)
                     if (!hasMonsters && currentMap.contains(dungeonMap, ignoreCase = true)) {
                         when (currentCell) {
-                            "Enter" -> {
+                            CELL_ENTER -> {
                                 BotHelper.dispatchLog(
                                     "temple",
                                     username,
-                                    "Cell cleared. Moving to r1..."
+                                    "Cell cleared. Moving to $CELL_R1..."
                                 )
-                                session.commands.jumpCell("r1", "Left")
+                                session.commands.jumpCell(CELL_R1, PAD_LEFT)
                                 delay(1200.milliseconds)
-                                waitForSlavesInCell("r1")
+                                waitForSlavesInCell(CELL_R1)
                             }
 
-                            "r1" -> {
+                            CELL_R1 -> {
                                 BotHelper.dispatchLog(
                                     "temple",
                                     username,
-                                    "Cell cleared. Moving to r2..."
+                                    "Cell cleared. Moving to $CELL_R2..."
                                 )
-                                session.commands.jumpCell("r2", "Left")
+                                session.commands.jumpCell(CELL_R2, PAD_LEFT)
                                 delay(1200.milliseconds)
-                                waitForSlavesInCell("r2")
+                                waitForSlavesInCell(CELL_R2)
                             }
 
-                            "r2" -> {
+                            CELL_R2 -> {
                                 BotHelper.dispatchLog(
                                     "temple",
                                     username,
-                                    "Cell cleared. Moving to r3..."
+                                    "Cell cleared. Moving to $CELL_R3..."
                                 )
-                                session.commands.jumpCell("r3", "Left")
+                                session.commands.jumpCell(CELL_R3, PAD_LEFT)
                                 delay(1200.milliseconds)
-                                waitForSlavesInCell("r3")
+                                waitForSlavesInCell(CELL_R3)
                             }
 
-                            "r3" -> {
+                            CELL_R3 -> {
                                 clearedRuns++
                                 BotHelper.dispatchLog(
                                     "temple",
@@ -564,7 +588,7 @@ object NativeTempleBot {
                                 )
                                 session.commands.sendChat("Dungeon cleared $clearedRuns times.")
                                 delay(1000.milliseconds)
-                                session.commands.joinMap("templeshrine", 999999)
+                                session.commands.joinMap(MAP_RESET, MAP_RESET_ROOM)
                                 delay(2500.milliseconds)
                                 session.commands.dungeonQueue(dungeonMap)
                                 delay(2000.milliseconds)
@@ -573,7 +597,7 @@ object NativeTempleBot {
                     }
                 } else {
                     // Slave: follow master if not in the same cell or map
-                    val masterSession = activeSessions["slot1"]
+                    val masterSession = activeSessions[NativeTempleConfig.MASTER_SLOT_KEY]
                     val masterCell = masterSession?.playerState?.cell
                     val masterMap = masterSession?.playerState?.mapName ?: ""
                     val isDifferentMap =
@@ -592,11 +616,11 @@ object NativeTempleBot {
 
                         if (inDungeonMap && masterCell != null) {
                             val masterPad =
-                                masterSession?.playerState?.pad?.ifBlank { "Left" } ?: "Left"
+                                masterSession?.playerState?.pad?.ifBlank { PAD_LEFT } ?: PAD_LEFT
                             session.commands.jumpCell(masterCell, masterPad)
                         } else if (!isDifferentMap && masterCell != null) {
                             val masterPad =
-                                masterSession?.playerState?.pad?.ifBlank { "Left" } ?: "Left"
+                                masterSession?.playerState?.pad?.ifBlank { PAD_LEFT } ?: PAD_LEFT
                             session.commands.jumpCell(masterCell, masterPad)
                         } else {
                             session.commands.gotoPlayer(masterUsername)
@@ -627,7 +651,7 @@ object NativeTempleBot {
                             BotHelper.dispatchLog(
                                 "temple",
                                 username,
-                                "Ran out of Scroll of Enrage (SoE)!"
+                                "Ran out of $ITEM_SCROLL_OF_ENRAGE (SoE)!"
                             )
                             stop()
                             break
@@ -655,7 +679,7 @@ object NativeTempleBot {
                     skillIdx = (skillIdx + 1) % skillRotation.size
 
                     // Check inverted damage debuff "Sun's Heat"
-                    val hasSunsHeat = session.playerState.hasAura("Sun's Heat")
+                    val hasSunsHeat = session.playerState.hasAura(AURA_SUNS_HEAT)
                     if (hasSunsHeat && (nextSkill == 2 || nextSkill == 3)) {
                         // Skip heal skills when debuffed with Sun's Heat
                         session.commands.attack(targetMonster.monMapId)
@@ -696,7 +720,8 @@ object NativeTempleBot {
                 monName = it.name,
                 hp = it.currentHp,
                 maxHp = it.maxHp,
-                isAlive = it.isAlive
+                isAlive = it.isAlive,
+                auras = it.auras.toList()
             )
         }
 

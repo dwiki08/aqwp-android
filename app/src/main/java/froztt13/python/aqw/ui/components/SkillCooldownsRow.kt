@@ -82,7 +82,7 @@ fun SkillCooldownsRow(
                     )
                 }
                 Text(
-                    text = if (isItem) "Pot" else if (i == 0) "Auto" else "S$i",
+                    text = if (isItem) "Pot" else if (i == 0) "Auto" else "$i",
                     fontSize = 8.sp,
                     color = TextMuted
                 )

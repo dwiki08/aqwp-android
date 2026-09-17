@@ -446,6 +446,29 @@ object NativeEclipseBot {
         BotHelper.dispatchLog("eclipse", "System", "=== Eclipse Shrine Party RESUMED ===")
     }
 
+    fun updateRuntimeConfig(config: EclipseConfig) {
+        currentConfig = config
+        val fromSlots =
+            config.slots.filter { it.key != NativeEclipseConfig.MASTER_SLOT_KEY && it.value.lightGatherTaunter }.keys.sorted()
+        val configuredGather = fromSlots.ifEmpty {
+            if (config.lightGatherMode == "slot4_only") listOf("slot4") else NativeEclipseConfig.DEFAULT_LIGHT_GATHER_SLOTS
+        }
+        lightGatherTaunterSlots = configuredGather
+        refreshTauntInfo()
+
+        if (isRunning) {
+            _status.update { currentMap ->
+                currentMap.mapValues { (slotKey, tele) ->
+                    val slotConf = config.slots[slotKey]
+                    val resolvedTarget =
+                        NativeEclipseConfig.getDefaultTarget(slotKey, slotConf?.defaultTarget)
+                    val pendingTaunt = pendingTauntTargets[slotKey]
+                    tele.copy(targetMonsters = pendingTaunt ?: resolvedTarget)
+                }
+            }
+        }
+    }
+
     fun start(config: EclipseConfig): Pair<Boolean, String?> {
         if (isRunning) {
             return Pair(false, "Eclipse Shrine Party is already running!")
@@ -940,7 +963,10 @@ object NativeEclipseBot {
                 it.name.equals(ITEM_SCROLL_OF_ENRAGE, ignoreCase = true)
             }
             val soeQty = soeItemNow?.qty ?: 0
-            val activeTargetDisplay = tauntTarget ?: defaultTarget
+            val currentDefaultTarget = currentConfig?.slots?.get(slotKey)?.let {
+                NativeEclipseConfig.getDefaultTarget(slotKey, it.defaultTarget)
+            } ?: defaultTarget
+            val activeTargetDisplay = tauntTarget ?: currentDefaultTarget
             updateTelemetry(
                 slotKey,
                 session,
@@ -1044,7 +1070,7 @@ object NativeEclipseBot {
                 }
             } else {
                 val masterSession = activeSessions[NativeEclipseConfig.MASTER_SLOT_KEY]
-                val masterCell = masterSession?.playerState?.cell ?: "xxx"
+                val masterCell = masterSession?.playerState?.cell ?: CELL_ENTER
                 val masterPad = masterSession?.playerState?.pad ?: PAD_SPAWN
                 val masterMap = masterSession?.playerState?.mapName ?: ""
                 val isDifferentMap =
@@ -1089,7 +1115,7 @@ object NativeEclipseBot {
                 val currentPrioritized = if (hasSolarFlare) {
                     listOf(MONSTER_BLESSLESS_DEER.lowercase())
                 } else {
-                    (tauntTarget ?: defaultTarget).split(",").map { it.trim().lowercase() }
+                    (tauntTarget ?: currentDefaultTarget).split(",").map { it.trim().lowercase() }
                 }
 
                 val targetMonster = aliveMonsters.firstOrNull { mon ->
@@ -1171,7 +1197,8 @@ object NativeEclipseBot {
                 monName = it.name,
                 hp = it.currentHp,
                 maxHp = it.maxHp,
-                isAlive = it.isAlive
+                isAlive = it.isAlive,
+                auras = it.auras.toList()
             )
         }
 

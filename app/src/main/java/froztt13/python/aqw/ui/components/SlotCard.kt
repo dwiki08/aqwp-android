@@ -73,6 +73,7 @@ fun SlotCard(
     config: SlotConfig,
     telemetry: SlotTelemetry,
     isPartyRunning: Boolean,
+    isPaused: Boolean = false,
     accentColor: Color = PrimaryPurple,
     showTauntToggle: Boolean = true,
     showEclipseTauntToggles: Boolean = false,
@@ -602,7 +603,7 @@ fun SlotCard(
                                 )
                             },
                             singleLine = true,
-                            enabled = !isPartyRunning,
+                            enabled = !isPartyRunning || isPaused,
                             modifier = Modifier.fillMaxWidth(),
                             colors = defaultTextFieldColors(accentColor)
                         )
@@ -619,7 +620,7 @@ fun SlotCard(
                             )
                         },
                         singleLine = true,
-                        enabled = !isPartyRunning,
+                        enabled = !isPartyRunning || isPaused,
                         modifier = Modifier.fillMaxWidth(),
                         colors = defaultTextFieldColors(accentColor)
                     )

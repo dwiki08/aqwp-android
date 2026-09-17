@@ -1,6 +1,5 @@
 package froztt13.python.aqw.core.engine.commands
 
-import android.util.Log
 import froztt13.python.aqw.core.model.AqwMonster
 import froztt13.python.aqw.core.model.AqwPlayerState
 import froztt13.python.aqw.core.network.AqwSocketClient
@@ -93,7 +92,6 @@ class AqwMovementCommands(
         val packet = "%xt%zm%moveToCell%${playerState.areaId}%${cell}%${pad}%"
         playerState.cell = cell
         playerState.pad = pad
-        Log.i(TAG, "${playerState.username} jumpCell: $cell $pad")
         return client.send(packet)
     }
 

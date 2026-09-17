@@ -1,4 +1,4 @@
-package froztt13.python.aqw.core.eclipse
+package froztt13.python.aqw.data.model
 
 /**
  * Role type for a party member in coordinated party bot.
@@ -15,7 +15,7 @@ enum class PartyMemberType {
  * @property memberType The role type ([PartyMemberType.MASTER] or [PartyMemberType.SLAVE]) for this slot.
  * @property equipClass The recommended class to equip for this slot.
  * @property priorityTarget The primary target monster(s) for this slot.
- * @property isLightGatherTaunter Whether this slot is assigned to taunt Suffocated Light.
+ * @property isLightGatherTaunter Whether this slot is assigned to taunt Suffocated Light (Eclipse).
  */
 data class PartySlot(
     val id: String,

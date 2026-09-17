@@ -24,10 +24,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import froztt13.python.aqw.core.model.AqwAura
 import froztt13.python.aqw.ui.theme.ErrorRed
+import froztt13.python.aqw.ui.theme.MyApplicationTheme
 import froztt13.python.aqw.ui.theme.PrimaryPurple
 import froztt13.python.aqw.ui.theme.SunGold
 import froztt13.python.aqw.ui.theme.TextMuted
@@ -52,6 +54,7 @@ fun AuraBadge(
     accentColor: Color = PrimaryPurple,
     currentTime: Long = System.currentTimeMillis()
 ) {
+    val isFocus = aura.name.equals("Focus", ignoreCase = true)
     val remainingMs = if (aura.expiredAt > 0L) {
         maxOf(0L, aura.expiredAt - currentTime)
     } else {
@@ -70,39 +73,62 @@ fun AuraBadge(
     }
 
     val isExpired = remainingMs == 0L
-    val badgeBg = if (isExpired) ErrorRed.copy(alpha = 0.15f) else accentColor.copy(alpha = 0.2f)
-    val badgeBorder = if (isExpired) ErrorRed.copy(alpha = 0.4f) else accentColor.copy(alpha = 0.4f)
-    val textColor = if (isExpired) ErrorRed else accentColor
+    val badgeBg = when {
+        isExpired -> ErrorRed.copy(alpha = 0.15f)
+        isFocus -> SunGold.copy(alpha = 0.25f)
+        else -> accentColor.copy(alpha = 0.2f)
+    }
+    val badgeBorder = when {
+        isExpired -> ErrorRed.copy(alpha = 0.4f)
+        isFocus -> SunGold.copy(alpha = 0.85f)
+        else -> accentColor.copy(alpha = 0.4f)
+    }
+    val borderWidth = if (isFocus) 1.5.dp else 1.dp
+    val textColor = when {
+        isExpired -> ErrorRed
+        isFocus -> SunGold
+        else -> accentColor
+    }
 
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(6.dp))
             .background(badgeBg)
-            .border(1.dp, badgeBorder, RoundedCornerShape(6.dp))
+            .border(borderWidth, badgeBorder, RoundedCornerShape(6.dp))
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            if (isFocus) {
+                Text(
+                    text = "🎯",
+                    fontSize = 11.sp
+                )
+            }
+
             Text(
                 text = aura.name.capitalizeWords(),
                 fontSize = 11.sp,
                 color = textColor,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = if (isFocus) FontWeight.Bold else FontWeight.SemiBold
             )
 
             // Aura count badge
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(4.dp))
-                    .background(accentColor.copy(alpha = 0.3f))
+                    .background(
+                        if (isFocus) SunGold.copy(alpha = 0.35f)
+                        else accentColor.copy(alpha = 0.3f)
+                    )
                     .padding(horizontal = 4.dp, vertical = 1.dp)
             ) {
                 Text(
                     text = "x${aura.count}",
                     fontSize = 10.sp,
-                    color = SunGold,
+                    color = if (isFocus) Color.White else SunGold,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -112,16 +138,23 @@ fun AuraBadge(
                 modifier = Modifier
                     .clip(RoundedCornerShape(4.dp))
                     .background(
-                        if (isExpired) ErrorRed.copy(alpha = 0.3f)
-                        else Color.Black.copy(alpha = 0.3f)
+                        when {
+                            isExpired -> ErrorRed.copy(alpha = 0.3f)
+                            isFocus -> SunGold.copy(alpha = 0.35f)
+                            else -> Color.Black.copy(alpha = 0.3f)
+                        }
                     )
                     .padding(horizontal = 4.dp, vertical = 1.dp)
             ) {
                 Text(
                     text = timeText,
                     fontSize = 10.sp,
-                    color = if (isExpired) ErrorRed else TextSecondary,
-                    fontWeight = FontWeight.Medium
+                    color = when {
+                        isExpired -> ErrorRed
+                        isFocus -> Color.White
+                        else -> TextSecondary
+                    },
+                    fontWeight = if (isFocus) FontWeight.Bold else FontWeight.Medium
                 )
             }
         }
@@ -153,12 +186,16 @@ fun AurasList(
             modifier = modifier.padding(start = 2.dp, top = 2.dp)
         )
     } else {
+        val displayAuras = remember(auras) {
+            auras.sortedWith(compareByDescending { it.name.equals("Focus", ignoreCase = true) })
+                .filter { it.isExpired().not() }
+        }
         FlowRow(
             modifier = modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            auras.forEach { aura ->
+            displayAuras.forEach { aura ->
                 AuraBadge(
                     aura = aura,
                     accentColor = accentColor,
@@ -229,4 +266,18 @@ fun AurasSection(
         accentColor = accentColor,
         emptyText = emptyText
     )
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B0D14)
+@Composable
+private fun AurasListPreview() {
+    MyApplicationTheme {
+        AurasSection(
+            auras = listOf(
+                AqwAura(name = "Focus", count = 1, duration = 10),
+                AqwAura(name = "Solar Flare", count = 1, duration = 15),
+                AqwAura(name = "Sun's Heat", count = 3, duration = 30)
+            )
+        )
+    }
 }

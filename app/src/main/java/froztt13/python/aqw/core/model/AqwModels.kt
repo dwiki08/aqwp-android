@@ -141,6 +141,9 @@ data class AqwSkill(
 ) {
     fun isReady(): Boolean = System.currentTimeMillis() >= nextUseTimestamp
     fun remainingCooldownMs(): Long = maxOf(0L, nextUseTimestamp - System.currentTimeMillis())
+    fun resetCooldown() {
+        nextUseTimestamp = 0L
+    }
 }
 
 data class AqwAura(
@@ -299,6 +302,12 @@ data class AqwPlayerState(
 
     fun removeAllAuras() {
         this.auras.clear()
+    }
+
+    fun resetAllSkills() {
+        for (skill in skills) {
+            skill.resetCooldown()
+        }
     }
 
     fun getAura(auraName: String): AqwAura? {
