@@ -1,16 +1,16 @@
 package froztt13.python.aqw.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import froztt13.python.aqw.core.eclipse.NativeEclipseBot
-import froztt13.python.aqw.data.EclipseConfig
-import froztt13.python.aqw.data.EclipseTauntInfo
-import froztt13.python.aqw.data.LogEntry
-import froztt13.python.aqw.data.PartyStats
-import froztt13.python.aqw.data.SlotConfig
-import froztt13.python.aqw.data.SlotTelemetry
-import froztt13.python.aqw.helper.BotHelper
+import froztt13.python.aqw.data.model.EclipseConfig
+import froztt13.python.aqw.data.model.EclipseTauntInfo
+import froztt13.python.aqw.data.model.LogEntry
+import froztt13.python.aqw.data.model.PartyStats
+import froztt13.python.aqw.data.model.SlotConfig
+import froztt13.python.aqw.data.model.SlotTelemetry
+import froztt13.python.aqw.data.repository.ConfigRepositoryImpl
+import froztt13.python.aqw.domain.bot.eclipse.NativeEclipseBot
+import froztt13.python.aqw.domain.repository.ConfigRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,85 +21,55 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class EclipseViewModel : ViewModel() {
+class EclipseViewModel(
+    private val configRepository: ConfigRepository = ConfigRepositoryImpl.instance
+) : ViewModel() {
 
     private val _eclipseConfig = MutableStateFlow(EclipseConfig())
     val eclipseConfig: StateFlow<EclipseConfig> = _eclipseConfig.asStateFlow()
 
-    private val _eclipseStatus = MutableStateFlow<Map<String, SlotTelemetry>>(emptyMap())
-    val eclipseStatus: StateFlow<Map<String, SlotTelemetry>> = _eclipseStatus.asStateFlow()
+    val eclipseStatus: StateFlow<Map<String, SlotTelemetry>> = NativeEclipseBot.status
 
-    private val _partyStats = MutableStateFlow(PartyStats())
-    val partyStats: StateFlow<PartyStats> = _partyStats.asStateFlow()
+    val partyStats: StateFlow<PartyStats> = NativeEclipseBot.stats
 
-    private val _tauntInfo = MutableStateFlow(EclipseTauntInfo())
-    val tauntInfo: StateFlow<EclipseTauntInfo> = _tauntInfo.asStateFlow()
+    val tauntInfo: StateFlow<EclipseTauntInfo> = NativeEclipseBot.tauntInfo
 
-    val isRunning: StateFlow<Boolean> = _eclipseStatus
+    val isRunning: StateFlow<Boolean> = NativeEclipseBot.status
         .map { map -> map.values.any { it.running } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val isPaused: StateFlow<Boolean> = NativeEclipseBot.isPaused
 
-    private val _eclipseLogs = MutableStateFlow<List<LogEntry>>(emptyList())
-    val eclipseLogs: StateFlow<List<LogEntry>> = _eclipseLogs.asStateFlow()
+    val slotLogs: StateFlow<Map<String, List<LogEntry>>> = NativeEclipseBot.slotLogs
 
-    private var unsubscribeLogs: (() -> Unit)? = null
+    val eclipseLogs: StateFlow<List<LogEntry>> = NativeEclipseBot.slotLogs
+        .map { map ->
+            map.values.flatten().sortedBy { it.timestamp }.takeLast(250)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        // Register log listener for Eclipse
-        unsubscribeLogs = BotHelper.registerLogListener("eclipse") { entry ->
-            _eclipseLogs.update { list -> (list + entry).takeLast(250) }
-        }
-
-        // Load saved configs and start polling status
+        // Load saved configs
         loadConfig()
-        startStatusLoop()
     }
 
     private fun loadConfig() {
         viewModelScope.launch(Dispatchers.IO) {
-            val jsonStr = BotHelper.loadConfig("eclipse_load_config")
-            if (jsonStr != null) {
-                try {
-                    _eclipseConfig.value = BotHelper.parseEclipseConfig(jsonStr).enforceFixedRoles()
-                } catch (e: Exception) {
-                    Log.e("EclipseViewModel", "Error parsing eclipse config: ${e.message}")
-                }
-            }
-        }
-    }
-
-    private fun startStatusLoop() {
-        viewModelScope.launch(Dispatchers.IO) {
-            launch {
-                NativeEclipseBot.status.collect { nativeStatus ->
-                    _eclipseStatus.value = nativeStatus
-                }
-            }
-            launch {
-                NativeEclipseBot.stats.collect { nativeStats ->
-                    _partyStats.value = nativeStats
-                }
-            }
-            launch {
-                NativeEclipseBot.tauntInfo.collect { nativeTauntInfo ->
-                    _tauntInfo.value = nativeTauntInfo
-                }
+            val loaded = configRepository.loadEclipseConfig()
+            if (loaded != null) {
+                _eclipseConfig.value = loaded.enforceFixedRoles()
             }
         }
     }
 
     fun updateEclipseSettings(
         server: String,
-        roomNumber: Int,
-        lightGatherMode: String = _eclipseConfig.value.lightGatherMode
+        roomNumber: Int
     ) {
         _eclipseConfig.update {
             it.copy(
                 server = server,
-                roomNumber = roomNumber,
-                lightGatherMode = lightGatherMode
+                roomNumber = roomNumber
             ).enforceFixedRoles()
         }
         if (NativeEclipseBot.isRunning) {
@@ -109,22 +79,7 @@ class EclipseViewModel : ViewModel() {
     }
 
     fun toggleLightGatherSlot(slotKey: String) {
-        if (slotKey == "slot1") return
-        _eclipseConfig.update { current ->
-            val slot = current.slots[slotKey] ?: return@update current
-            val newLightGather = !slot.lightGatherTaunter
-            val newSlots = current.slots.toMutableMap()
-            newSlots[slotKey] = slot.copy(lightGatherTaunter = newLightGather)
-
-            val activeGatherSlots =
-                newSlots.filter { it.key != "slot1" && it.value.lightGatherTaunter }.keys
-            val newMode = when {
-                activeGatherSlots == setOf("slot4") -> "slot4_only"
-                activeGatherSlots == setOf("slot2", "slot3", "slot4") -> "rotation"
-                else -> "custom"
-            }
-            current.copy(slots = newSlots, lightGatherMode = newMode).enforceFixedRoles()
-        }
+        _eclipseConfig.update { it.withToggledLightGather(slotKey) }
         if (NativeEclipseBot.isRunning) {
             NativeEclipseBot.updateRuntimeConfig(_eclipseConfig.value)
         }
@@ -132,31 +87,7 @@ class EclipseViewModel : ViewModel() {
     }
 
     fun updateEclipseSlot(slotKey: String, slotConfig: SlotConfig) {
-        val isSun = slotKey in listOf("slot1", "slot2")
-        val fixedPrimary = if (isSun) "Ascended Solstice" else "Ascended Midnight"
-        val targets =
-            slotConfig.defaultTarget.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        val normalizedTarget = if (targets.isEmpty()) {
-            if (slotKey == "slot1") "Ascended Solstice,Blessless Deer" else fixedPrimary
-        } else if (!targets.first().equals(fixedPrimary, ignoreCase = true)) {
-            val remaining = targets.filterNot { it.equals(fixedPrimary, ignoreCase = true) }
-            (listOf(fixedPrimary) + remaining).joinToString(",")
-        } else {
-            slotConfig.defaultTarget
-        }
-        val isLightGather = if (slotKey == "slot1") false else slotConfig.lightGatherTaunter
-        val fixedConfig = slotConfig.copy(
-            isTaunter = true,
-            sunsetKnightTaunter = isSun,
-            moonHazeTaunter = !isSun,
-            lightGatherTaunter = isLightGather,
-            defaultTarget = normalizedTarget
-        )
-        _eclipseConfig.update {
-            val newSlots = it.slots.toMutableMap()
-            newSlots[slotKey] = fixedConfig
-            it.copy(slots = newSlots)
-        }
+        _eclipseConfig.update { it.withUpdatedSlot(slotKey, slotConfig) }
         if (NativeEclipseBot.isRunning) {
             NativeEclipseBot.updateRuntimeConfig(_eclipseConfig.value)
         }
@@ -165,24 +96,14 @@ class EclipseViewModel : ViewModel() {
 
     fun saveEclipseConfig() {
         viewModelScope.launch(Dispatchers.IO) {
-            val jsonStr = BotHelper.serializeEclipseConfig(_eclipseConfig.value)
-            BotHelper.saveConfig("eclipse_save_config", jsonStr)
+            configRepository.saveEclipseConfig(_eclipseConfig.value)
         }
     }
 
     fun resetEclipseConfig() {
         viewModelScope.launch(Dispatchers.IO) {
-            val jsonStr = BotHelper.resetConfig("eclipse_reset_config")
-            if (jsonStr != null) {
-                try {
-                    _eclipseConfig.value = BotHelper.parseEclipseConfig(jsonStr).enforceFixedRoles()
-                } catch (e: Exception) {
-                    _eclipseConfig.value = EclipseConfig().enforceFixedRoles()
-                }
-            } else {
-                _eclipseConfig.value = EclipseConfig().enforceFixedRoles()
-                saveEclipseConfig()
-            }
+            _eclipseConfig.value = configRepository.resetEclipseConfig().enforceFixedRoles()
+            saveEclipseConfig()
         }
     }
 
@@ -205,12 +126,11 @@ class EclipseViewModel : ViewModel() {
         NativeEclipseBot.resume()
     }
 
-    fun clearLogs(botType: String = "eclipse") {
-        _eclipseLogs.value = emptyList()
+    fun clearLogs(slotKey: String? = null) {
+        NativeEclipseBot.clearLogs(slotKey)
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        unsubscribeLogs?.invoke()
+    fun clearSlotLogs(slotKey: String) {
+        NativeEclipseBot.clearLogs(slotKey)
     }
 }

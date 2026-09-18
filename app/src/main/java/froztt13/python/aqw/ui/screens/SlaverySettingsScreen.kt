@@ -72,7 +72,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import froztt13.python.aqw.data.SlaveryConfig
+import froztt13.python.aqw.data.model.SlaveryConfig
 import froztt13.python.aqw.ui.components.CustomOutlinedTextField
 import froztt13.python.aqw.ui.components.ServerDropdown
 import froztt13.python.aqw.ui.theme.BgDark

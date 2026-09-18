@@ -2,45 +2,24 @@ package froztt13.python.aqw.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import froztt13.python.aqw.data.HubOverview
-import froztt13.python.aqw.helper.BotHelper
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
+import froztt13.python.aqw.data.model.HubOverview
+import froztt13.python.aqw.domain.coordinator.HubCoordinator
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.flow.stateIn
 
-class DashboardViewModel : ViewModel() {
+class DashboardViewModel(
+    hubCoordinator: HubCoordinator = HubCoordinator
+) : ViewModel() {
 
-    private val _hubOverview = MutableStateFlow(HubOverview())
-    val hubOverview: StateFlow<HubOverview> = _hubOverview.asStateFlow()
-
-    init {
-        startStatusLoop()
-    }
-
-    private fun startStatusLoop() {
-        viewModelScope.launch(Dispatchers.IO) {
-            while (isActive) {
-                try {
-                    val status = BotHelper.getHubStatus()
-                    _hubOverview.value = status
-                } catch (_: Exception) {
-                }
-                delay(1200.milliseconds)
-            }
-        }
-    }
+    val hubOverview: StateFlow<HubOverview> = hubCoordinator.observeOverview()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = hubCoordinator.calculateOverview()
+        )
 
     fun refreshStatus() {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                _hubOverview.value = BotHelper.getHubStatus()
-            } catch (_: Exception) {
-            }
-        }
+        // Automatically kept up to date reactively via HubCoordinator flows
     }
 }

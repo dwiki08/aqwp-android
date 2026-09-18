@@ -67,8 +67,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import froztt13.python.aqw.data.BotSummary
-import froztt13.python.aqw.data.HubOverview
+import froztt13.python.aqw.data.model.BotSummary
+import froztt13.python.aqw.data.model.HubOverview
 
 
 import froztt13.python.aqw.helper.BatteryOptimizationHelper

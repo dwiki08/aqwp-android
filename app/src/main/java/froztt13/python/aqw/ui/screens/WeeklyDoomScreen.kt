@@ -90,11 +90,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import froztt13.python.aqw.data.DoomAccount
-import froztt13.python.aqw.data.DoomAccountTelemetry
-import froztt13.python.aqw.data.LogEntry
-import froztt13.python.aqw.data.WeeklyDoomConfig
-import froztt13.python.aqw.data.WeeklyDoomTelemetry
+import froztt13.python.aqw.data.model.DoomAccount
+import froztt13.python.aqw.data.model.DoomAccountTelemetry
+import froztt13.python.aqw.data.model.LogEntry
+import froztt13.python.aqw.data.model.WeeklyDoomConfig
+import froztt13.python.aqw.data.model.WeeklyDoomTelemetry
 import froztt13.python.aqw.helper.BatteryOptimizationHelper
 import froztt13.python.aqw.service.BotForegroundService
 import froztt13.python.aqw.ui.components.DefaultTopBar

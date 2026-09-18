@@ -1,15 +1,15 @@
 package froztt13.python.aqw.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import froztt13.python.aqw.core.temple.NativeTempleBot
-import froztt13.python.aqw.data.LogEntry
-import froztt13.python.aqw.data.PartyStats
-import froztt13.python.aqw.data.SlotConfig
-import froztt13.python.aqw.data.SlotTelemetry
-import froztt13.python.aqw.data.TempleConfig
-import froztt13.python.aqw.helper.BotHelper
+import froztt13.python.aqw.data.model.LogEntry
+import froztt13.python.aqw.data.model.PartyStats
+import froztt13.python.aqw.data.model.SlotConfig
+import froztt13.python.aqw.data.model.SlotTelemetry
+import froztt13.python.aqw.data.model.TempleConfig
+import froztt13.python.aqw.data.repository.ConfigRepositoryImpl
+import froztt13.python.aqw.domain.bot.temple.NativeTempleBot
+import froztt13.python.aqw.domain.repository.ConfigRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,64 +20,42 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class TempleViewModel : ViewModel() {
+class TempleViewModel(
+    private val configRepository: ConfigRepository = ConfigRepositoryImpl.instance
+) : ViewModel() {
 
     private val _templeConfig = MutableStateFlow(TempleConfig())
     val templeConfig: StateFlow<TempleConfig> = _templeConfig.asStateFlow()
 
-    private val _templeStatus = MutableStateFlow<Map<String, SlotTelemetry>>(emptyMap())
-    val templeStatus: StateFlow<Map<String, SlotTelemetry>> = _templeStatus.asStateFlow()
+    val templeStatus: StateFlow<Map<String, SlotTelemetry>> = NativeTempleBot.status
 
-    private val _partyStats = MutableStateFlow(PartyStats())
-    val partyStats: StateFlow<PartyStats> = _partyStats.asStateFlow()
+    val partyStats: StateFlow<PartyStats> = NativeTempleBot.stats
 
-    val isRunning: StateFlow<Boolean> = _templeStatus
+    val isRunning: StateFlow<Boolean> = NativeTempleBot.status
         .map { map -> map.values.any { it.running } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val isPaused: StateFlow<Boolean> = NativeTempleBot.isPaused
     val latestAnimMsg: StateFlow<String> = NativeTempleBot.latestAnimMsg
 
-    private val _templeLogs = MutableStateFlow<List<LogEntry>>(emptyList())
-    val templeLogs: StateFlow<List<LogEntry>> = _templeLogs.asStateFlow()
+    val slotLogs: StateFlow<Map<String, List<LogEntry>>> = NativeTempleBot.slotLogs
 
-    private var unsubscribeLogs: (() -> Unit)? = null
+    val templeLogs: StateFlow<List<LogEntry>> = NativeTempleBot.slotLogs
+        .map { map ->
+            map.values.flatten().sortedBy { it.timestamp }.takeLast(250)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        // Register log listener for Temple
-        unsubscribeLogs = BotHelper.registerLogListener("temple") { entry ->
-            _templeLogs.update { list -> (list + entry).takeLast(250) }
-        }
-
-        // Load saved configs and start polling status
+        // Load saved configs
         loadConfig()
-        startStatusLoop()
     }
 
     private fun loadConfig() {
         viewModelScope.launch(Dispatchers.IO) {
-            val jsonStr = BotHelper.loadConfig("temple_load_config")
-            if (jsonStr != null) {
-                try {
-                    _templeConfig.value = BotHelper.parseTempleConfig(jsonStr)
-                } catch (e: Exception) {
-                    Log.e("TempleViewModel", "Error parsing temple config: ${e.message}")
-                }
-            }
-        }
-    }
-
-    private fun startStatusLoop() {
-        viewModelScope.launch(Dispatchers.IO) {
-            launch {
-                NativeTempleBot.status.collect { nativeStatus ->
-                    _templeStatus.value = nativeStatus
-                }
-            }
-            launch {
-                NativeTempleBot.stats.collect { nativeStats ->
-                    _partyStats.value = nativeStats
-                }
+            val loaded = configRepository.loadTempleConfig()
+            if (loaded != null) {
+                _templeConfig.value = loaded
             }
         }
     }
@@ -104,24 +82,14 @@ class TempleViewModel : ViewModel() {
 
     fun saveTempleConfig() {
         viewModelScope.launch(Dispatchers.IO) {
-            val jsonStr = BotHelper.serializeTempleConfig(_templeConfig.value)
-            BotHelper.saveConfig("temple_save_config", jsonStr)
+            configRepository.saveTempleConfig(_templeConfig.value)
         }
     }
 
     fun resetTempleConfig() {
         viewModelScope.launch(Dispatchers.IO) {
-            val jsonStr = BotHelper.resetConfig("temple_reset_config")
-            if (jsonStr != null) {
-                try {
-                    _templeConfig.value = BotHelper.parseTempleConfig(jsonStr)
-                } catch (e: Exception) {
-                    _templeConfig.value = TempleConfig()
-                }
-            } else {
-                _templeConfig.value = TempleConfig()
-                saveTempleConfig()
-            }
+            _templeConfig.value = configRepository.resetTempleConfig()
+            saveTempleConfig()
         }
     }
 
@@ -144,12 +112,7 @@ class TempleViewModel : ViewModel() {
         NativeTempleBot.resume()
     }
 
-    fun clearLogs(botType: String = "temple") {
-        _templeLogs.value = emptyList()
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        unsubscribeLogs?.invoke()
+    fun clearLogs(slotKey: String? = null) {
+        NativeTempleBot.clearLogs(slotKey)
     }
 }

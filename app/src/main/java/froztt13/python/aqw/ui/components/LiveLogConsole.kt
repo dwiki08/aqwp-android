@@ -40,9 +40,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import froztt13.python.aqw.core.network.AqwSocketClient
-import froztt13.python.aqw.data.LogEntry
-import froztt13.python.aqw.helper.BotHelper
+import froztt13.python.aqw.data.model.LogEntry
+import froztt13.python.aqw.data.network.AqwSocketClient
 import froztt13.python.aqw.ui.theme.ErrorRed
 import froztt13.python.aqw.ui.theme.MoonCyan
 import froztt13.python.aqw.ui.theme.MyApplicationTheme
@@ -50,6 +49,7 @@ import froztt13.python.aqw.ui.theme.SuccessGreen
 import froztt13.python.aqw.ui.theme.SunGold
 import froztt13.python.aqw.ui.theme.TextMuted
 import froztt13.python.aqw.ui.theme.TextSecondary
+import froztt13.python.aqw.utils.stripAnsi
 
 @Composable
 fun LiveLogConsole(
@@ -207,7 +207,7 @@ fun LiveLogConsole(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         items(effectiveLogs, key = { it.id }) { log ->
-                            val cleanMessage = BotHelper.stripAnsi(log.message)
+                            val cleanMessage = log.message.stripAnsi()
                             val lower = cleanMessage.lowercase()
                             val textColor = when {
                                 "error" in lower || "exception" in lower || "dead" in lower || "failed" in lower -> ErrorRed
@@ -251,7 +251,7 @@ fun LiveLogConsole(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         items(effectivePacketLogs, key = { it.id }) { log ->
-                            val cleanPacket = BotHelper.stripAnsi(log.message)
+                            val cleanPacket = log.message.stripAnsi()
                             val lower = cleanPacket.lowercase()
                             val packetColor = when {
                                 cleanPacket.startsWith("<msg") -> SunGold

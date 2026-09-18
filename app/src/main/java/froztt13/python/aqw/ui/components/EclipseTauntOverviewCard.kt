@@ -27,8 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import froztt13.python.aqw.data.EclipseTauntInfo
-import froztt13.python.aqw.data.TaunterTargetInfo
+import froztt13.python.aqw.data.model.EclipseTauntInfo
+import froztt13.python.aqw.data.model.TaunterTargetInfo
 import froztt13.python.aqw.ui.theme.BorderDark
 import froztt13.python.aqw.ui.theme.EclipseMagenta
 import froztt13.python.aqw.ui.theme.ErrorRed

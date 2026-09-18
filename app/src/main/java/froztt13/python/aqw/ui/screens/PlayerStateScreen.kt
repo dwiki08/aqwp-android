@@ -55,15 +55,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import froztt13.python.aqw.core.engine.AqwSession
-import froztt13.python.aqw.core.model.AqwAura
-import froztt13.python.aqw.core.model.AqwFaction
-import froztt13.python.aqw.core.model.AqwItem
-import froztt13.python.aqw.core.model.AqwOtherPlayer
-import froztt13.python.aqw.core.model.AqwPlayerState
-import froztt13.python.aqw.core.model.AqwQuest
-import froztt13.python.aqw.core.model.AqwShop
-import froztt13.python.aqw.core.model.AqwSkill
+import froztt13.python.aqw.data.engine.AqwSession
+import froztt13.python.aqw.domain.model.AqwAura
+import froztt13.python.aqw.domain.model.AqwFaction
+import froztt13.python.aqw.domain.model.AqwItem
+import froztt13.python.aqw.domain.model.AqwOtherPlayer
+import froztt13.python.aqw.domain.model.AqwPlayerState
+import froztt13.python.aqw.domain.model.AqwQuest
+import froztt13.python.aqw.domain.model.AqwShop
+import froztt13.python.aqw.domain.model.AqwSkill
 import froztt13.python.aqw.ui.components.AurasSection
 import froztt13.python.aqw.ui.components.CustomOutlinedTextField
 import froztt13.python.aqw.ui.components.DefaultTopBar
@@ -115,10 +115,10 @@ fun PlayerStateScreen(
         val sessionConnected =
             session?.isConnected?.value == true || AqwSession.activeSessions.any { it.isConnected.value }
         val generalRunning =
-            froztt13.python.aqw.core.general.NativeGeneralBot.telemetry.value.running
-        val eclipseRunning = froztt13.python.aqw.core.eclipse.NativeEclipseBot.isRunning
-        val slaveryRunning = froztt13.python.aqw.core.slavery.NativeSlaveryBot.isRunning
-        val templeRunning = froztt13.python.aqw.core.temple.NativeTempleBot.isRunning
+            froztt13.python.aqw.domain.bot.general.NativeGeneralBot.telemetry.value.running
+        val eclipseRunning = froztt13.python.aqw.domain.bot.eclipse.NativeEclipseBot.isRunning
+        val slaveryRunning = froztt13.python.aqw.domain.bot.slavery.NativeSlaveryBot.isRunning
+        val templeRunning = froztt13.python.aqw.domain.bot.temple.NativeTempleBot.isRunning
         return sessionConnected || generalRunning || eclipseRunning || slaveryRunning || templeRunning
     }
 
@@ -165,7 +165,7 @@ fun PlayerStateScreen(
             val session = activeSessions.getOrNull(selectedSessionIndex)
             if (session != null) {
                 scope.launch(Dispatchers.IO) {
-                    session.commands.getItemDrop(itemId)
+                    session.item.getItemDrop(itemId)
                 }
             }
         },

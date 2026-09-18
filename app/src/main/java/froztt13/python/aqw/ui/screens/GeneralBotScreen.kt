@@ -86,11 +86,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import froztt13.python.aqw.data.GeneralBotConfig
-import froztt13.python.aqw.data.GeneralBotTelemetry
-import froztt13.python.aqw.data.GeneralSubModuleInfo
-import froztt13.python.aqw.data.GeneralTaskInfo
-import froztt13.python.aqw.data.LogEntry
+import froztt13.python.aqw.data.model.GeneralBotConfig
+import froztt13.python.aqw.data.model.GeneralBotTelemetry
+import froztt13.python.aqw.data.model.GeneralSubModuleInfo
+import froztt13.python.aqw.data.model.GeneralTaskInfo
+import froztt13.python.aqw.data.model.LogEntry
 import froztt13.python.aqw.helper.BatteryOptimizationHelper
 import froztt13.python.aqw.service.BotForegroundService
 import froztt13.python.aqw.ui.components.ClassDropdown

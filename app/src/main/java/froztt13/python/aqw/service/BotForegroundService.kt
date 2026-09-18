@@ -16,11 +16,11 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import froztt13.python.aqw.MainActivity
 import froztt13.python.aqw.R
-import froztt13.python.aqw.core.doom.NativeWeeklyDoomBot
-import froztt13.python.aqw.core.eclipse.NativeEclipseBot
-import froztt13.python.aqw.core.general.NativeGeneralBot
-import froztt13.python.aqw.core.slavery.NativeSlaveryBot
-import froztt13.python.aqw.core.temple.NativeTempleBot
+import froztt13.python.aqw.domain.bot.doom.NativeWeeklyDoomBot
+import froztt13.python.aqw.domain.bot.eclipse.NativeEclipseBot
+import froztt13.python.aqw.domain.bot.general.NativeGeneralBot
+import froztt13.python.aqw.domain.bot.slavery.NativeSlaveryBot
+import froztt13.python.aqw.domain.bot.temple.NativeTempleBot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -241,19 +241,17 @@ class BotForegroundService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Shows live running status when AQW Party Bot is active"
-                setShowBadge(false)
-                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-            }
-            val manager = getSystemService(NOTIFICATION_SERVICE) as? NotificationManager
-            manager?.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            CHANNEL_NAME,
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Shows live running status when AQW Party Bot is active"
+            setShowBadge(false)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
+        val manager = getSystemService(NOTIFICATION_SERVICE) as? NotificationManager
+        manager?.createNotificationChannel(channel)
     }
 
     override fun onDestroy() {

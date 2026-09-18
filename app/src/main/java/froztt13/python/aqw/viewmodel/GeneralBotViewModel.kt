@@ -1,12 +1,13 @@
 package froztt13.python.aqw.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import froztt13.python.aqw.data.GeneralBotConfig
-import froztt13.python.aqw.data.GeneralBotTelemetry
-import froztt13.python.aqw.data.GeneralSubModuleInfo
-import froztt13.python.aqw.data.LogEntry
+import froztt13.python.aqw.data.model.GeneralBotConfig
+import froztt13.python.aqw.data.model.GeneralBotTelemetry
+import froztt13.python.aqw.data.model.GeneralSubModuleInfo
+import froztt13.python.aqw.data.model.LogEntry
+import froztt13.python.aqw.data.repository.ConfigRepositoryImpl
+import froztt13.python.aqw.domain.repository.ConfigRepository
 import froztt13.python.aqw.helper.BotHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -21,19 +22,22 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class GeneralBotViewModel : ViewModel() {
+class GeneralBotViewModel(
+    private val configRepository: ConfigRepository = ConfigRepositoryImpl.instance
+) : ViewModel() {
 
     private val _config = MutableStateFlow(GeneralBotConfig())
     val config: StateFlow<GeneralBotConfig> = _config.asStateFlow()
 
-    private val _telemetry = MutableStateFlow(GeneralBotTelemetry())
-    val telemetry: StateFlow<GeneralBotTelemetry> = _telemetry.asStateFlow()
+    val telemetry: StateFlow<GeneralBotTelemetry> =
+        froztt13.python.aqw.domain.bot.general.NativeGeneralBot.telemetry
 
-    val isRunning: StateFlow<Boolean> = _telemetry
+    val isRunning: StateFlow<Boolean> = telemetry
         .map { it.running }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    val isPaused: StateFlow<Boolean> = froztt13.python.aqw.core.general.NativeGeneralBot.isPaused
+    val isPaused: StateFlow<Boolean> =
+        froztt13.python.aqw.domain.bot.general.NativeGeneralBot.isPaused
 
     private val _subModules = MutableStateFlow<List<GeneralSubModuleInfo>>(emptyList())
     val subModules: StateFlow<List<GeneralSubModuleInfo>> = _subModules.asStateFlow()
@@ -54,32 +58,19 @@ class GeneralBotViewModel : ViewModel() {
 
         loadSubModules()
         loadConfig()
-        startStatusLoop()
     }
 
     private fun loadSubModules() {
         // Native modules catalog
-        _subModules.value = froztt13.python.aqw.core.general.NativeGeneralBot.availableSubModules
+        _subModules.value =
+            froztt13.python.aqw.domain.bot.general.NativeGeneralBot.availableSubModules
     }
 
     private fun loadConfig() {
         viewModelScope.launch(Dispatchers.IO) {
-            val jsonStr = BotHelper.loadConfig("general_load_config")
-            if (jsonStr != null) {
-                try {
-                    _config.value = BotHelper.parseGeneralBotConfig(jsonStr)
-                } catch (e: Exception) {
-                    Log.e("GeneralBotViewModel", "Error parsing general bot config: ${e.message}")
-                }
-            }
-        }
-    }
-
-    private fun startStatusLoop() {
-        // Collect native telemetry directly
-        viewModelScope.launch {
-            froztt13.python.aqw.core.general.NativeGeneralBot.telemetry.collect {
-                _telemetry.value = it
+            val loaded = configRepository.loadGeneralConfig()
+            if (loaded != null) {
+                _config.value = loaded
             }
         }
     }
@@ -147,31 +138,19 @@ class GeneralBotViewModel : ViewModel() {
     fun saveConfig() {
         val current = _config.value
         viewModelScope.launch(Dispatchers.IO) {
-            val jsonStr = BotHelper.serializeGeneralBotConfig(current)
-            BotHelper.saveConfig("general_save_config", jsonStr)
+            configRepository.saveGeneralConfig(current)
         }
     }
 
     fun resetConfig() {
         viewModelScope.launch(Dispatchers.IO) {
-            val jsonStr = BotHelper.resetConfig("general_reset_config")
-            if (jsonStr != null) {
-                _config.value = BotHelper.parseGeneralBotConfig(jsonStr)
-            }
+            _config.value = configRepository.resetGeneralConfig()
+            saveConfig()
         }
     }
 
     fun resetState() {
-        froztt13.python.aqw.core.general.NativeGeneralBot.resetState()
-        _telemetry.update {
-            it.copy(
-                running = false,
-                isConnected = false,
-                status = "Idle",
-                message = "State reset by user",
-                cooldowns = emptyMap()
-            )
-        }
+        froztt13.python.aqw.domain.bot.general.NativeGeneralBot.resetState()
     }
 
     fun clearLogs() {
@@ -193,22 +172,22 @@ class GeneralBotViewModel : ViewModel() {
             return
         }
 
-        froztt13.python.aqw.core.general.NativeGeneralBot.start(current)
+        froztt13.python.aqw.domain.bot.general.NativeGeneralBot.start(current)
         viewModelScope.launch {
             onStarted()
         }
     }
 
     fun stopBot() {
-        froztt13.python.aqw.core.general.NativeGeneralBot.stop()
+        froztt13.python.aqw.domain.bot.general.NativeGeneralBot.stop()
     }
 
     fun pauseBot() {
-        froztt13.python.aqw.core.general.NativeGeneralBot.pause()
+        froztt13.python.aqw.domain.bot.general.NativeGeneralBot.pause()
     }
 
     fun resumeBot() {
-        froztt13.python.aqw.core.general.NativeGeneralBot.resume()
+        froztt13.python.aqw.domain.bot.general.NativeGeneralBot.resume()
     }
 
     override fun onCleared() {

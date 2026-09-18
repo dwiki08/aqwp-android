@@ -79,13 +79,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import froztt13.python.aqw.data.EclipseConfig
-import froztt13.python.aqw.data.EclipseTauntInfo
-import froztt13.python.aqw.data.LogEntry
-import froztt13.python.aqw.data.MonsterTelemetry
-import froztt13.python.aqw.data.PartyStats
-import froztt13.python.aqw.data.SlotConfig
-import froztt13.python.aqw.data.SlotTelemetry
+import froztt13.python.aqw.data.model.EclipseConfig
+import froztt13.python.aqw.data.model.EclipseTauntInfo
+import froztt13.python.aqw.data.model.LogEntry
+import froztt13.python.aqw.data.model.MonsterTelemetry
+import froztt13.python.aqw.data.model.PartyStats
+import froztt13.python.aqw.data.model.SlotConfig
+import froztt13.python.aqw.data.model.SlotTelemetry
 import froztt13.python.aqw.helper.BatteryOptimizationHelper
 import froztt13.python.aqw.service.BotForegroundService
 import froztt13.python.aqw.ui.components.BotSessionStatsBar
@@ -128,6 +128,7 @@ fun EclipseScreen(
     val partyStats by viewModel.partyStats.collectAsState()
     val tauntInfo by viewModel.tauntInfo.collectAsState()
     val logs by viewModel.eclipseLogs.collectAsState()
+    val slotLogs by viewModel.slotLogs.collectAsState()
     val isRunning by viewModel.isRunning.collectAsState()
     val isPaused by viewModel.isPaused.collectAsState()
 
@@ -141,6 +142,7 @@ fun EclipseScreen(
         partyStats = partyStats,
         tauntInfo = tauntInfo,
         logs = logs,
+        slotLogs = slotLogs,
         isRunning = isRunning,
         isPaused = isPaused,
         isAuthorized = EclipseAuthManager.isAuthorized,
@@ -182,7 +184,7 @@ fun EclipseScreen(
         },
         onPauseParty = { viewModel.pauseEclipse() },
         onResumeParty = { viewModel.resumeEclipse() },
-        onClearLogs = { viewModel.clearLogs("eclipse") },
+        onClearSlotLogs = { slotKey -> viewModel.clearSlotLogs(slotKey) },
         modifier = modifier
     )
 }
@@ -196,6 +198,7 @@ fun EclipseContent(
     partyStats: PartyStats = PartyStats(),
     tauntInfo: EclipseTauntInfo = EclipseTauntInfo(),
     logs: List<LogEntry>,
+    slotLogs: Map<String, List<LogEntry>> = emptyMap(),
     isRunning: Boolean,
     isPaused: Boolean = false,
     isAuthorized: Boolean = EclipseAuthManager.isAuthorized,
@@ -209,7 +212,7 @@ fun EclipseContent(
     onStopParty: () -> Unit,
     onPauseParty: () -> Unit = {},
     onResumeParty: () -> Unit = {},
-    onClearLogs: () -> Unit
+    onClearSlotLogs: (String) -> Unit = {}
 ) {
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
@@ -794,11 +797,11 @@ fun EclipseContent(
 
                     // 2. Dedicated Log Console for this Slot
                     LiveLogConsole(
-                        logs = logs,
+                        logs = slotLogs[slotKey] ?: logs,
                         slotKey = slotKey,
                         targetUsername = slotUsername,
                         title = "Logs - Slot ${page + 1}${if (slotUsername.isNotEmpty()) " ($slotUsername)" else ""}",
-                        onClearLogs = onClearLogs
+                        onClearLogs = { onClearSlotLogs(slotKey) }
                     )
                 }
             }
@@ -863,7 +866,6 @@ private fun EclipseContentIdlePreview() {
             onUpdateSlot = { _, _ -> },
             onStartParty = {},
             onStopParty = {},
-            onClearLogs = {}
         )
     }
 }
@@ -987,7 +989,6 @@ private fun EclipseContentRunningPreview() {
             onResetSettings = {},
             onStartParty = {},
             onStopParty = {},
-            onClearLogs = {}
         )
     }
 }
