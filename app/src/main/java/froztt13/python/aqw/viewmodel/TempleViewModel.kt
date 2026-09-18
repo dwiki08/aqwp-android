@@ -36,6 +36,7 @@ class TempleViewModel : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val isPaused: StateFlow<Boolean> = NativeTempleBot.isPaused
+    val latestAnimMsg: StateFlow<String> = NativeTempleBot.latestAnimMsg
 
     private val _templeLogs = MutableStateFlow<List<LogEntry>>(emptyList())
     val templeLogs: StateFlow<List<LogEntry>> = _templeLogs.asStateFlow()

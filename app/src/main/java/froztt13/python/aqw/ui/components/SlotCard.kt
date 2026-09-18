@@ -19,8 +19,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -30,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,6 +52,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -544,68 +550,192 @@ fun SlotCard(
                         }
                     }
 
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    var showTargetDialog by rememberSaveable { mutableStateOf(false) }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF161928))
+                            .border(1.dp, Color(0xFF2E3350), RoundedCornerShape(8.dp))
+                            .clickable(enabled = !isPartyRunning || isPaused) {
+                                showTargetDialog = true
+                            }
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF161928))
-                                .border(1.dp, Color(0xFF2E3350), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            modifier = Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(accentColor.copy(alpha = 0.2f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(accentColor.copy(alpha = 0.2f))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "#1 Priority",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = accentColor
-                                    )
-                                }
+                                Text(
+                                    text = "#1 Priority",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = accentColor
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = fixedPrimaryTarget,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = TextPrimary
+                                    color = TextPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = if (localExtra.isNotBlank()) "+ $localExtra" else "Tap to add additional monsters",
+                                    fontSize = 11.sp,
+                                    color = if (localExtra.isNotBlank()) TextSecondary else TextMuted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
 
-                        CustomOutlinedTextField(
-                            value = localExtra,
-                            onValueChange = { newVal ->
-                                localExtra = newVal
-                                val clean = newVal.trim()
-                                val fullTarget = if (clean.isEmpty()) {
-                                    fixedPrimaryTarget
-                                } else {
-                                    "$fixedPrimaryTarget,$clean"
-                                }
-                                onConfigChange(config.copy(defaultTarget = fullTarget))
-                            },
-                            label = { Text("Additional Target Monsters") },
-                            placeholder = { Text("e.g. Blessless Deer", color = TextMuted) },
-                            supportingText = {
-                                Text(
-                                    text = "Target Order: $fixedPrimaryTarget${if (localExtra.isNotBlank()) ", $localExtra" else ""}",
-                                    fontSize = 10.sp,
-                                    color = TextMuted
+                        IconButton(
+                            onClick = { showTargetDialog = true },
+                            enabled = !isPartyRunning || isPaused,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Edit,
+                                contentDescription = "Edit Additional Target Monsters",
+                                tint = if (!isPartyRunning || isPaused) accentColor else TextMuted,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    if (showTargetDialog) {
+                        var dialogExtraInput by rememberSaveable(showTargetDialog) {
+                            mutableStateOf(
+                                localExtra
+                            )
+                        }
+
+                        AlertDialog(
+                            onDismissRequest = { showTargetDialog = false },
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Filled.Edit,
+                                    contentDescription = null,
+                                    tint = accentColor,
+                                    modifier = Modifier.size(24.dp)
                                 )
                             },
-                            singleLine = true,
-                            enabled = !isPartyRunning || isPaused,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = defaultTextFieldColors(accentColor)
+                            title = {
+                                Text(
+                                    text = "Additional Target Monsters",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = TextPrimary
+                                )
+                            },
+                            text = {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color(0xFF161928))
+                                            .border(
+                                                1.dp,
+                                                Color(0xFF2E3350),
+                                                RoundedCornerShape(8.dp)
+                                            )
+                                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(accentColor.copy(alpha = 0.2f))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "#1 Priority",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = accentColor
+                                            )
+                                        }
+                                        Text(
+                                            text = fixedPrimaryTarget,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = TextPrimary
+                                        )
+                                    }
+
+                                    Text(
+                                        text = "Add secondary target monsters separated by commas. These will be targeted after $fixedPrimaryTarget.",
+                                        fontSize = 12.sp,
+                                        color = TextSecondary
+                                    )
+
+                                    CustomOutlinedTextField(
+                                        value = dialogExtraInput,
+                                        onValueChange = { dialogExtraInput = it },
+                                        label = { Text("Additional Target Monsters") },
+                                        placeholder = {
+                                            Text(
+                                                "e.g. Blessless Deer",
+                                                color = TextMuted
+                                            )
+                                        },
+                                        supportingText = {
+                                            val cleanPreview = dialogExtraInput.trim()
+                                            Text(
+                                                text = "Target Order: $fixedPrimaryTarget${if (cleanPreview.isNotBlank()) ", $cleanPreview" else ""}",
+                                                fontSize = 10.sp,
+                                                color = TextMuted
+                                            )
+                                        },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = defaultTextFieldColors(accentColor)
+                                    )
+                                }
+                            },
+                            confirmButton = {
+                                Button(
+                                    onClick = {
+                                        val clean = dialogExtraInput.trim()
+                                        localExtra = clean
+                                        val fullTarget = if (clean.isEmpty()) {
+                                            fixedPrimaryTarget
+                                        } else {
+                                            "$fixedPrimaryTarget,$clean"
+                                        }
+                                        onConfigChange(config.copy(defaultTarget = fullTarget))
+                                        showTargetDialog = false
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = accentColor)
+                                ) {
+                                    Text("Save", color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showTargetDialog = false }) {
+                                    Text("Cancel", color = TextMuted)
+                                }
+                            },
+                            containerColor = CardDark,
+                            shape = RoundedCornerShape(16.dp)
                         )
                     }
                 } else {

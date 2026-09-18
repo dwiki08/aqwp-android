@@ -67,8 +67,17 @@ object NativeTempleBot {
     private val _stats = MutableStateFlow(PartyStats())
     val stats: StateFlow<PartyStats> = _stats.asStateFlow()
 
+    private const val ANIM_MSG_CLEAR_DELAY_MS = 4000L
+    private const val ANIM_MSG_EXPIRY_THRESHOLD_MS = 3900L
+
     private val _isPaused = MutableStateFlow(false)
     val isPaused: StateFlow<Boolean> = _isPaused.asStateFlow()
+
+    private val _latestAnimMsg = MutableStateFlow("")
+    val latestAnimMsg: StateFlow<String> = _latestAnimMsg.asStateFlow()
+    private var latestAnimMsgTime = 0L
+    private var animClearJob: Job? = null
+    private val animLock = Any()
 
     private var stopRequested = false
     private var startTimeMillis = 0L
@@ -178,6 +187,9 @@ object NativeTempleBot {
         startTimeMillis = System.currentTimeMillis()
         clearedRuns = 0
         tauntCoordinator.reset()
+        _latestAnimMsg.value = ""
+        latestAnimMsgTime = 0L
+        animClearJob?.cancel()
 
         val initialStatuses = mutableMapOf<String, SlotTelemetry>()
         for (key in NativeTempleConfig.ALL_SLOTS) {
@@ -206,6 +218,9 @@ object NativeTempleBot {
         }
         activeSessions.clear()
         coordinatorJob?.cancel()
+        _latestAnimMsg.value = ""
+        latestAnimMsgTime = 0L
+        animClearJob?.cancel()
 
         _status.update { current ->
             current.mapValues { (_, tele) ->
@@ -334,6 +349,23 @@ object NativeTempleBot {
                 if (_isPaused.value) return@collect
                 when (event) {
                     is AqwEvent.CombatTick -> {
+                        if (event.animMsgs.isNotEmpty()) {
+                            val combined = event.animMsgs.joinToString(" | ")
+                            _latestAnimMsg.value = combined
+                            latestAnimMsgTime = System.currentTimeMillis()
+
+                            animClearJob?.cancel()
+                            animClearJob = scope.launch(Dispatchers.IO) {
+                                delay(ANIM_MSG_CLEAR_DELAY_MS.milliseconds)
+                                synchronized(animLock) {
+                                    if (System.currentTimeMillis() - latestAnimMsgTime >= ANIM_MSG_EXPIRY_THRESHOLD_MS) {
+                                        _latestAnimMsg.value = ""
+                                        latestAnimMsgTime = 0L
+                                    }
+                                }
+                            }
+                        }
+
                         // Check anims messages for taunt cues
                         for (msg in event.animMsgs) {
                             val lower = msg.lowercase()

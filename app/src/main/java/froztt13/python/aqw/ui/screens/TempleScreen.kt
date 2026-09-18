@@ -66,8 +66,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -118,6 +120,7 @@ fun TempleScreen(
     val logs by viewModel.templeLogs.collectAsState()
     val isRunning by viewModel.isRunning.collectAsState()
     val isPaused by viewModel.isPaused.collectAsState()
+    val latestAnimMsg by viewModel.latestAnimMsg.collectAsState()
 
     val notifPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -130,6 +133,7 @@ fun TempleScreen(
         logs = logs,
         isRunning = isRunning,
         isPaused = isPaused,
+        latestAnimMsg = latestAnimMsg,
         onBack = onBack,
         onUpdateSettings = { server, room, botType ->
             viewModel.updateTempleSettings(server, room, botType)
@@ -179,6 +183,7 @@ fun TempleContent(
     logs: List<LogEntry>,
     isRunning: Boolean,
     isPaused: Boolean = false,
+    latestAnimMsg: String = "",
     onBack: () -> Unit,
     onUpdateSettings: (server: String, roomNumber: Int, botType: String) -> Unit,
     onUpdateSlot: (slotKey: String, slotConfig: SlotConfig) -> Unit,
@@ -462,6 +467,54 @@ fun TempleContent(
                     monsters = activeMonsters,
                     currentCell = activeCell
                 )
+            }
+
+            // Boss Animation / Event Message Section (event.animMsgs)
+            AnimatedVisibility(
+                visible = isRunning,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF0F111D))
+                        .border(1.dp, Color(0xFF232840), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(
+                                if (latestAnimMsg.isNotBlank()) themeColor.copy(alpha = 0.15f) else Color(
+                                    0xFF1A1D2D
+                                )
+                            )
+                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "ANIM MSG",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (latestAnimMsg.isNotBlank()) themeColor else TextMuted,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+
+                    Text(
+                        text = latestAnimMsg.ifBlank { "● ● ●" },
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = if (latestAnimMsg.isNotBlank()) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (latestAnimMsg.isNotBlank()) TextPrimary else TextMuted,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
 
             // Compute active tab's taunt role and animated indicator color
@@ -754,6 +807,7 @@ private fun TempleContentSolsticeMoonPreview() {
                 )
             ),
             isRunning = true,
+            latestAnimMsg = "Suffocated Light gathers power...",
             onBack = {},
             onUpdateSettings = { _, _, _ -> },
             onUpdateSlot = { _, _ -> },
