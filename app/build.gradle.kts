@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "froztt13.python.aqw"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "froztt13.python.aqw"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 
@@ -41,6 +41,12 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+    lint {
+        abortOnError = false
+        checkAllWarnings = true
+        showAll = true
+        textReport = true
+    }
 }
 
 dependencies {
@@ -57,8 +63,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit)
-    testImplementation("org.json:json:20240303")
-    androidTestImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.json)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)

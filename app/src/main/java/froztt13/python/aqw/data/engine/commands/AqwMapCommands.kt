@@ -28,7 +28,7 @@ class AqwMapCommands(
     // MONSTER STATE MANAGEMENT
     // ==========================================
 
-    val _allMonsters = MutableStateFlow<List<AqwMonster>>(emptyList())
+    private val _allMonsters = MutableStateFlow<List<AqwMonster>>(emptyList())
     val allMonsters: StateFlow<List<AqwMonster>> = _allMonsters.asStateFlow()
 
     /**

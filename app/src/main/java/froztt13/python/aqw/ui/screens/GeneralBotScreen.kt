@@ -50,19 +50,19 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -189,6 +189,7 @@ fun GeneralBotScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GeneralBotContent(
+    modifier: Modifier = Modifier,
     config: GeneralBotConfig,
     telemetry: GeneralBotTelemetry,
     isRunning: Boolean,
@@ -211,8 +212,7 @@ fun GeneralBotContent(
     onUpdateTargetQty: (Int) -> Unit,
     onUpdateSoloClass: (String) -> Unit,
     onUpdateFarmClass: (String) -> Unit,
-    onNavigateToPlayerState: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    onNavigateToPlayerState: (() -> Unit)? = null
 ) {
     val navToPlayer = onNavigateToPlayerState ?: LocalNavigateToPlayerState.current
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -320,13 +320,13 @@ fun GeneralBotContent(
             )
 
             // Tabs Row
-            TabRow(
+            SecondaryTabRow(
                 selectedTabIndex = selectedTab,
                 containerColor = SurfaceDark,
                 contentColor = TextPrimary,
-                indicator = { tabPositions ->
+                indicator = {
                     TabRowDefaults.SecondaryIndicator(
-                        Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                        Modifier.tabIndicatorOffset(selectedTab),
                         color = GeneralTeal
                     )
                 }
@@ -405,9 +405,7 @@ fun GeneralBotContent(
                         onUpdateTask = onUpdateTask,
                         onUpdateTargetQty = onUpdateTargetQty,
                         onUpdateSoloClass = onUpdateSoloClass,
-                        onUpdateFarmClass = onUpdateFarmClass,
-                        onStart = onStart,
-                        onStop = onStop
+                        onUpdateFarmClass = onUpdateFarmClass
                     )
                 }
 
@@ -513,24 +511,18 @@ fun GeneralBotStatusHeader(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     if (isRunning) {
-                        Button(
+                        IconButton(
                             onClick = { if (effectivelyPaused) onResume() else onPause() },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (effectivelyPaused) SuccessGreen else SunGold
+                            colors = IconButtonDefaults.iconButtonColors(
+                                containerColor = if (effectivelyPaused) SuccessGreen else SunGold,
+                                contentColor = Color.White
                             ),
                             shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                         ) {
                             Icon(
                                 imageVector = if (effectivelyPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
                                 contentDescription = if (effectivelyPaused) "Resume" else "Pause",
                                 modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = if (effectivelyPaused) "Resume" else "Pause",
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 13.sp
                             )
                         }
                     }
@@ -575,9 +567,7 @@ fun SetupTabContent(
     onUpdateTask: (String) -> Unit,
     onUpdateTargetQty: (Int) -> Unit,
     onUpdateSoloClass: (String) -> Unit,
-    onUpdateFarmClass: (String) -> Unit,
-    onStart: () -> Unit,
-    onStop: () -> Unit
+    onUpdateFarmClass: (String) -> Unit
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
     val currentSubModule = subModules.find { it.id == config.subModule } ?: subModules.firstOrNull()
@@ -659,7 +649,7 @@ fun SetupTabContent(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .menuAnchor(
-                                    MenuAnchorType.PrimaryNotEditable,
+                                    ExposedDropdownMenuAnchorType.PrimaryNotEditable,
                                     enabled = !isRunning
                                 )
                         )
@@ -762,7 +752,7 @@ fun SetupTabContent(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .menuAnchor(
-                                    MenuAnchorType.PrimaryNotEditable,
+                                    ExposedDropdownMenuAnchorType.PrimaryNotEditable,
                                     enabled = !isRunning
                                 )
                         )
@@ -810,7 +800,6 @@ fun SetupTabContent(
                         }
                     }
 
-                    // Task details note
                     // Task details note
                     if (currentTask != null) {
                         Box(

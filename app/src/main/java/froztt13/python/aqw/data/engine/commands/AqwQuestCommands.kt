@@ -40,7 +40,7 @@ class AqwQuestCommands(
                 delay(500.milliseconds)
             }
             if (!client.isConnected.value) break
-            if (playerState.failedQuestIds.contains(questId)) return false
+            if (questId in playerState.failedQuestIds) return false
             acceptQuest(questId)
             delay(retryDelayMs.milliseconds)
             retries++
@@ -70,7 +70,7 @@ class AqwQuestCommands(
                 delay(500.milliseconds)
             }
             if (!client.isConnected.value) break
-            if (playerState.failedQuestIds.contains(questId)) return false
+            if (questId in playerState.failedQuestIds) return false
             turnInQuest(questId, itemId, qty)
             delay(retryDelayMs.milliseconds)
             retries++
@@ -133,8 +133,8 @@ class AqwQuestCommands(
     }
 
     fun canTurnInQuest(questId: Int): Boolean {
-        if (playerState.failedQuestIds.contains(questId)) return false
-        if (playerState.oneTimeQuestIds.contains(questId)) return false
+        if (questId in playerState.failedQuestIds) return false
+        if (questId in playerState.oneTimeQuestIds) return false
         val quest = playerState.loadedQuests.firstOrNull { it.questId == questId } ?: return false
         if (quest.turnInItems.isEmpty()) return false
         for (req in quest.turnInItems) {
@@ -146,15 +146,15 @@ class AqwQuestCommands(
     }
 
     fun isGreenQuest(questId: Int): Boolean {
-        return playerState.missingTurnInItemQuestIds.contains(questId)
+        return questId in playerState.missingTurnInItemQuestIds
     }
 
     fun isCompletedBefore(questId: Int): Boolean {
-        return playerState.oneTimeQuestIds.contains(questId)
+        return questId in playerState.oneTimeQuestIds
     }
 
     fun questInProgress(questId: Int): Boolean {
-        return playerState.activeQuestIds.contains(questId)
+        return questId in playerState.activeQuestIds
     }
 
     fun questNotInProgress(questId: Int): Boolean {

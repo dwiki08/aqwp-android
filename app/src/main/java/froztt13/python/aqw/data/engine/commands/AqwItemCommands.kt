@@ -204,9 +204,9 @@ class AqwItemCommands(
                 val existingTemp = playerState.getItemTempById(itemId)
                 val existingInv = playerState.getItemInventoryById(itemId)
                 if (existingTemp != null) {
-                    existingTemp.qty += 1
+                    existingTemp.qty++
                 } else if (existingInv != null) {
-                    existingInv.qty += 1
+                    existingInv.qty++
                 }
             }
             onItemUpdated()
@@ -221,7 +221,7 @@ class AqwItemCommands(
 
     suspend fun getMapItem(mapItemId: Int, qty: Int = 1): Boolean {
         var success = true
-        for (i in 0 until qty) {
+        repeat(qty) {
             val packet = "%xt%zm%getMapItem%${playerState.areaId}%${mapItemId}%"
             if (!client.send(packet)) success = false
             delay(1000.milliseconds)

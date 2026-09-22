@@ -41,17 +41,16 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -333,7 +332,7 @@ fun TempleContent(
                                 enabled = !isRunning,
                                 modifier = Modifier
                                     .menuAnchor(
-                                        MenuAnchorType.PrimaryNotEditable,
+                                        ExposedDropdownMenuAnchorType.PrimaryNotEditable,
                                         true
                                     )
                                     .fillMaxWidth(),
@@ -527,19 +526,17 @@ fun TempleContent(
             )
 
             // --- Slot Account ViewPager Tab Navigation ---
-            ScrollableTabRow(
+            SecondaryScrollableTabRow(
                 selectedTabIndex = pagerState.currentPage,
                 containerColor = Color(0xFF131522),
                 contentColor = TextPrimary,
                 edgePadding = 0.dp,
-                indicator = { tabPositions ->
-                    if (pagerState.currentPage < tabPositions.size) {
-                        TabRowDefaults.SecondaryIndicator(
-                            Modifier.tabIndicatorOffset(tabPositions[pagerState.currentPage]),
-                            height = 3.dp,
-                            color = indicatorColor
-                        )
-                    }
+                indicator = {
+                    TabRowDefaults.SecondaryIndicator(
+                        Modifier.tabIndicatorOffset(pagerState.currentPage),
+                        height = 3.dp,
+                        color = indicatorColor
+                    )
                 },
                 modifier = Modifier
                     .fillMaxWidth()

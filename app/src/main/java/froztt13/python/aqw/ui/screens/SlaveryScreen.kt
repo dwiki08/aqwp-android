@@ -58,14 +58,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -126,6 +125,8 @@ import froztt13.python.aqw.ui.theme.TextSecondary
 import froztt13.python.aqw.viewmodel.SlaveryViewModel
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableColumn
+import java.util.Locale
+import java.util.UUID
 
 val AUTO_ZONE_OPTIONS =
     listOf("none", "Astral Empyrean", "Dark Carnax", "Ultra Dage", "Queen Iona", "Vordred")
@@ -424,18 +425,16 @@ fun SlaveryContent(
             }
 
             // Slot Account ViewPager Tab Navigation
-            ScrollableTabRow(
+            SecondaryScrollableTabRow(
                 selectedTabIndex = pagerState.currentPage,
                 containerColor = Color(0xFF131522),
                 contentColor = TextPrimary,
                 edgePadding = 0.dp,
-                indicator = { tabPositions ->
-                    if (pagerState.currentPage < tabPositions.size) {
-                        TabRowDefaults.SecondaryIndicator(
-                            Modifier.tabIndicatorOffset(tabPositions[pagerState.currentPage]),
-                            color = SlaveIndigo
-                        )
-                    }
+                indicator = {
+                    TabRowDefaults.SecondaryIndicator(
+                        Modifier.tabIndicatorOffset(pagerState.currentPage),
+                        color = SlaveIndigo
+                    )
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -839,7 +838,7 @@ fun SlaveSlotCard(
                                     ) {
                                         Text(
                                             text = if (isReady) label else String.format(
-                                                java.util.Locale.US,
+                                                Locale.US,
                                                 "%.1f",
                                                 cd
                                             ),
@@ -1155,24 +1154,26 @@ private fun CombinedCombatSkillsSection(
                     modifier = Modifier.fillMaxWidth()
                 ) { index, skillItem, isDragging ->
                     key(skillItem.id) {
-                        SkillVerticalItem(
-                            stepIndex = index + 1,
-                            skill = skillItem,
-                            accentColor = accentColor,
-                            isDragging = isDragging,
-                            enabled = !isPartyRunning,
-                            modifier = Modifier.draggableHandle(enabled = !isPartyRunning),
-                            onClick = {
-                                if (!isPartyRunning) {
-                                    skillToEdit = skillItem
-                                    editStepIndex = index + 1
+                        ReorderableItem {
+                            SkillVerticalItem(
+                                stepIndex = index + 1,
+                                skill = skillItem,
+                                accentColor = accentColor,
+                                isDragging = isDragging,
+                                enabled = !isPartyRunning,
+                                modifier = Modifier.draggableHandle(enabled = !isPartyRunning),
+                                onClick = {
+                                    if (!isPartyRunning) {
+                                        skillToEdit = skillItem
+                                        editStepIndex = index + 1
+                                    }
+                                },
+                                onRemove = {
+                                    val updated = skills.toMutableList().apply { removeAt(index) }
+                                    onConfigChange(config.copy(skills = updated))
                                 }
-                            },
-                            onRemove = {
-                                val updated = skills.toMutableList().apply { removeAt(index) }
-                                onConfigChange(config.copy(skills = updated))
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
@@ -1247,7 +1248,7 @@ private fun CombinedCombatSkillsSection(
 // ---------------------------------------------------------------------------
 @Composable
 private fun SkillVerticalItem(
-    modifier: Modifier,
+    modifier: Modifier = Modifier,
     stepIndex: Int,
     skill: Skill,
     accentColor: Color,
@@ -1808,7 +1809,7 @@ private fun SkillEditorDialog(
             Button(
                 onClick = {
                     val skill = Skill(
-                        id = initialSkill?.id ?: java.util.UUID.randomUUID().toString(),
+                        id = initialSkill?.id ?: UUID.randomUUID().toString(),
                         index = selectedIndex,
                         thresholdType = selectedThresholdType,
                         operator = selectedOperator,

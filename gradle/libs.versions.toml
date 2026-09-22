@@ -1,17 +1,19 @@
 [versions]
-agp = "9.4.0"
+agp = "9.4.1"
 coreKtx = "1.10.1"
+json = "20260814"
 junit = "4.13.2"
 junitVersion = "1.1.5"
 espressoCore = "3.5.1"
-lifecycleRuntimeKtx = "2.6.1"
-activityCompose = "1.8.0"
+lifecycleRuntimeKtx = "2.11.0"
+activityCompose = "1.13.0"
 kotlin = "2.2.10"
-kotlinxSerialization = "1.7.3"
-composeBom = "2024.09.00"
-reorderable = "2.4.3"
+kotlinxSerialization = "1.11.0"
+composeBom = "2026.09.00"
+reorderable = "3.1.0"
 
 [libraries]
+json = { module = "org.json:json", version.ref = "json" }
 reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }

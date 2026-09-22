@@ -1,6 +1,7 @@
 package froztt13.python.aqw.data.model
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 
 @Serializable
 data class DoomAccount(
@@ -9,9 +10,9 @@ data class DoomAccount(
     val password: String = "",
     val enabled: Boolean = true
 ) {
-    fun toJson(): String = appJson.encodeToString(serializer(), this)
+    fun toJson(): String = appJson.encodeToString(this)
 
     companion object {
-        fun fromJson(jsonStr: String): DoomAccount = appJson.decodeFromString(serializer(), jsonStr)
+        fun fromJson(jsonStr: String): DoomAccount = appJson.decodeFromString(jsonStr)
     }
 }

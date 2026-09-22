@@ -108,8 +108,8 @@ open class AqwSocketClient {
 
                     for (i in 0 until bytesRead) {
                         val b = readBuf[i]
-                        if (b == 0.toByte()) {
-                            val packet = buffer.toString("UTF-8")
+                        if (b.toInt() == 0) {
+                            val packet = buffer.toString(Charsets.UTF_8.name())
                             buffer.reset()
                             if (packet.isNotEmpty()) {
                                 _incomingPackets.emit(packet)

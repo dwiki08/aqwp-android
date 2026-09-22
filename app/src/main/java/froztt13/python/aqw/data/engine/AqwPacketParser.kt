@@ -14,8 +14,8 @@ import froztt13.python.aqw.utils.Utils
 import org.json.JSONObject
 
 sealed interface AqwEvent {
-    object PolicyReceived : AqwEvent
-    object LoginResponseReceived : AqwEvent
+    data object PolicyReceived : AqwEvent
+    data object LoginResponseReceived : AqwEvent
     data class JoinOk(
         val rawXml: String,
         val myRoomUserId: Int = 0,
@@ -46,7 +46,7 @@ sealed interface AqwEvent {
         val playerMp: Int? = null
     ) : AqwEvent
 
-    object YouJoinedMap : AqwEvent
+    data object YouJoinedMap : AqwEvent
     data class InventoryLoaded(
         val items: List<AqwItem>,
         val factions: List<AqwFaction> = emptyList()
@@ -118,7 +118,7 @@ sealed interface AqwEvent {
     ) : AqwEvent
 
     data class FactionAdded(val faction: AqwFaction) : AqwEvent
-    object AurasCleared : AqwEvent
+    data object AurasCleared : AqwEvent
     data class ScrollEquipped(val anim: String, val strl: String, val cd: Double, val tgt: String) :
         AqwEvent
 
@@ -143,8 +143,8 @@ sealed interface AqwEvent {
     data class ExitArea(val username: String) : AqwEvent
     data class ChatMessage(val sender: String, val message: String, val channel: String) : AqwEvent
     data class WhisperMessage(val sender: String, val message: String) : AqwEvent
-    object AfkNotice : AqwEvent
-    object InvalidSessionNotice : AqwEvent
+    data object AfkNotice : AqwEvent
+    data object InvalidSessionNotice : AqwEvent
     data class Unknown(val raw: String) : AqwEvent
 }
 
@@ -541,17 +541,17 @@ object AqwPacketParser {
                     for (i in 0 until animsArr.length()) {
                         val aObj = animsArr.optJSONObject(i) ?: continue
                         val msg = aObj.optString("msg", "").ifEmpty { aObj.optString("str", "") }
-                        if (msg.isNotEmpty() && !animMsgs.contains(msg)) animMsgs.add(msg)
+                        if (msg.isNotEmpty() && msg !in animMsgs) animMsgs.add(msg)
                     }
                 } else {
                     val aObj = data.optJSONObject("anims") ?: data.optJSONObject("anim")
                     if (aObj != null) {
                         val msg = aObj.optString("msg", "").ifEmpty { aObj.optString("str", "") }
-                        if (msg.isNotEmpty() && !animMsgs.contains(msg)) animMsgs.add(msg)
+                        if (msg.isNotEmpty() && msg !in animMsgs) animMsgs.add(msg)
                     }
                 }
                 val directMsg = data.optString("msg", "")
-                if (directMsg.isNotEmpty() && !animMsgs.contains(directMsg)) {
+                if (directMsg.isNotEmpty() && directMsg !in animMsgs) {
                     animMsgs.add(directMsg)
                 }
 
@@ -578,15 +578,12 @@ object AqwPacketParser {
                                     val cnt = auObj.optInt("cnt", 1)
                                     if (nam.isNotEmpty()) {
                                         aurasList.add(
-                                            Pair(
-                                                AqwAura(
-                                                    name = nam,
-                                                    duration = dur,
-                                                    isNew = isNew,
-                                                    count = cnt
-                                                ),
-                                                tInf
-                                            )
+                                            AqwAura(
+                                                name = nam,
+                                                duration = dur,
+                                                isNew = isNew,
+                                                count = cnt
+                                            ) to tInf
                                         )
                                     }
                                 }
@@ -602,15 +599,12 @@ object AqwPacketParser {
                                 val cnt = singleAura.optInt("cnt", 1)
                                 if (nam.isNotEmpty()) {
                                     aurasList.add(
-                                        Pair(
-                                            AqwAura(
-                                                name = nam,
-                                                duration = dur,
-                                                isNew = isNew,
-                                                count = cnt
-                                            ),
-                                            tInf
-                                        )
+                                        AqwAura(
+                                            name = nam,
+                                            duration = dur,
+                                            isNew = isNew,
+                                            count = cnt
+                                        ) to tInf
                                     )
                                 }
                             }
@@ -619,14 +613,14 @@ object AqwPacketParser {
                                 actObj.optJSONObject("aura")?.optString("nam", "") ?: ""
                             )
                             if (remAura.isNotEmpty()) {
-                                aurasRemovedList.add(Pair(remAura, tInf))
+                                aurasRemovedList.add(remAura to tInf)
                             } else {
                                 val aurasArr = actObj.optJSONArray("auras")
                                 if (aurasArr != null) {
                                     for (j in 0 until aurasArr.length()) {
                                         val auObj = aurasArr.optJSONObject(j) ?: continue
                                         val nam = cleanAuraName(auObj.optString("nam", ""))
-                                        if (nam.isNotEmpty()) aurasRemovedList.add(Pair(nam, tInf))
+                                        if (nam.isNotEmpty()) aurasRemovedList.add(nam to tInf)
                                     }
                                 }
                             }
@@ -776,8 +770,8 @@ object AqwPacketParser {
                     while (keys.hasNext()) {
                         val k = keys.next()
                         val itemObj = dropItems.optJSONObject(k)
-                        val sName = itemObj?.optString("sName", "")
-                        if (!sName.isNullOrEmpty()) dropsList.add(sName)
+                        val sName = itemObj?.optString("sName", "") ?: ""
+                        if (sName.isNotEmpty()) dropsList.add(sName)
                     }
                 }
                 AqwEvent.WheelSpun(dropsList)
@@ -879,7 +873,7 @@ object AqwPacketParser {
                         if (parts.size >= 2) {
                             val itemId = parts[0].trim().toIntOrNull() ?: 0
                             val qty = parts[1].trim().toIntOrNull() ?: 0
-                            if (itemId > 0) deductions.add(Pair(itemId, qty))
+                            if (itemId > 0) deductions.add(itemId to qty)
                         }
                     }
                 }

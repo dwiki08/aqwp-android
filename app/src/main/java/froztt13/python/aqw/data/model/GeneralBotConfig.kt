@@ -2,6 +2,7 @@ package froztt13.python.aqw.data.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 
 @Serializable
 data class GeneralBotConfig(
@@ -24,10 +25,10 @@ data class GeneralBotConfig(
     @SerialName("farm_class")
     val farmClass: String = "Legion Revenant"
 ) {
-    fun toJson(): String = appJson.encodeToString(serializer(), this)
+    fun toJson(): String = appJson.encodeToString(this)
 
     companion object {
         fun fromJson(jsonStr: String): GeneralBotConfig =
-            appJson.decodeFromString(serializer(), jsonStr)
+            appJson.decodeFromString(jsonStr)
     }
 }

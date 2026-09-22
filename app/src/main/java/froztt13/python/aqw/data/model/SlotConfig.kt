@@ -2,6 +2,7 @@ package froztt13.python.aqw.data.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 
 @Serializable
 data class SlotConfig(
@@ -24,9 +25,9 @@ data class SlotConfig(
     @SerialName("default_target")
     val defaultTarget: String = ""
 ) {
-    fun toJson(): String = appJson.encodeToString(serializer(), this)
+    fun toJson(): String = appJson.encodeToString(this)
 
     companion object {
-        fun fromJson(jsonStr: String): SlotConfig = appJson.decodeFromString(serializer(), jsonStr)
+        fun fromJson(jsonStr: String): SlotConfig = appJson.decodeFromString(jsonStr)
     }
 }

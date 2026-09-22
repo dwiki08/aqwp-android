@@ -2,6 +2,7 @@ package froztt13.python.aqw.data.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 
 @Serializable
 data class EclipseConfig(
@@ -34,7 +35,7 @@ data class EclipseConfig(
     }
 
     private fun enforceSlotConfig(key: String, config: SlotConfig): SlotConfig {
-        val isSun = key in listOf("slot1", "slot2")
+        val isSun = key == "slot1" || key == "slot2"
         val fixedPrimary = if (isSun) "Ascended Solstice" else "Ascended Midnight"
         val targets =
             config.defaultTarget.split(",").map { it.trim() }.filter { it.isNotEmpty() }
@@ -46,7 +47,7 @@ data class EclipseConfig(
         } else {
             config.defaultTarget
         }
-        val isLightGather = if (key == "slot1") false else config.lightGatherTaunter
+        val isLightGather = key != "slot1" && config.lightGatherTaunter
 
         return config.copy(
             isTaunter = true,
@@ -57,7 +58,7 @@ data class EclipseConfig(
         )
     }
 
-    fun toJson(): String = appJson.encodeToString(serializer(), this)
+    fun toJson(): String = appJson.encodeToString(this)
 
     companion object {
         fun defaultSlots(): Map<String, SlotConfig> = mapOf(
@@ -100,6 +101,6 @@ data class EclipseConfig(
         )
 
         fun fromJson(jsonStr: String): EclipseConfig =
-            appJson.decodeFromString(serializer(), jsonStr)
+            appJson.decodeFromString(jsonStr)
     }
 }

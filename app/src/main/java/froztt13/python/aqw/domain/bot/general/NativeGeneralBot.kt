@@ -9,7 +9,6 @@ import froztt13.python.aqw.data.model.GeneralSubModuleInfo
 import froztt13.python.aqw.data.model.GeneralTaskInfo
 import froztt13.python.aqw.data.model.LogEntryType
 import froztt13.python.aqw.data.model.QuestRequirementTelemetry
-import froztt13.python.aqw.helper.BotHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -57,12 +56,11 @@ object NativeGeneralBot {
         pausedAtMillis = System.currentTimeMillis()
 
         scope.launch(Dispatchers.IO) {
-            BotHelper.dispatchLog(
-                LogEntryType.WARNING,
-                "System",
-                "Pausing General Bot: leaving combat and jumping to current cell..."
-            )
             val session = currentSession
+            session?.log(
+                "Pausing General Bot: leaving combat and jumping to current cell...",
+                LogEntryType.WARNING
+            )
             if (session != null) {
                 try {
                     val currentCell = session.playerState.cell.ifBlank { "Enter" }
@@ -71,11 +69,7 @@ object NativeGeneralBot {
                     delay(200.milliseconds)
                     session.combat.rest()
                     session.playerState.isInCombat = false
-                    BotHelper.dispatchLog(
-                        LogEntryType.INFO,
-                        session.playerState.username,
-                        "Left combat, jumped to $currentCell [$currentPad]"
-                    )
+                    session.log("Left combat, jumped to $currentCell [$currentPad]")
                 } catch (e: Exception) {
                     Log.e(TAG, "Error leaving combat on pause: ${e.message}")
                 }
@@ -87,7 +81,7 @@ object NativeGeneralBot {
                     message = "General Bot is paused"
                 )
             }
-            BotHelper.dispatchLog(LogEntryType.WARNING, "System", "=== General Bot PAUSED ===")
+            session?.log("=== General Bot PAUSED ===", LogEntryType.WARNING)
         }
     }
 
@@ -106,7 +100,7 @@ object NativeGeneralBot {
             )
         }
         currentSession?.quest?.triggerAutoQuestCheck()
-        BotHelper.dispatchLog(LogEntryType.INFO, "System", "=== General Bot RESUMED ===")
+        currentSession?.log("=== General Bot RESUMED ===")
     }
 
     val availableSubModules: List<GeneralSubModuleInfo> by lazy {
@@ -166,6 +160,7 @@ object NativeGeneralBot {
         stopRequested = true
         _isPaused.value = false
         pausedAtMillis = 0L
+        currentSession?.log("=== General Bot stopped by user ===")
         currentSession?.stop()
         runnerJob?.cancel()
 
@@ -179,7 +174,6 @@ object NativeGeneralBot {
                 timeRunning = (System.currentTimeMillis() - startTimeMillis) / 1000L
             )
         }
-        BotHelper.dispatchLog(LogEntryType.INFO, "System", "=== General Bot stopped by user ===")
     }
 
     fun resetState() {
@@ -196,6 +190,7 @@ object NativeGeneralBot {
 
         val session = AqwSession()
         session.isPaused = { _isPaused.value }
+        session.socketClient.tag = username
         currentSession = session
 
         val targetQty = config.targetQty
@@ -256,18 +251,10 @@ object NativeGeneralBot {
                             else -> true
                         }
                         if (isWhitelisted) {
-                            BotHelper.dispatchLog(
-                                LogEntryType.INFO,
-                                username,
-                                "Picking up drop: ${event.itemName} x${event.qty}"
-                            )
+                            session.log("Picking up drop: ${event.itemName} x${event.qty}")
                             session.item.getItemDrop(event.itemId)
                         } else {
-                            BotHelper.dispatchLog(
-                                LogEntryType.INFO,
-                                username,
-                                "Ignoring drop (not in whitelist): ${event.itemName}"
-                            )
+                            session.log("Ignoring drop (not in whitelist): ${event.itemName}")
                         }
                     }
 
@@ -277,7 +264,7 @@ object NativeGeneralBot {
         }
 
         try {
-            BotHelper.dispatchLog(LogEntryType.INFO, username, "Logging in to $server...")
+            session.log("Logging in to $server...")
             _telemetry.update {
                 it.copy(
                     status = "Connecting",
@@ -292,7 +279,7 @@ object NativeGeneralBot {
             )
 
             if (!connected) {
-                BotHelper.dispatchLog(LogEntryType.ERROR, username, "Login failed / check credentials.")
+                session.log("Login failed / check credentials.", LogEntryType.ERROR)
                 _telemetry.update { it.copy(status = "Failed", message = "Login failed.") }
                 return
             }
@@ -304,7 +291,7 @@ object NativeGeneralBot {
             }
 
             if (!session.isCharLoaded.value) {
-                BotHelper.dispatchLog(LogEntryType.ERROR, username, "Character load timed out.")
+                session.log("Character load timed out.", LogEntryType.ERROR)
                 return
             }
 
@@ -405,7 +392,7 @@ object NativeGeneralBot {
             }
 
         } catch (e: Exception) {
-            BotHelper.dispatchLog(LogEntryType.ERROR, username, "Runner error: ${e.message}")
+            session.log("Runner error: ${e.message}", LogEntryType.ERROR)
             Log.e(TAG, "runGeneralBot error", e)
         } finally {
             eventJob.cancel()

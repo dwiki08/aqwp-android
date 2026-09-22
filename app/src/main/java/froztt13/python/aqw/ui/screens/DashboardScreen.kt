@@ -277,7 +277,7 @@ fun DashboardContent(
                     onClick = onNavigateToGeneral,
                     isRunning = hubOverview.general.running,
                     runningDetail = if (hubOverview.general.running) {
-                        "${if (hubOverview.general.subModule.isNotEmpty()) hubOverview.general.subModule else "Farm"} • ${hubOverview.general.formattedTime}"
+                        "${hubOverview.general.subModule.ifEmpty { "Farm" }} • ${hubOverview.general.formattedTime}"
                     } else null,
                     modifier = Modifier
                         .fillMaxWidth()

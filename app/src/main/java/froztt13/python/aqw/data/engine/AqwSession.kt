@@ -41,9 +41,7 @@ class AqwSession {
         val activeSessions: List<AqwSession> get() = _activeSessions
 
         fun register(session: AqwSession) {
-            if (!_activeSessions.contains(session)) {
-                _activeSessions.add(session)
-            }
+            _activeSessions.addIfAbsent(session)
         }
 
         fun unregister(session: AqwSession) {
@@ -272,7 +270,7 @@ class AqwSession {
                 playerState.droppedItems.clear()
                 for (op in event.otherPlayers) {
                     playerState.playersInMap[op.username] = op
-                    if (op.roomUserId > 0 && !playerState.roomUserIds.contains(op.roomUserId)) {
+                    if (op.roomUserId > 0 && op.roomUserId !in playerState.roomUserIds) {
                         playerState.roomUserIds.add(op.roomUserId)
                     }
                     if (op.username.equals(playerState.followedPlayer, ignoreCase = true)) {
@@ -643,7 +641,7 @@ class AqwSession {
                         socketClient.send("%xt%zm%getQuests%${playerState.areaId}%${event.questId}%")
                     }
                     emitLog("Quest accepted: ${event.questId}")
-                    if (playerState.registeredAutoQuestIds.contains(event.questId)) {
+                    if (event.questId in playerState.registeredAutoQuestIds) {
                         quest.triggerAutoQuestCheck()
                     }
                 } else {
@@ -702,7 +700,7 @@ class AqwSession {
                     emitLog("Quest completed: ${event.questId} - ${event.questName} (+${event.rep} rep)")
                     quest.triggerAutoQuestCheck()
 
-                    if (playerState.registeredAutoQuestIds.contains(event.questId)) {
+                    if (event.questId in playerState.registeredAutoQuestIds) {
                         sessionScope.launch {
                             delay(500.milliseconds)
                             quest.acceptQuest(event.questId)
@@ -718,7 +716,10 @@ class AqwSession {
                     if (event.msg.contains("One Time Quest Only", ignoreCase = true)) {
                         playerState.oneTimeQuestIds.add(event.questId)
                     }
-                    log("Quest complete failed: ${event.questId} (${event.msg})", LogEntryType.ERROR)
+                    log(
+                        "Quest complete failed: ${event.questId} (${event.msg})",
+                        LogEntryType.ERROR
+                    )
                 }
             }
 
@@ -763,7 +764,7 @@ class AqwSession {
                     playerState.roomUserId = event.userId
                 }
                 if (event.userId > 0) {
-                    if (!playerState.roomUserIds.contains(event.userId)) {
+                    if (event.userId !in playerState.roomUserIds) {
                         playerState.roomUserIds.add(event.userId)
                     }
                     if (!event.isMe && event.username.isNotEmpty()) {
@@ -800,7 +801,10 @@ class AqwSession {
             }
 
             is AqwEvent.ChatMessage -> {
-                log("[${event.channel.uppercase()}] ${event.sender}: ${event.message}", LogEntryType.SYSTEM)
+                log(
+                    "[${event.channel.uppercase()}] ${event.sender}: ${event.message}",
+                    LogEntryType.SYSTEM
+                )
             }
 
             is AqwEvent.WhisperMessage -> {

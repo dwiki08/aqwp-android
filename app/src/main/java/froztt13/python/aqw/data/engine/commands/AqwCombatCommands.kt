@@ -69,6 +69,7 @@ class AqwCombatCommands(
         aggroJob = null
     }
 
+    @Suppress("FunctionName")
     fun stop_aggro() = stopAggro()
 
     // ==========================================
@@ -237,7 +238,7 @@ class AqwCombatCommands(
 
         val usernameId = playerState.roomUserId
         val targetParam = when (tgtType) {
-            "s" -> "a${index}>p:${usernameId}" // self
+            "s" -> "a$index>p:$usernameId" // self
             "f" -> {
                 val maxTarget = skill?.tgtMax ?: 1
                 val userIds = playerState.roomUserIds.ifEmpty {
@@ -248,20 +249,13 @@ class AqwCombatCommands(
                 val targets = mutableListOf<String>()
                 for (i in userIds) {
                     if (targets.size >= maxTarget - 1) break
-                    targets.add("a${index}>p:${i}")
+                    targets.add("a$index>p:$i")
                 }
-                targets.add(0, "a${index}>p:${usernameId}")
-
-                val finalTarget = mutableListOf<String>()
-                for (tgt in targets) {
-                    if (!finalTarget.contains(tgt)) {
-                        finalTarget.add(tgt)
-                    }
-                }
-                finalTarget.joinToString(",")
+                targets.add(0, "a$index>p:$usernameId")
+                targets.distinct().joinToString(",")
             }
 
-            else -> "a${index}>p:${usernameId}"
+            else -> "a$index>p:$usernameId"
         }
 
         val sent = client.send("%xt%zm%gar%1%0%${targetParam}%wvz%")
@@ -325,12 +319,18 @@ class AqwCombatCommands(
         }
 
         val targetParam = selectedMonIds.joinToString(",") { monId ->
-            if (index == 0) {
-                "aa>m:$monId"
-            } else if (index == 5 && scrollId.isNotBlank()) {
-                "i1>m:$monId%$scrollId"
-            } else {
-                "a$index>m:$monId"
+            when (index) {
+                0 -> {
+                    "aa>m:$monId"
+                }
+
+                5 if scrollId.isNotBlank() -> {
+                    "i1>m:$monId%$scrollId"
+                }
+
+                else -> {
+                    "a$index>m:$monId"
+                }
             }
         }
 
@@ -360,18 +360,13 @@ class AqwCombatCommands(
         val targets = mutableListOf<String>()
         for (i in userIds) {
             if (targets.size >= maxTarget - 1) break
-            targets.add("a${skillIndex}>p:${i}")
+            targets.add("a$skillIndex>p:$i")
         }
-        targets.add(0, "a${skillIndex}>p:${usernameId}")
+        targets.add(0, "a$skillIndex>p:$usernameId")
 
-        val finalTarget = mutableListOf<String>()
-        for (tgt in targets) {
-            if (!finalTarget.contains(tgt)) {
-                finalTarget.add(tgt)
-            }
-        }
+        val finalTarget = targets.distinct().joinToString(",")
 
-        val packet = "%xt%zm%gar%1%0%${finalTarget.joinToString(",")}%wvz%"
+        val packet = "%xt%zm%gar%1%0%${finalTarget}%wvz%"
         val sent = client.send(packet)
         if (sent) {
             updateNextUse(skillIndex)
@@ -400,7 +395,7 @@ class AqwCombatCommands(
 
     suspend fun taunt(monMapId: String): Boolean {
         val targetParam =
-            if (scrollId.isNotBlank()) "i1>m:${monMapId}%${scrollId}" else "a5>m:${monMapId}"
+            if (scrollId.isNotBlank()) "i1>m:$monMapId%$scrollId" else "a5>m:$monMapId"
         val packet = "%xt%zm%gar%1%0%${targetParam}%wvz%"
         val sent = client.send(packet)
         if (sent) {

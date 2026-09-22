@@ -2,6 +2,7 @@ package froztt13.python.aqw.data.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 
 @Serializable
 data class SlaveryConfig(
@@ -24,7 +25,7 @@ data class SlaveryConfig(
     @SerialName("slots")
     val slots: Map<String, SlaveSlotConfig> = defaultSlots()
 ) {
-    fun toJson(): String = appJson.encodeToString(serializer(), this)
+    fun toJson(): String = appJson.encodeToString(this)
 
     companion object {
         fun defaultLockedZones(): List<String> = listOf(
@@ -46,6 +47,6 @@ data class SlaveryConfig(
         )
 
         fun fromJson(jsonStr: String): SlaveryConfig =
-            appJson.decodeFromString(serializer(), jsonStr)
+            appJson.decodeFromString(jsonStr)
     }
 }

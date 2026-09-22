@@ -2,6 +2,7 @@ package froztt13.python.aqw.data.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 
 @Serializable
 data class WeeklyDoomConfig(
@@ -10,10 +11,10 @@ data class WeeklyDoomConfig(
     @SerialName("accounts")
     val accounts: List<DoomAccount> = listOf(DoomAccount())
 ) {
-    fun toJson(): String = appJson.encodeToString(serializer(), this)
+    fun toJson(): String = appJson.encodeToString(this)
 
     companion object {
         fun fromJson(jsonStr: String): WeeklyDoomConfig =
-            appJson.decodeFromString(serializer(), jsonStr)
+            appJson.decodeFromString(jsonStr)
     }
 }

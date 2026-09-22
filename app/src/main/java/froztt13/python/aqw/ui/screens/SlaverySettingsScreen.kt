@@ -41,12 +41,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -399,7 +399,7 @@ fun SlaverySettingsScreen(
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = autoZoneExpanded) },
                             enabled = !isRunning,
                             modifier = Modifier
-                                .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
+                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true)
                                 .fillMaxWidth(),
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -652,92 +652,94 @@ fun SlaverySettingsScreen(
                                 val cardBg =
                                     if (isDragging) Color(0xFF222842) else Color(0xFF161928)
 
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(cardBg)
-                                        .border(
-                                            width = if (isDragging) 1.5.dp else 1.dp,
-                                            color = borderColor,
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
+                                ReorderableItem {
                                     Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(cardBg)
+                                            .border(
+                                                width = if (isDragging) 1.5.dp else 1.dp,
+                                                color = borderColor,
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                            .padding(horizontal = 10.dp, vertical = 8.dp),
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        modifier = Modifier.weight(1f)
+                                        horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        // Drag Handle
-                                        Box(
-                                            modifier = Modifier
-                                                .size(28.dp)
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .background(
-                                                    if (isDragging) themeColor.copy(alpha = 0.25f)
-                                                    else Color(0xFF1E2235)
-                                                )
-                                                .draggableHandle(enabled = !isRunning),
-                                            contentAlignment = Alignment.Center
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.weight(1f)
                                         ) {
+                                            // Drag Handle
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(28.dp)
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(
+                                                        if (isDragging) themeColor.copy(alpha = 0.25f)
+                                                        else Color(0xFF1E2235)
+                                                    )
+                                                    .draggableHandle(enabled = !isRunning),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.DragHandle,
+                                                    contentDescription = "Drag to reorder",
+                                                    tint = if (isDragging) Color.White else TextMuted,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+
+                                            Text(
+                                                text = "#${index + 1}",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = TextMuted,
+                                                modifier = Modifier.width(24.dp)
+                                            )
                                             Icon(
-                                                imageVector = Icons.Filled.DragHandle,
-                                                contentDescription = "Drag to reorder",
-                                                tint = if (isDragging) Color.White else TextMuted,
+                                                imageVector = Icons.Filled.Explore,
+                                                contentDescription = null,
+                                                tint = themeColor,
                                                 modifier = Modifier.size(16.dp)
+                                            )
+                                            Text(
+                                                text = mapName,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = TextPrimary
                                             )
                                         }
 
-                                        Text(
-                                            text = "#${index + 1}",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = TextMuted,
-                                            modifier = Modifier.width(24.dp)
-                                        )
-                                        Icon(
-                                            imageVector = Icons.Filled.Explore,
-                                            contentDescription = null,
-                                            tint = themeColor,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Text(
-                                            text = mapName,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = TextPrimary
-                                        )
-                                    }
-
-                                    if (!isRunning) {
-                                        IconButton(
-                                            onClick = {
-                                                val updatedList =
-                                                    config.lockedZones.toMutableList().apply {
-                                                        removeAt(index)
-                                                    }
-                                                onUpdateGlobalSettings(
-                                                    config.server,
-                                                    config.followPlayer,
-                                                    config.defaultRoomNumber,
-                                                    config.copyWalk,
-                                                    config.autoZone,
-                                                    config.targetsPriority,
-                                                    config.whitelist,
-                                                    updatedList
+                                        if (!isRunning) {
+                                            IconButton(
+                                                onClick = {
+                                                    val updatedList =
+                                                        config.lockedZones.toMutableList().apply {
+                                                            removeAt(index)
+                                                        }
+                                                    onUpdateGlobalSettings(
+                                                        config.server,
+                                                        config.followPlayer,
+                                                        config.defaultRoomNumber,
+                                                        config.copyWalk,
+                                                        config.autoZone,
+                                                        config.targetsPriority,
+                                                        config.whitelist,
+                                                        updatedList
+                                                    )
+                                                },
+                                                modifier = Modifier.size(24.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Close,
+                                                    contentDescription = "Remove map",
+                                                    tint = ErrorRed.copy(alpha = 0.8f),
+                                                    modifier = Modifier.size(14.dp)
                                                 )
-                                            },
-                                            modifier = Modifier.size(24.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Close,
-                                                contentDescription = "Remove map",
-                                                tint = ErrorRed.copy(alpha = 0.8f),
-                                                modifier = Modifier.size(14.dp)
-                                            )
+                                            }
                                         }
                                     }
                                 }

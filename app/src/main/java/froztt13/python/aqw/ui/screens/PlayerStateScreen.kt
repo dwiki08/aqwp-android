@@ -31,10 +31,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -330,14 +329,14 @@ fun PlayerStateContent(
                             "Factions (${playerState.factions.size})",
                             "Players (${playerState.playersInMap.size})"
                         )
-                        ScrollableTabRow(
+                        SecondaryScrollableTabRow(
                             selectedTabIndex = selectedTab,
                             containerColor = SurfaceDark,
                             contentColor = TextPrimary,
                             edgePadding = 12.dp,
-                            indicator = { tabPositions ->
+                            indicator = {
                                 TabRowDefaults.SecondaryIndicator(
-                                    Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                                    Modifier.tabIndicatorOffset(selectedTab),
                                     color = GeneralTeal
                                 )
                             }

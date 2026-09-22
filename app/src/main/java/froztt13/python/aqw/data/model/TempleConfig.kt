@@ -2,6 +2,7 @@ package froztt13.python.aqw.data.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 
 @Serializable
 data class TempleConfig(
@@ -14,7 +15,7 @@ data class TempleConfig(
     @SerialName("slots")
     val slots: Map<String, SlotConfig> = defaultSlots()
 ) {
-    fun toJson(): String = appJson.encodeToString(serializer(), this)
+    fun toJson(): String = appJson.encodeToString(this)
 
     companion object {
         fun defaultSlots(): Map<String, SlotConfig> = mapOf(
@@ -45,6 +46,6 @@ data class TempleConfig(
         )
 
         fun fromJson(jsonStr: String): TempleConfig =
-            appJson.decodeFromString(serializer(), jsonStr)
+            appJson.decodeFromString(jsonStr)
     }
 }

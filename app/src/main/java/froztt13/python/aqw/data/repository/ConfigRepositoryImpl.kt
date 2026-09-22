@@ -42,7 +42,7 @@ class ConfigRepositoryImpl(
             "doom_load_config", "doom_save_config", "doom_reset_config", FILE_DOOM -> FILE_DOOM
             "slavery_load_config", "slavery_save_config", "slavery_reset_config", FILE_SLAVERY -> FILE_SLAVERY
             "general_load_config", "general_save_config", "general_reset_config", FILE_GENERAL -> FILE_GENERAL
-            else -> if (name.endsWith(".json")) name else "${name}.json"
+            else -> if (name.endsWith(".json")) name else "$name.json"
         }
         return File(dir, fileName)
     }

@@ -91,10 +91,11 @@ object AqwHttpApi {
         }
 
     suspend fun loadBank(charId: Int, token: String): List<AqwItem> = withContext(Dispatchers.IO) {
+        var conn: HttpsURLConnection? = null
         try {
-            val randomV = "0." + (1000000000000000L..9999999999999999L).random()
+            val randomV = "0.${(1000000000000000L..9999999999999999L).random()}"
             val url = URL("https://game.aq.com/game/api/char/bank?v=$randomV")
-            val conn = (url.openConnection() as HttpsURLConnection).apply {
+            conn = (url.openConnection() as HttpsURLConnection).apply {
                 requestMethod = "POST"
                 doOutput = true
                 connectTimeout = 12000
@@ -133,6 +134,11 @@ object AqwHttpApi {
         } catch (e: Exception) {
             Log.d(TAG, "loadBank: $e")
             emptyList()
+        } finally {
+            try {
+                conn?.disconnect()
+            } catch (_: Exception) {
+            }
         }
     }
 }

@@ -2,6 +2,7 @@ package froztt13.python.aqw.data.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 
 @Serializable
 data class SlaveSlotConfig(
@@ -18,7 +19,7 @@ data class SlaveSlotConfig(
     @SerialName("is_taunter")
     val isTaunter: Boolean = false
 ) {
-    fun toJson(): String = appJson.encodeToString(serializer(), this)
+    fun toJson(): String = appJson.encodeToString(this)
 
     companion object {
         fun defaultSkills(): List<Skill> = listOf(
@@ -29,6 +30,6 @@ data class SlaveSlotConfig(
         )
 
         fun fromJson(jsonStr: String): SlaveSlotConfig =
-            appJson.decodeFromString(serializer(), jsonStr)
+            appJson.decodeFromString(jsonStr)
     }
 }

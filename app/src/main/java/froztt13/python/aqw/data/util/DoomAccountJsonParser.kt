@@ -84,16 +84,16 @@ object DoomAccountJsonParser {
                     }
                 }
             } else {
-                return Pair(null, "Invalid file format. Ensure the file is a JSON array or object.")
+                return null to "Invalid file format. Ensure the file is a JSON array or object."
             }
 
             if (importedList.isEmpty()) {
-                return Pair(null, "No valid accounts found in the JSON file.")
+                return null to "No valid accounts found in the JSON file."
             }
 
-            Pair(importedList, null)
+            importedList to null
         } catch (e: Exception) {
-            Pair(null, "Failed to parse JSON: ${e.message}")
+            null to "Failed to parse JSON: ${e.message}"
         }
     }
 }

@@ -2,6 +2,7 @@ package froztt13.python.aqw.data.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 
 @Serializable
 data class Skill(
@@ -18,9 +19,9 @@ data class Skill(
 ) {
     fun hasThreshold(): Boolean = thresholdType != ThresholdType.NONE && thresholdValue > 0
 
-    fun toJson(): String = appJson.encodeToString(serializer(), this)
+    fun toJson(): String = appJson.encodeToString(this)
 
     companion object {
-        fun fromJson(jsonStr: String): Skill = appJson.decodeFromString(serializer(), jsonStr)
+        fun fromJson(jsonStr: String): Skill = appJson.decodeFromString(jsonStr)
     }
 }
