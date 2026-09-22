@@ -3,6 +3,7 @@ package froztt13.python.aqw.domain.bot.temple
 import android.util.Log
 import froztt13.python.aqw.data.engine.AqwEvent
 import froztt13.python.aqw.data.engine.AqwSession
+import froztt13.python.aqw.data.model.LogEntryType
 import froztt13.python.aqw.data.model.MonsterTelemetry
 import froztt13.python.aqw.data.model.PartyStats
 import froztt13.python.aqw.data.model.SlotConfig
@@ -75,7 +76,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
 
         scope.launch(Dispatchers.IO) {
             BotHelper.dispatchLog(
-                "temple",
+                LogEntryType.WARNING,
                 "System",
                 "Pausing Temple Party: all slots leaving combat and jumping to current cell..."
             )
@@ -89,7 +90,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
                         session.combat.rest()
                         session.playerState.isInCombat = false
                         BotHelper.dispatchLog(
-                            "temple",
+                            LogEntryType.INFO,
                             session.playerState.username,
                             "[$slotKey] Left combat, jumped to $currentCell [$currentPad]"
                         )
@@ -107,7 +108,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
                     isRunning = true
                 )
             }
-            BotHelper.dispatchLog("temple", "System", "=== Temple Shrine Party PAUSED ===")
+            BotHelper.dispatchLog(LogEntryType.WARNING, "System", "=== Temple Shrine Party PAUSED ===")
         }
     }
 
@@ -134,7 +135,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
                 isRunning = true
             )
         }
-        BotHelper.dispatchLog("temple", "System", "=== Temple Shrine Party RESUMED ===")
+        BotHelper.dispatchLog(LogEntryType.INFO, "System", "=== Temple Shrine Party RESUMED ===")
     }
 
     fun start(config: TempleConfig): Pair<Boolean, String?> {
@@ -212,7 +213,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
             }
         }
         _stats.update { it.copy(timeRunning = (System.currentTimeMillis() - startTimeMillis) / 1000L) }
-        BotHelper.dispatchLog("temple", "System", "=== Temple Shrine Party stopped by user ===")
+        BotHelper.dispatchLog(LogEntryType.INFO, "System", "=== Temple Shrine Party stopped by user ===")
     }
 
     private suspend fun waitForSlavesInCell(targetCell: String, maxWaitMs: Long = 4000L) {
@@ -289,7 +290,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
             slotJobs.joinAll()
         } catch (e: Exception) {
             Log.e(TAG, "Error in Temple Party run: ${e.message}", e)
-            BotHelper.dispatchLog("temple", "System", "Error in Temple Party run: ${e.message}")
+            BotHelper.dispatchLog(LogEntryType.ERROR, "System", "Error in Temple Party run: ${e.message}")
         } finally {
             statsTimerJob.cancel()
             stop()
@@ -386,7 +387,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
                     is AqwEvent.ItemDropped -> {
                         if (dropWhitelist.any { it.equals(event.itemName, ignoreCase = true) }) {
                             BotHelper.dispatchLog(
-                                "temple",
+                                LogEntryType.INFO,
                                 username,
                                 "Picking up drop: ${event.itemName} x${event.qty}"
                             )
@@ -400,16 +401,15 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
         }
 
         try {
-            BotHelper.dispatchLog("temple", username, "[$slotKey] Logging in to $server...")
+            BotHelper.dispatchLog(LogEntryType.INFO, username, "[$slotKey] Logging in to $server...")
             val connected = session.start(
                 username = username,
                 password = password,
-                preferredServer = server,
-                onLog = { msg -> BotHelper.dispatchLog("temple", username, msg) }
+                preferredServer = server
             )
 
             if (!connected) {
-                BotHelper.dispatchLog("temple", username, "[$slotKey] Failed to connect / login.")
+                BotHelper.dispatchLog(LogEntryType.ERROR, username, "[$slotKey] Failed to connect / login.")
                 updateTelemetry(slotKey, session, targetMonsters, isRunning = false)
                 return
             }
@@ -422,7 +422,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
             }
 
             if (!session.isCharLoaded.value) {
-                BotHelper.dispatchLog("temple", username, "[$slotKey] Character load timed out.")
+                BotHelper.dispatchLog(LogEntryType.ERROR, username, "[$slotKey] Character load timed out.")
                 return
             }
 
@@ -447,12 +447,12 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
                 if (soeQty <= 0) {
                     val err =
                         "Taunter '$username' does not have $ITEM_SCROLL_OF_ENRAGE (SoE). Minimum 1 $ITEM_SCROLL_OF_ENRAGE is required."
-                    BotHelper.dispatchLog("temple", username, err)
+                    BotHelper.dispatchLog(LogEntryType.ERROR, username, err)
                     stop()
                     return
                 }
                 BotHelper.dispatchLog(
-                    "temple",
+                    LogEntryType.INFO,
                     username,
                     "Equipping $ITEM_SCROLL_OF_ENRAGE (Qty: $soeQty)..."
                 )
@@ -464,7 +464,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
             if (isMaster) {
                 // Master: Join yulgar, wait for party, invite slaves, queue dungeon
                 BotHelper.dispatchLog(
-                    "temple",
+                    LogEntryType.INFO,
                     username,
                     "Master joining $MAP_ASSEMBLY-$MAP_ASSEMBLY_ROOM to assemble party..."
                 )
@@ -473,7 +473,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
 
                 // Wait until all slave sessions are connected
                 BotHelper.dispatchLog(
-                    "temple",
+                    LogEntryType.INFO,
                     username,
                     "Waiting for party members to be online..."
                 )
@@ -486,7 +486,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
                 // Send party invites
                 for (slaveName in slaveUsernames) {
                     BotHelper.dispatchLog(
-                        "temple",
+                        LogEntryType.INFO,
                         username,
                         "Sending party invite to $slaveName..."
                     )
@@ -495,11 +495,11 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
                 }
 
                 delay(1000.milliseconds)
-                BotHelper.dispatchLog("temple", username, "Queueing dungeon '$dungeonMap'...")
+                BotHelper.dispatchLog(LogEntryType.INFO, username, "Queueing dungeon '$dungeonMap'...")
                 session.social.dungeonQueue(dungeonMap)
             } else {
                 // Slave: wait for party invite and accept
-                BotHelper.dispatchLog("temple", username, "Slave waiting for party invitation...")
+                BotHelper.dispatchLog(LogEntryType.INFO, username, "Slave waiting for party invitation...")
                 var inviteWait = 0
                 while (session.latestPartyId == null && inviteWait < 120 && !stopRequested) {
                     session.map.gotoPlayer(masterUsername)
@@ -510,7 +510,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
                 val pid = session.latestPartyId
                 if (pid != null) {
                     BotHelper.dispatchLog(
-                        "temple",
+                        LogEntryType.INFO,
                         username,
                         "Accepting party invite (PID: $pid)..."
                     )
@@ -568,7 +568,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
                         when (currentCell) {
                             CELL_ENTER -> {
                                 BotHelper.dispatchLog(
-                                    "temple",
+                                    LogEntryType.INFO,
                                     username,
                                     "Cell cleared. Moving to $CELL_R1..."
                                 )
@@ -579,7 +579,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
 
                             CELL_R1 -> {
                                 BotHelper.dispatchLog(
-                                    "temple",
+                                    LogEntryType.INFO,
                                     username,
                                     "Cell cleared. Moving to $CELL_R2..."
                                 )
@@ -590,7 +590,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
 
                             CELL_R2 -> {
                                 BotHelper.dispatchLog(
-                                    "temple",
+                                    LogEntryType.INFO,
                                     username,
                                     "Cell cleared. Moving to $CELL_R3..."
                                 )
@@ -602,7 +602,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
                             CELL_R3 -> {
                                 clearedRuns++
                                 BotHelper.dispatchLog(
-                                    "temple",
+                                    LogEntryType.INFO,
                                     username,
                                     "=== Dungeon cleared $clearedRuns times! ==="
                                 )
@@ -627,7 +627,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
 
                     if (isDifferentMap || isDifferentCell) {
                         BotHelper.dispatchLog(
-                            "temple",
+                            LogEntryType.INFO,
                             username,
                             "[$slotKey] Master is in $masterMap:$masterCell (current: $currentMap:$currentCell). Moving to master..."
                         )
@@ -666,7 +666,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
                     if (doTaunt && isTaunter) {
                         if (soeQty <= 0) {
                             BotHelper.dispatchLog(
-                                "temple",
+                                LogEntryType.ERROR,
                                 username,
                                 "Ran out of $ITEM_SCROLL_OF_ENRAGE (SoE)!"
                             )
@@ -676,7 +676,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
 
                         if (tauntCoordinator.requestTaunt(username)) {
                             BotHelper.dispatchLog(
-                                "temple",
+                                LogEntryType.INFO,
                                 username,
                                 "Executing Taunt on ${targetMonster.name}!"
                             )
@@ -712,7 +712,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
                 delay(500.milliseconds)
             }
         } catch (e: Exception) {
-            BotHelper.dispatchLog("temple", username, "Worker error: ${e.message}")
+            BotHelper.dispatchLog(LogEntryType.ERROR, username, "Worker error: ${e.message}")
         } finally {
             eventJob.cancel()
             logJob.cancel()

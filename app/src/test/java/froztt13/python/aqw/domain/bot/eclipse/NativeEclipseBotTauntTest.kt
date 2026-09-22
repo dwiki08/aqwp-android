@@ -8,6 +8,7 @@ class NativeEclipseBotTauntTest {
 
     @Before
     fun setup() {
+        NativeEclipseBot.stop()
         NativeEclipseBot.sunsetKnightCount.set(0)
         NativeEclipseBot.moonHazeCount.set(0)
         NativeEclipseBot.lightGatherCount.set(0)

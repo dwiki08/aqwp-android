@@ -10,8 +10,8 @@ import froztt13.python.aqw.data.model.SlaveSlotConfig
 import froztt13.python.aqw.data.model.SlaveryConfig
 import froztt13.python.aqw.data.model.SlotTelemetry
 import froztt13.python.aqw.data.model.ThresholdType
+import froztt13.python.aqw.data.model.LogEntryType
 import froztt13.python.aqw.domain.bot.temple.NativeTauntCoordinator
-import froztt13.python.aqw.helper.BotHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -102,7 +102,7 @@ object NativeSlaveryBot {
             current.mapValues { (_, tele) -> tele.copy(running = false, isConnected = false) }
         }
         _partyStats.update { it.copy(timeRunning = (System.currentTimeMillis() - startTimeMillis) / 1000L) }
-        BotHelper.dispatchLog("slavery", "System", "=== Slavery Bot stopped by user ===")
+        activeSessions.values.forEach { it.log("=== Slavery Bot stopped by user ===", LogEntryType.INFO) }
     }
 
     private suspend fun runSlavery(
@@ -161,7 +161,7 @@ object NativeSlaveryBot {
             slotJobs.joinAll()
         } catch (e: Exception) {
             Log.e(TAG, "Error in Slavery run: ${e.message}", e)
-            BotHelper.dispatchLog("slavery", "System", "Error in Slavery run: ${e.message}")
+            activeSessions.values.forEach { it.log("Error in Slavery run: ${e.message}", LogEntryType.ERROR) }
         } finally {
             timerJob.cancel()
             stop()
@@ -211,20 +211,18 @@ object NativeSlaveryBot {
                     }
 
                     is AqwEvent.PartyInviteReceived -> {
-                        BotHelper.dispatchLog(
-                            "slavery",
-                            username,
-                            "Received party invitation (PID: ${event.partyId}), accepting..."
+                        session.log(
+                            "Received party invitation (PID: ${event.partyId}), accepting...",
+                            LogEntryType.INFO
                         )
                         session.social.partyAccept(event.partyId)
                     }
 
                     is AqwEvent.ItemDropped -> {
                         if (whitelistItems.any { event.itemName.lowercase().contains(it) }) {
-                            BotHelper.dispatchLog(
-                                "slavery",
-                                username,
-                                "Picking up: ${event.itemName} x${event.qty}"
+                            session.log(
+                                "Picking up: ${event.itemName} x${event.qty}",
+                                LogEntryType.INFO
                             )
                             session.item.getItemDrop(event.itemId)
                         }
@@ -236,16 +234,15 @@ object NativeSlaveryBot {
         }
 
         try {
-            BotHelper.dispatchLog("slavery", username, "[$slotKey] Logging in to $server...")
+            session.log("[$slotKey] Logging in to $server...", LogEntryType.INFO)
             val connected = session.start(
                 username = username,
                 password = password,
-                preferredServer = server,
-                onLog = { msg -> BotHelper.dispatchLog("slavery", username, msg) }
+                preferredServer = server
             )
 
             if (!connected) {
-                BotHelper.dispatchLog("slavery", username, "[$slotKey] Login failed.")
+                session.log("[$slotKey] Login failed.", LogEntryType.ERROR)
                 updateTelemetry(slotKey, session, isRunning = false)
                 return
             }
@@ -257,7 +254,7 @@ object NativeSlaveryBot {
             }
 
             if (!session.isCharLoaded.value) {
-                BotHelper.dispatchLog("slavery", username, "[$slotKey] Character load timed out.")
+                session.log("[$slotKey] Character load timed out.", LogEntryType.ERROR)
                 return
             }
 
@@ -305,28 +302,16 @@ object NativeSlaveryBot {
 
                 // Locked zone resolution
                 if (isCheckingLockedZone) {
-                    BotHelper.dispatchLog(
-                        "slavery",
-                        username,
-                        "Checking locked zones for $followPlayer..."
-                    )
+                    session.log("Checking locked zones for $followPlayer...", LogEntryType.INFO)
                     for (zoneMap in lockedZones) {
                         if (stopRequested || !session.isConnected.value) break
-                        BotHelper.dispatchLog(
-                            "slavery",
-                            username,
-                            "Checking $zoneMap-$roomNumber..."
-                        )
+                        session.log("Checking $zoneMap-$roomNumber...", LogEntryType.INFO)
                         session.map.joinMap(zoneMap, roomNumber)
                         delay(2000.milliseconds)
                         session.map.gotoPlayer(followPlayer)
                         delay(1200.milliseconds)
                         if (session.playerState.playersInMap.containsKey(followPlayer.lowercase())) {
-                            BotHelper.dispatchLog(
-                                "slavery",
-                                username,
-                                "Found $followPlayer in $zoneMap!"
-                            )
+                            session.log("Found $followPlayer in $zoneMap!", LogEntryType.INFO)
                             isCheckingLockedZone = false
                             break
                         }
@@ -418,7 +403,7 @@ object NativeSlaveryBot {
                 delay(220.milliseconds)
             }
         } catch (e: Exception) {
-            BotHelper.dispatchLog("slavery", username, "Worker error: ${e.message}")
+            session.log("Worker error: ${e.message}", LogEntryType.ERROR)
         } finally {
             eventJob.cancel()
             session.stop()

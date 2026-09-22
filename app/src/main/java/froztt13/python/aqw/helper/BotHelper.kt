@@ -3,6 +3,7 @@ package froztt13.python.aqw.helper
 import android.util.Log
 import froztt13.python.aqw.data.model.HubOverview
 import froztt13.python.aqw.data.model.LogEntry
+import froztt13.python.aqw.data.model.LogEntryType
 import froztt13.python.aqw.data.repository.ConfigRepositoryImpl
 import froztt13.python.aqw.utils.stripAnsi
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +28,7 @@ object BotHelper {
         return text.stripAnsi()
     }
 
-    fun dispatchLog(botType: String, username: String, message: String) {
+    fun dispatchLog(botType: LogEntryType, username: String = "System", message: String) {
         val cleanMsg = message.stripAnsi()
         if (cleanMsg.isEmpty()) return
         val entry = LogEntry(botType = botType, username = username, message = cleanMsg)
@@ -40,11 +41,11 @@ object BotHelper {
         }
     }
 
-    fun registerLogListener(filterBotType: String? = null, onLog: (LogEntry) -> Unit): () -> Unit {
+    fun registerLogListener(filterBotType: LogEntryType? = null, onLog: (LogEntry) -> Unit): () -> Unit {
         val listener: (LogEntry) -> Unit = { entry ->
             if (filterBotType == null ||
-                entry.botType.equals(filterBotType, ignoreCase = true) ||
-                entry.botType.equals("System", ignoreCase = true)
+                entry.botType == filterBotType ||
+                entry.botType == LogEntryType.SYSTEM
             ) {
                 onLog(entry)
             }
@@ -53,6 +54,11 @@ object BotHelper {
         return {
             logListeners.remove(listener)
         }
+    }
+
+    fun registerLogListener(filterBotType: String?, onLog: (LogEntry) -> Unit): () -> Unit {
+        val type = filterBotType?.let { LogEntryType.from(it) }
+        return registerLogListener(type, onLog)
     }
 
     // --- Legacy Config Persistence Delegation ---

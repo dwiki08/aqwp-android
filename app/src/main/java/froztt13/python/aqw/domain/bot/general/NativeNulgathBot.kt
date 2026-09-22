@@ -4,7 +4,7 @@ import froztt13.python.aqw.data.engine.AqwSession
 import froztt13.python.aqw.data.model.GeneralBotConfig
 import froztt13.python.aqw.data.model.GeneralSubModuleInfo
 import froztt13.python.aqw.data.model.GeneralTaskInfo
-import froztt13.python.aqw.helper.BotHelper
+
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -170,11 +170,7 @@ object NativeNulgathBot {
 
         // If tracked item is stored in bank, transfer to inventory first (matching python hunt_item)
         if (trackedItem.isNotBlank() && session.item.hasItemInBank(trackedItem)) {
-            BotHelper.dispatchLog(
-                "general",
-                username,
-                "[Nulgath] Moving $trackedItem from bank to inventory..."
-            )
+            session.log("[Nulgath] Moving $trackedItem from bank to inventory...")
             session.item.bankToInv(trackedItem)
             delay(1000.milliseconds)
         }
@@ -185,12 +181,7 @@ object NativeNulgathBot {
         session.item.bankToInv(bankableItems)
         delay(1000.milliseconds)
 
-        // Register quest 2566 (Nulgath Larva) - Engine automatically handles accept, turn-in on drops, and re-accept
-        BotHelper.dispatchLog(
-            "general",
-            username,
-            "[Nulgath] Registering quest $questId for auto accept & turn-in..."
-        )
+        session.log("[Nulgath] Registering quest $questId for auto accept & turn-in...")
         session.quest.registerQuest(questId)
         delay(1000.milliseconds)
 
@@ -211,19 +202,11 @@ object NativeNulgathBot {
                 onProgressUpdate(currentQty)
 
                 if (targetQty > 0 && trackedItem.isNotBlank() && currentQty >= targetQty) {
-                    BotHelper.dispatchLog(
-                        "general",
-                        username,
-                        "[Nulgath] Target reached: $currentQty / $targetQty $trackedItem!"
-                    )
+                    session.log("[Nulgath] Target reached: $currentQty / $targetQty $trackedItem!")
                     session.social.sendChat("[Nulgath] Target reached: $currentQty $trackedItem")
                     break
                 } else if (task.id == "larvae" && targetQty > 0 && completeCount >= targetQty) {
-                    BotHelper.dispatchLog(
-                        "general",
-                        username,
-                        "[Nulgath] Target completes reached: $completeCount / $targetQty!"
-                    )
+                    session.log("[Nulgath] Target completes reached: $completeCount / $targetQty!")
                     break
                 }
 
@@ -242,11 +225,7 @@ object NativeNulgathBot {
 
                     // Join map if not in map
                     if (session.map.isNotInMap(farmTask.mapName)) {
-                        BotHelper.dispatchLog(
-                            "general",
-                            username,
-                            "[Nulgath] Joining /${farmTask.mapName}-$roomNumber [${farmTask.cell}]..."
-                        )
+                        session.log("[Nulgath] Joining /${farmTask.mapName}-$roomNumber [${farmTask.cell}]...")
                         session.map.joinMap(
                             farmTask.mapName,
                             roomNumber,
@@ -262,11 +241,7 @@ object NativeNulgathBot {
                         delay(1000.milliseconds)
                     }
 
-                    BotHelper.dispatchLog(
-                        "general",
-                        username,
-                        "[Nulgath] Farming ${farmTask.itemName} [${getTaskItemQty()}/${farmTask.qty}] in cell ${farmTask.cell}..."
-                    )
+                    session.log("[Nulgath] Farming ${farmTask.itemName} [${getTaskItemQty()}/${farmTask.qty}] in cell ${farmTask.cell}...")
 
                     // Attack loop for this task item using killMonster with hunt
                     while (!isStopRequested() && session.isConnected.value && getTaskItemQty() < farmTask.qty) {
@@ -294,21 +269,13 @@ object NativeNulgathBot {
                             !it.name.contains("non-mem", ignoreCase = true)
                 }
                 if (memberVoucher != null) {
-                    BotHelper.dispatchLog(
-                        "general",
-                        username,
-                        "[Nulgath] Selling member Voucher of Nulgath..."
-                    )
+                    session.log("[Nulgath] Selling member Voucher of Nulgath...")
                     session.item.sellItem(memberVoucher.name)
                     delay(1000.milliseconds)
                 }
 
                 completeCount++
-                BotHelper.dispatchLog(
-                    "general",
-                    username,
-                    "[Nulgath] Cycle #$completeCount complete"
-                )
+                session.log("[Nulgath] Cycle #$completeCount complete")
                 delay(2000.milliseconds)
             }
         } finally {

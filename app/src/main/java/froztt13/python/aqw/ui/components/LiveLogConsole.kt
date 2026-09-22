@@ -41,6 +41,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import froztt13.python.aqw.data.model.LogEntry
+import froztt13.python.aqw.data.model.LogEntryType
 import froztt13.python.aqw.data.network.AqwSocketClient
 import froztt13.python.aqw.ui.theme.ErrorRed
 import froztt13.python.aqw.ui.theme.MoonCyan
@@ -78,7 +79,7 @@ fun LiveLogConsole(
                 val u = entry.username.trim()
                 val isSystem = includeSystemLogs && (
                         u.equals("System", ignoreCase = true) ||
-                                entry.botType.equals("System", ignoreCase = true)
+                                entry.botType == LogEntryType.SYSTEM
                         )
                 val matchesSlot = cleanSlotKey != null && (
                         u.equals(cleanSlotKey, ignoreCase = true) ||
@@ -210,10 +211,10 @@ fun LiveLogConsole(
                             val cleanMessage = log.message.stripAnsi()
                             val lower = cleanMessage.lowercase()
                             val textColor = when {
-                                "error" in lower || "exception" in lower || "dead" in lower || "failed" in lower -> ErrorRed
-                                "cleared" in lower || "success" in lower || "connected to" in lower -> SuccessGreen
-                                "taunt" in lower || "soe" in lower || "warning" in lower -> SunGold
-                                "login" in lower || "connecting" in lower || "joined" in lower -> MoonCyan
+                                log.botType == LogEntryType.ERROR || "error" in lower || "exception" in lower || "dead" in lower || "failed" in lower -> ErrorRed
+                                log.botType == LogEntryType.WARNING || "warning" in lower || "taunt" in lower || "soe" in lower -> SunGold
+                                log.botType == LogEntryType.SYSTEM || "login" in lower || "connecting" in lower || "joined" in lower -> MoonCyan
+                                "cleared" in lower || "success" in lower || "connected to" in lower || "completed" in lower -> SuccessGreen
                                 else -> TextSecondary
                             }
                             SelectionContainer {
@@ -328,24 +329,24 @@ private fun LiveLogConsolePreview() {
         LiveLogConsole(
             logs = listOf(
                 LogEntry(
-                    botType = "temple",
+                    botType = LogEntryType.SYSTEM,
                     username = "LordLead",
                     message = "Connected to room 9099"
                 ),
                 LogEntry(
-                    botType = "temple",
+                    botType = LogEntryType.INFO,
                     username = "LordLead",
                     message = "Taunting boss: Success!"
                 ),
                 LogEntry(
-                    botType = "temple",
+                    botType = LogEntryType.ERROR,
                     username = "LordLead",
                     message = "Error: target not found (recovered)"
                 )
             ),
             packetLogs = listOf(
                 LogEntry(
-                    botType = "Packet",
+                    botType = LogEntryType.PACKET,
                     username = "slot1 (LordLead)",
                     message = "%xt%zm%gar%1%1%Left%...%"
                 )

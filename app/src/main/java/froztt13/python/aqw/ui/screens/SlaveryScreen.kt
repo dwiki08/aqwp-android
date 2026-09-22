@@ -95,6 +95,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import froztt13.python.aqw.R
 import froztt13.python.aqw.data.model.LogEntry
+import froztt13.python.aqw.data.model.LogEntryType
 import froztt13.python.aqw.data.model.MonsterTelemetry
 import froztt13.python.aqw.data.model.PartyStats
 import froztt13.python.aqw.data.model.Skill
@@ -2026,17 +2027,17 @@ private fun SlaveryContentActivePreview() {
             partyStats = PartyStats(timeRunning = 425L),
             logs = listOf(
                 LogEntry(
-                    botType = "slavery",
+                    botType = LogEntryType.INFO,
                     username = "Slave1",
                     message = "[Slave1] Moving to master position (Boss, Left)"
                 ),
                 LogEntry(
-                    botType = "slavery",
+                    botType = LogEntryType.INFO,
                     username = "Slave1",
                     message = "[Slave1] Casting skill 2 [Healing Light]"
                 ),
                 LogEntry(
-                    botType = "slavery",
+                    botType = LogEntryType.INFO,
                     username = "Slave2",
                     message = "[Slave2] Attacking Defense Drone with Skill 1"
                 )

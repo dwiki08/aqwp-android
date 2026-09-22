@@ -5,13 +5,14 @@ import froztt13.python.aqw.data.engine.AqwEvent
 import froztt13.python.aqw.data.engine.AqwSession
 import froztt13.python.aqw.data.model.EclipseConfig
 import froztt13.python.aqw.data.model.EclipseTauntInfo
+import froztt13.python.aqw.data.model.LogEntryType
 import froztt13.python.aqw.data.model.MonsterTelemetry
 import froztt13.python.aqw.data.model.PartyStats
 import froztt13.python.aqw.data.model.SlotConfig
 import froztt13.python.aqw.data.model.SlotTelemetry
 import froztt13.python.aqw.data.model.TaunterTargetInfo
 import froztt13.python.aqw.domain.coordinator.BasePartyCoordinator
-import froztt13.python.aqw.helper.BotHelper
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -80,9 +81,6 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
     private val _tauntInfo = MutableStateFlow(EclipseTauntInfo())
     val tauntInfo: StateFlow<EclipseTauntInfo> = _tauntInfo.asStateFlow()
 
-    override fun logToSession(slotKey: String, message: String, botType: String) {
-        super.logToSession(slotKey, message, if (botType == "System") "eclipse" else botType)
-    }
 
     internal val sunsetKnightCount = AtomicInteger(0)
     internal val moonHazeCount = AtomicInteger(0)
@@ -200,10 +198,9 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
 
         val targetSession = activeSessions[targetSlot]
         val username = targetSession?.playerState?.username ?: targetSlot
-        BotHelper.dispatchLog(
-            "eclipse",
-            "System",
-            "Sun's Warmth #$waveCount (from $sourceSlot) -> Assigned taunt to $targetSlot ($username)"
+        targetSession?.log(
+            "Sun's Warmth #$waveCount (from $sourceSlot) -> Assigned taunt to $targetSlot ($username)",
+            LogEntryType.INFO
         )
         queueTaunt(targetSlot, MONSTER_SUNSET_KNIGHT, delayMs)
     }
@@ -225,10 +222,9 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
 
         val targetSession = activeSessions[targetSlot]
         val username = targetSession?.playerState?.username ?: targetSlot
-        BotHelper.dispatchLog(
-            "eclipse",
-            "System",
-            "Moonlight Gaze #$waveCount (from $sourceSlot) -> Assigned taunt to $targetSlot ($username)"
+        targetSession?.log(
+            "Moonlight Gaze #$waveCount (from $sourceSlot) -> Assigned taunt to $targetSlot ($username)",
+            LogEntryType.INFO
         )
         queueTaunt(targetSlot, MONSTER_MOON_HAZE, delayMs)
     }
@@ -255,10 +251,9 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
 
         val targetSession = activeSessions[targetSlot]
         val username = targetSession?.playerState?.username ?: targetSlot
-        BotHelper.dispatchLog(
-            "eclipse",
-            "System",
-            "Light Gather #$waveCount (from $sourceSlot) -> Assigned taunt to $targetSlot ($username)"
+        targetSession?.log(
+            "Light Gather #$waveCount (from $sourceSlot) -> Assigned taunt to $targetSlot ($username)",
+            LogEntryType.INFO
         )
         // Immediate taunt (no 5s delay, as in core_eclipse.py)
         queueTaunt(targetSlot, MONSTER_SUFFOCATED_LIGHT, delayMs)
@@ -284,10 +279,9 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
 
         val targetSession = activeSessions[targetSlot]
         val username = targetSession?.playerState?.username ?: targetSlot
-        BotHelper.dispatchLog(
-            "eclipse",
-            "System",
-            "Sun Converge #$waveCount (from $sourceSlot) -> Assigned taunt to $targetSlot ($username)"
+        targetSession?.log(
+            "Sun Converge #$waveCount (from $sourceSlot) -> Assigned taunt to $targetSlot ($username)",
+            LogEntryType.INFO
         )
         queueTaunt(targetSlot, MONSTER_ASCENDED_SOLSTICE, delayMs)
     }
@@ -312,10 +306,9 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
 
         val targetSession = activeSessions[targetSlot]
         val username = targetSession?.playerState?.username ?: targetSlot
-        BotHelper.dispatchLog(
-            "eclipse",
-            "System",
-            "Moon Converge #$waveCount (from $sourceSlot) -> Assigned taunt to $targetSlot ($username)"
+        targetSession?.log(
+            "Moon Converge #$waveCount (from $sourceSlot) -> Assigned taunt to $targetSlot ($username)",
+            LogEntryType.INFO
         )
         queueTaunt(targetSlot, MONSTER_ASCENDED_MIDNIGHT, delayMs)
     }
@@ -333,10 +326,9 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
             val session = activeSessions[slotKey]
             if (session != null && session.isConnected.value && session.map.hasAliveMonsters()) {
                 val username = session.playerState.username
-                BotHelper.dispatchLog(
-                    "eclipse",
-                    username,
-                    "[$slotKey] Queuing taunt for $targetMonster..."
+                session.log(
+                    "[$slotKey] Queuing taunt for $targetMonster...",
+                    LogEntryType.INFO
                 )
                 pendingTauntTargets[slotKey] = targetMonster
                 refreshTauntInfo()
@@ -370,10 +362,9 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
         refreshTauntInfo()
 
         scope.launch(Dispatchers.IO) {
-            BotHelper.dispatchLog(
-                "eclipse",
-                "System",
-                "Pausing Eclipse Party: all slots leaving combat and jumping to current cell..."
+            logToAllSessions(
+                "Pausing Eclipse Party: all slots leaving combat and jumping to current cell...",
+                LogEntryType.WARNING
             )
             val jobs = activeSessions.map { (slotKey, session) ->
                 launch {
@@ -384,10 +375,9 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
                         delay(200.milliseconds)
                         session.combat.rest()
                         session.playerState.isInCombat = false
-                        BotHelper.dispatchLog(
-                            "eclipse",
-                            session.playerState.username,
-                            "[$slotKey] Left combat, jumped to $currentCell [$currentPad]"
+                        session.log(
+                            "[$slotKey] Left combat, jumped to $currentCell [$currentPad]",
+                            LogEntryType.INFO
                         )
                     } catch (e: Exception) {
                         Log.e(TAG, "Error leaving combat on pause for $slotKey: ${e.message}")
@@ -600,7 +590,7 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
             slotJobs.joinAll()
         } catch (e: Exception) {
             Log.e(TAG, "Error in Eclipse Party run: ${e.message}", e)
-            BotHelper.dispatchLog("eclipse", "System", "Error in Eclipse Party run: ${e.message}")
+            logToAllSessions("Error in Eclipse Party run: ${e.message}", LogEntryType.ERROR)
         } finally {
             statsTimerJob.cancel()
             stop()
@@ -694,10 +684,9 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
 
                     is AqwEvent.ItemDropped -> {
                         if (dropWhitelist.any { it.equals(event.itemName, ignoreCase = true) }) {
-                            BotHelper.dispatchLog(
-                                "eclipse",
-                                username,
-                                "Picking up drop: ${event.itemName} x${event.qty}"
+                            session.log(
+                                "Picking up drop: ${event.itemName} x${event.qty}",
+                                LogEntryType.INFO
                             )
                             session.item.getItemDrop(event.itemId)
                         }
@@ -793,14 +782,13 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
         if (soeItem == null || soeItem.qty <= 0) {
             val err =
                 "Account '$username' ($slotKey) does not have Scroll of Enrage (SoE). Minimum 1 is required."
-            BotHelper.dispatchLog("eclipse", username, err)
+            session.log(err, LogEntryType.ERROR)
             stop()
             return false
         }
-        BotHelper.dispatchLog(
-            "eclipse",
-            username,
-            "Equipping Scroll of Enrage (Qty: ${soeItem.qty})..."
+        session.log(
+            "Equipping Scroll of Enrage (Qty: ${soeItem.qty})...",
+            LogEntryType.INFO
         )
         session.item.equipScroll(soeItem.itemId, soeItem.sMeta)
         delay(1500.milliseconds)
@@ -819,18 +807,16 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
         if (stopRequested) return false
 
         if (isMaster) {
-            BotHelper.dispatchLog(
-                "eclipse",
-                username,
-                "Master joining $MAP_ASSEMBLY-$MAP_ASSEMBLY_ROOM to assemble party..."
+            session.log(
+                "Master joining $MAP_ASSEMBLY-$MAP_ASSEMBLY_ROOM to assemble party...",
+                LogEntryType.INFO
             )
             session.map.joinMap(MAP_ASSEMBLY, MAP_ASSEMBLY_ROOM)
             delay(3500.milliseconds)
 
-            BotHelper.dispatchLog(
-                "eclipse",
-                username,
-                "Waiting for party members to be online..."
+            session.log(
+                "Waiting for party members to be online...",
+                LogEntryType.INFO
             )
             var partyWait = 0
             while (activeSessions.size < NativeEclipseConfig.ALL_SLOTS.size && partyWait < 60 && !stopRequested) {
@@ -841,20 +827,25 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
             if (stopRequested) return false
 
             for (slaveName in slaveUsernames) {
-                BotHelper.dispatchLog(
-                    "eclipse",
-                    username,
-                    "Sending party invite to $slaveName..."
+                session.log(
+                    "Sending party invite to $slaveName...",
+                    LogEntryType.INFO
                 )
                 session.social.partyInvite(slaveName)
                 delay(600.milliseconds)
             }
 
             delay(1000.milliseconds)
-            BotHelper.dispatchLog("eclipse", username, "Queueing dungeon '$dungeonMap'...")
+            session.log(
+                "Queueing dungeon '$dungeonMap'...",
+                LogEntryType.INFO
+            )
             session.social.dungeonQueue(dungeonMap)
         } else {
-            BotHelper.dispatchLog("eclipse", username, "Slave waiting for party invitation...")
+            session.log(
+                "Slave waiting for party invitation...",
+                LogEntryType.INFO
+            )
             var inviteWait = 0
             while (session.latestPartyId == null && inviteWait < 120 && !stopRequested) {
                 session.map.gotoPlayer(masterUsername)
@@ -866,10 +857,9 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
 
             val pid = session.latestPartyId
             if (pid != null) {
-                BotHelper.dispatchLog(
-                    "eclipse",
-                    username,
-                    "Accepting party invite (PID: $pid)..."
+                session.log(
+                    "Accepting party invite (PID: $pid)...",
+                    LogEntryType.INFO
                 )
                 session.social.partyAccept(pid)
                 delay(1200.milliseconds)
@@ -902,10 +892,9 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
 
             if (session.playerState.isDead) {
                 delay(1000.milliseconds)
-                BotHelper.dispatchLog(
-                    "eclipse",
-                    username,
-                    "DEAD..."
+                session.log(
+                    "DEAD...",
+                    LogEntryType.WARNING
                 )
                 continue
             }
@@ -971,10 +960,9 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
                             lastMoonConvergeTime = 0L
                             pendingTauntTargets.clear()
                             refreshTauntInfo()
-                            BotHelper.dispatchLog(
-                                "eclipse",
-                                username,
-                                "$CELL_ENTER cleared. Moving to $CELL_R1..."
+                            session.log(
+                                "$CELL_ENTER cleared. Moving to $CELL_R1...",
+                                LogEntryType.INFO
                             )
                             session.map.jumpCell(CELL_R1, PAD_LEFT)
                             delay(1200.milliseconds)
@@ -990,10 +978,9 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
                             lastMoonConvergeTime = 0L
                             pendingTauntTargets.clear()
                             refreshTauntInfo()
-                            BotHelper.dispatchLog(
-                                "eclipse",
-                                username,
-                                "$CELL_R1 cleared. Moving to $CELL_R2..."
+                            session.log(
+                                "$CELL_R1 cleared. Moving to $CELL_R2...",
+                                LogEntryType.INFO
                             )
                             session.map.jumpCell(CELL_R2, PAD_LEFT)
                             delay(1200.milliseconds)
@@ -1013,10 +1000,9 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
                             lastMoonConvergeTime = 0L
                             pendingTauntTargets.clear()
                             refreshTauntInfo()
-                            BotHelper.dispatchLog(
-                                "eclipse",
-                                username,
-                                "$CELL_R2 cleared. Moving to $CELL_R3 (Boss)..."
+                            session.log(
+                                "$CELL_R2 cleared. Moving to $CELL_R3 (Boss)...",
+                                LogEntryType.INFO
                             )
                             session.map.jumpCell(CELL_R3, PAD_LEFT)
                             delay(1200.milliseconds)
@@ -1037,10 +1023,9 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
                             lastMoonConvergeTime = 0L
                             pendingTauntTargets.clear()
                             refreshTauntInfo()
-                            BotHelper.dispatchLog(
-                                "eclipse",
-                                username,
-                                "=== Ascend Eclipse cleared $clearedRuns times! ==="
+                            session.log(
+                                "=== Ascend Eclipse cleared $clearedRuns times! ===",
+                                LogEntryType.INFO
                             )
                             session.social.sendChat("Ascend Eclipse cleared $clearedRuns times.")
                             delay(1000.milliseconds)
@@ -1064,18 +1049,16 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
                 if (isDifferentMap || isDifferentCell) {
                     if (!isDifferentMap) {
                         if (!isInCombat || currentCell == CELL_R3) {
-                            BotHelper.dispatchLog(
-                                "eclipse",
-                                username,
-                                "[$slotKey] Master is in $masterMap:$masterCell (current: $currentMap:$currentCell). Moving to master..."
+                            session.log(
+                                "[$slotKey] Master is in $masterMap:$masterCell (current: $currentMap:$currentCell). Moving to master...",
+                                LogEntryType.INFO
                             )
                             session.map.jumpCell(masterCell, masterPad)
                         }
                     } else {
-                        BotHelper.dispatchLog(
-                            "eclipse",
-                            username,
-                            "[$slotKey] Master is in $masterMap:$masterCell (current: $currentMap:$currentCell). Moving to master..."
+                        session.log(
+                            "[$slotKey] Master is in $masterMap:$masterCell (current: $currentMap:$currentCell). Moving to master...",
+                            LogEntryType.INFO
                         )
                         session.map.gotoPlayer(masterUsername)
                         delay(1200.milliseconds)
@@ -1101,10 +1084,9 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
                 // Taunt handling
                 if (doTaunt) {
                     if (soeQty <= 0) {
-                        BotHelper.dispatchLog(
-                            "eclipse",
-                            username,
-                            "Ran out of Scroll of Enrage (SoE)!"
+                        session.log(
+                            "Ran out of Scroll of Enrage (SoE)!",
+                            LogEntryType.ERROR
                         )
                         stop()
                         break
@@ -1127,10 +1109,9 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
                     }
 
                     if (targetToTaunt != null && session.combat.canUseSkill(5)) {
-                        BotHelper.dispatchLog(
-                            "eclipse",
-                            username,
-                            "Executing Taunt on ${targetToTaunt.name}!"
+                        session.log(
+                            "Executing Taunt on ${targetToTaunt.name}!",
+                            LogEntryType.INFO
                         )
                         delay(500.milliseconds)
                         if (session.combat.taunt(targetToTaunt.monMapId)) {

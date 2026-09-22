@@ -3,6 +3,7 @@ package froztt13.python.aqw.domain.coordinator
 import android.util.Log
 import froztt13.python.aqw.data.engine.AqwSession
 import froztt13.python.aqw.data.model.LogEntry
+import froztt13.python.aqw.data.model.LogEntryType
 import froztt13.python.aqw.data.model.PartyStats
 import froztt13.python.aqw.data.model.SlotTelemetry
 import kotlinx.coroutines.CoroutineScope
@@ -54,12 +55,16 @@ abstract class BasePartyCoordinator(protected val tag: String) {
 
     fun getSession(slotKey: String): AqwSession? = activeSessions[slotKey]
 
-    open fun logToSession(slotKey: String, message: String, botType: String = "System") {
+    open fun logToSession(slotKey: String, message: String, botType: LogEntryType = LogEntryType.INFO) {
         activeSessions[slotKey]?.log(message, botType = botType)
     }
 
-    fun logToAllSessions(message: String) {
-        activeSessions.values.forEach { it.log(message, botType = "System") }
+    open fun logToSession(slotKey: String, message: String, botType: String) {
+        logToSession(slotKey, message, LogEntryType.from(botType))
+    }
+
+    fun logToAllSessions(message: String, botType: LogEntryType = LogEntryType.INFO) {
+        activeSessions.values.forEach { it.log(message, botType = botType) }
     }
 
     fun clearLogs(slotKey: String? = null) {

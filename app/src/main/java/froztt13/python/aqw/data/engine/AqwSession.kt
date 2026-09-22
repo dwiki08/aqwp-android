@@ -7,6 +7,7 @@ import froztt13.python.aqw.data.engine.commands.AqwMapCommands
 import froztt13.python.aqw.data.engine.commands.AqwQuestCommands
 import froztt13.python.aqw.data.engine.commands.AqwSocialCommands
 import froztt13.python.aqw.data.model.LogEntry
+import froztt13.python.aqw.data.model.LogEntryType
 import froztt13.python.aqw.data.network.AqwHttpApi
 import froztt13.python.aqw.data.network.AqwSocketClient
 import froztt13.python.aqw.domain.model.AqwItem
@@ -62,7 +63,7 @@ class AqwSession {
     private val _logs = MutableStateFlow<List<LogEntry>>(emptyList())
     val logs: StateFlow<List<LogEntry>> = _logs.asStateFlow()
 
-    fun log(message: String, botType: String = "eclipse") {
+    fun log(message: String, botType: LogEntryType = LogEntryType.INFO) {
         val clean = message.stripAnsi()
         val uname = if (slotKey.isNotBlank()) {
             val user = playerState.username.ifBlank { socketClient.tag }
@@ -345,10 +346,8 @@ class AqwSession {
                 if (event.monsterHpMap.isNotEmpty()) {
                     map.updateMonstersHp(event.monsterHpMap)
                 }
-                for (aura in event.auras) {
-                    val auraObj = aura.first
+                for ((auraObj, tInf) in event.auras) {
                     val auraName = auraObj.name
-                    val tInf = aura.second
 
                     val isPlayerTarget =
                         (playerState.roomUserId > 0 && (tInf == "p:${playerState.roomUserId}" || tInf == playerState.roomUserId.toString())) ||
@@ -379,9 +378,7 @@ class AqwSession {
                     }
                 }
 
-                for (rem in event.aurasRemoved) {
-                    val auraName = rem.first
-                    val tInf = rem.second
+                for ((auraName, tInf) in event.aurasRemoved) {
 
                     val isPlayerTarget =
                         (playerState.roomUserId > 0 && (tInf == "p:${playerState.roomUserId}" || tInf == playerState.roomUserId.toString())) ||
@@ -494,7 +491,8 @@ class AqwSession {
                         playerState.droppedItems.add(drop)
                     }
                 }
-                emitLog("Item drop: ${event.itemName} x${event.qty}")
+                val dropDesc = dropList.joinToString(", ") { "${it.name} x${it.qty}" }
+                emitLog("Item drop: $dropDesc")
             }
 
             is AqwEvent.ShopLoaded -> {
@@ -601,8 +599,7 @@ class AqwSession {
             }
 
             is AqwEvent.ItemsTurnedIn -> {
-                for (deduction in event.deductions) {
-                    val (itemId, qty) = deduction
+                for ((itemId, qty) in event.deductions) {
                     val invItem = playerState.getItemInventoryById(itemId)
                     if (invItem != null) {
                         if (invItem.qty - qty <= 0) {
@@ -651,7 +648,7 @@ class AqwSession {
                     }
                 } else {
                     playerState.failedQuestIds.add(event.questId)
-                    emitLog("Failed to accept quest: ${event.questId}")
+                    log("Failed to accept quest: ${event.questId}", LogEntryType.ERROR)
                 }
             }
 
@@ -721,7 +718,7 @@ class AqwSession {
                     if (event.msg.contains("One Time Quest Only", ignoreCase = true)) {
                         playerState.oneTimeQuestIds.add(event.questId)
                     }
-                    emitLog("Quest complete failed: ${event.questId} (${event.msg})")
+                    log("Quest complete failed: ${event.questId} (${event.msg})", LogEntryType.ERROR)
                 }
             }
 
@@ -803,32 +800,32 @@ class AqwSession {
             }
 
             is AqwEvent.ChatMessage -> {
-                emitLog("[${event.channel.uppercase()}] ${event.sender}: ${event.message}")
+                log("[${event.channel.uppercase()}] ${event.sender}: ${event.message}", LogEntryType.SYSTEM)
             }
 
             is AqwEvent.WhisperMessage -> {
-                emitLog("[WHISPER] ${event.sender}: ${event.message}")
+                log("[WHISPER] ${event.sender}: ${event.message}", LogEntryType.SYSTEM)
             }
 
             is AqwEvent.ServerBroadcast -> {
-                emitLog("[Server] ${event.message}")
+                log("[Server] ${event.message}", LogEntryType.SYSTEM)
             }
 
             is AqwEvent.Warning -> {
 //                if (event.isSpamWarning.not())
-                emitLog("[Warning] ${event.message}")
+                log("[Warning] ${event.message}", LogEntryType.WARNING)
             }
 
             is AqwEvent.AfkNotice -> {
-                emitLog("[AFK] Server marked status as Away From Keyboard")
+                log("[AFK] Server marked status as Away From Keyboard", LogEntryType.SYSTEM)
             }
 
             is AqwEvent.InvalidSessionNotice -> {
-                emitLog("[Session] Invalid session reported by server")
+                log("[Session] Invalid session reported by server", LogEntryType.WARNING)
             }
 
             is AqwEvent.LoggedOut -> {
-                emitLog("Session logged out by server")
+                log("Session logged out by server", LogEntryType.WARNING)
                 stop()
             }
 
@@ -854,7 +851,7 @@ class AqwSession {
         playerState.currentHp = 0
         playerState.isInCombat = false
 
-        logCallback?.invoke("Player DIED! Respawn countdown started (${respawnTime}s)...")
+        log("Player DIED! Respawn countdown started (${respawnTime}s)...", LogEntryType.WARNING)
 
         deathHandlerJob?.cancel()
         deathHandlerJob = sessionScope.launch(Dispatchers.IO) {

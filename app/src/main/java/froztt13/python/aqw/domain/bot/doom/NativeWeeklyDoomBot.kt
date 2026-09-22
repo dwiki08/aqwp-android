@@ -5,6 +5,7 @@ import froztt13.python.aqw.data.engine.AqwSession
 import froztt13.python.aqw.data.model.DoomAccount
 import froztt13.python.aqw.data.model.DoomAccountTelemetry
 import froztt13.python.aqw.data.model.LogEntry
+import froztt13.python.aqw.data.model.LogEntryType
 import froztt13.python.aqw.data.model.WeeklyDoomConfig
 import froztt13.python.aqw.data.model.WeeklyDoomTelemetry
 import froztt13.python.aqw.helper.BotHelper
@@ -40,9 +41,9 @@ object NativeWeeklyDoomBot {
         return { logListeners.remove(onLog) }
     }
 
-    private fun dispatchLog(username: String, message: String) {
-        BotHelper.dispatchLog("doom", username, message)
-        val entry = LogEntry(botType = "doom", username = username, message = message)
+    private fun dispatchLog(username: String, message: String, type: LogEntryType = LogEntryType.INFO) {
+        BotHelper.dispatchLog(type, username, message)
+        val entry = LogEntry(botType = type, username = username, message = message)
         for (listener in logListeners) {
             try {
                 listener(entry)
@@ -65,11 +66,11 @@ object NativeWeeklyDoomBot {
         startTimeMillis = System.currentTimeMillis()
 
         val initialStatuses = mutableMapOf<String, DoomAccountTelemetry>()
-        for (acc in config.accounts) {
-            val isEnabled = acc.enabled && acc.username.isNotBlank()
-            initialStatuses[acc.id] = DoomAccountTelemetry(
-                id = acc.id,
-                username = acc.username,
+        for ((id, username, _, enabled) in config.accounts) {
+            val isEnabled = enabled && username.isNotBlank()
+            initialStatuses[id] = DoomAccountTelemetry(
+                id = id,
+                username = username,
                 status = if (isEnabled) "Pending" else "Disabled",
                 message = if (isEnabled) "Waiting in queue..." else "Disabled"
             )
@@ -154,16 +155,7 @@ object NativeWeeklyDoomBot {
                                 )
                             }
 
-                            is AqwEvent.ItemDropped -> {
-                                dispatchLog(
-                                    username,
-                                    "Item dropped: ${event.itemName} x${event.qty}"
-                                )
-                            }
 
-                            is AqwEvent.Warning -> {
-                                dispatchLog(username, "Warning: ${event.message}")
-                            }
 
                             else -> {}
                         }
@@ -178,8 +170,7 @@ object NativeWeeklyDoomBot {
                     val connected = session.start(
                         username = username,
                         password = password,
-                        preferredServer = server,
-                        onLog = { msg -> dispatchLog(username, msg) }
+                        preferredServer = server
                     )
 
                     if (!connected) {

@@ -4,7 +4,7 @@ import froztt13.python.aqw.data.engine.AqwSession
 import froztt13.python.aqw.data.model.GeneralBotConfig
 import froztt13.python.aqw.data.model.GeneralSubModuleInfo
 import froztt13.python.aqw.data.model.GeneralTaskInfo
-import froztt13.python.aqw.helper.BotHelper
+
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -331,11 +331,7 @@ object NativeLegionRevenantBot {
             val currentQty = session.item.getItemQty(itemName)
             onProgressUpdate(currentQty)
             if (currentQty >= qty) {
-                BotHelper.dispatchLog(
-                    "general",
-                    config.username,
-                    "[LR] Target reached: $currentQty / $qty $itemName"
-                )
+                session.log("[LR] Target reached: $currentQty / $qty $itemName")
                 break
             }
 
@@ -367,11 +363,7 @@ object NativeLegionRevenantBot {
             val currentQty = session.item.getItemQty(itemName)
             onProgressUpdate(currentQty)
             if (currentQty >= qty) {
-                BotHelper.dispatchLog(
-                    "general",
-                    config.username,
-                    "[LR] Target reached: $currentQty / $qty $itemName"
-                )
+                session.log("[LR] Target reached: $currentQty / $qty $itemName")
                 break
             }
 
@@ -403,11 +395,7 @@ object NativeLegionRevenantBot {
             val currentQty = session.item.getItemQty(itemName)
             onProgressUpdate(currentQty)
             if (currentQty >= qty) {
-                BotHelper.dispatchLog(
-                    "general",
-                    config.username,
-                    "[LR] Target reached: $currentQty / $qty $itemName"
-                )
+                session.log("[LR] Target reached: $currentQty / $qty $itemName")
                 break
             }
 
@@ -450,7 +438,7 @@ object NativeLegionRevenantBot {
         session.item.bankToInv(item)
         if (session.item.hasItem(item)) return
 
-        BotHelper.dispatchLog("general", config.username, "[LR] Buying $item from shop 216...")
+        session.log("[LR] Buying $item from shop 216...")
         session.map.joinMap("underworld", config.roomNumber, "Enter", "Spawn")
         delay(1500.milliseconds)
         session.item.ensureLoadShop(216)
@@ -497,11 +485,7 @@ object NativeLegionRevenantBot {
 
         session.item.bankToInv("Legion Round 4 Medal")
         if (!session.item.hasItem("Legion Round 4 Medal")) {
-            BotHelper.dispatchLog(
-                "general",
-                config.username,
-                "[LR] Required: 'Legion Round 4 Medal' in inventory"
-            )
+            session.log("[LR] Required: 'Legion Round 4 Medal' in inventory")
             return
         }
 
@@ -582,11 +566,7 @@ object NativeLegionRevenantBot {
         session.item.bankToInv(item)
         if (session.item.getItemQty(item) >= qty) return
 
-        BotHelper.dispatchLog(
-            "general",
-            config.username,
-            "[LR] Farming Dark Token ($qty) in seraphicwardage..."
-        )
+        session.log("[LR] Farming Dark Token ($qty) in seraphicwardage...")
         if (!session.map.isInMap("seraphicwardage")) {
             session.map.joinMap("seraphicwardage", config.roomNumber, "Enter", "Spawn")
             delay(1500.milliseconds)
@@ -641,11 +621,7 @@ object NativeLegionRevenantBot {
         session.item.bankToInv(item)
         if (session.item.getItemQty(item) >= qty) return
 
-        BotHelper.dispatchLog(
-            "general",
-            config.username,
-            "[LR] Farming Legion Token ($qty) in fotia..."
-        )
+        session.log("[LR] Farming Legion Token ($qty) in fotia...")
         if (!session.map.isInMap("fotia")) {
             session.map.joinMap("fotia", config.roomNumber, "Enter", "Spawn")
             delay(1500.milliseconds)
@@ -753,11 +729,7 @@ object NativeLegionRevenantBot {
             return
         }
 
-        BotHelper.dispatchLog(
-            "general",
-            session.playerState.username,
-            "[LR] Hunting $itemName ($targetQty) in $mapName..."
-        )
+        session.log("[LR] Hunting $itemName ($targetQty) in $mapName...")
 
         if (!session.map.isInMap(mapName)) {
             session.map.joinMap(mapName, roomNumber, cell ?: "Enter", pad)

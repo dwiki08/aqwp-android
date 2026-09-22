@@ -82,6 +82,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import froztt13.python.aqw.data.model.EclipseConfig
 import froztt13.python.aqw.data.model.EclipseTauntInfo
 import froztt13.python.aqw.data.model.LogEntry
+import froztt13.python.aqw.data.model.LogEntryType
 import froztt13.python.aqw.data.model.MonsterTelemetry
 import froztt13.python.aqw.data.model.PartyStats
 import froztt13.python.aqw.data.model.SlotConfig
@@ -967,17 +968,17 @@ private fun EclipseContentRunningPreview() {
             ),
             logs = listOf(
                 LogEntry(
-                    botType = "eclipse",
+                    botType = LogEntryType.INFO,
                     username = "LordLead",
                     message = "Joined Eclipse dungeon"
                 ),
                 LogEntry(
-                    botType = "eclipse",
+                    botType = LogEntryType.INFO,
                     username = "LordLead",
                     message = "Taunt cast on Eclipse Boss"
                 ),
                 LogEntry(
-                    botType = "eclipse",
+                    botType = LogEntryType.INFO,
                     username = "APTaunt",
                     message = "Secondary taunt ready"
                 )

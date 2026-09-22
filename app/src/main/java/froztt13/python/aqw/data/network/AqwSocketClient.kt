@@ -2,6 +2,7 @@ package froztt13.python.aqw.data.network
 
 import android.util.Log
 import froztt13.python.aqw.data.model.LogEntry
+import froztt13.python.aqw.data.model.LogEntryType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -38,7 +39,7 @@ open class AqwSocketClient {
 
         fun logPacketSent(tag: String, packet: String) {
             val entry = LogEntry(
-                botType = "Packet",
+                botType = LogEntryType.PACKET,
                 username = tag,
                 message = packet
             )

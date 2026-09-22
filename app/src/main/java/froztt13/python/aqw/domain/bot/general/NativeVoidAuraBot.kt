@@ -4,7 +4,7 @@ import froztt13.python.aqw.data.engine.AqwSession
 import froztt13.python.aqw.data.model.GeneralBotConfig
 import froztt13.python.aqw.data.model.GeneralSubModuleInfo
 import froztt13.python.aqw.data.model.GeneralTaskInfo
-import froztt13.python.aqw.helper.BotHelper
+
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -142,11 +142,7 @@ object NativeVoidAuraBot {
 
         val (targetMap, targetCell, targetMonsters) = resolveRoute(task.id)
 
-        BotHelper.dispatchLog(
-            "general",
-            username,
-            "[Void Aura] Moving to $targetMap-$roomNumber [$targetCell]..."
-        )
+        session.log("[Void Aura] Moving to $targetMap-$roomNumber [$targetCell]...")
         session.map.joinMap(targetMap, roomNumber, targetCell, "Spawn")
         delay(2000.milliseconds)
 
@@ -179,11 +175,7 @@ object NativeVoidAuraBot {
             onProgressUpdate(currentQty)
 
             if (targetQty > 0 && trackedItem.isNotBlank() && currentQty >= targetQty) {
-                BotHelper.dispatchLog(
-                    "general",
-                    username,
-                    "[Void Aura] Target reached: $currentQty / $targetQty $trackedItem!"
-                )
+                session.log("[Void Aura] Target reached: $currentQty / $targetQty $trackedItem!")
                 session.social.sendChat("[Void Aura] Target reached: $currentQty $trackedItem")
                 break
             }
