@@ -36,7 +36,6 @@ graph TD
 
     subgraph Service_Layer ["Supporting / Android Services"]
         Service["BotForegroundService\n(Keep-alive notification & CPU WakeLock)"]
-        Helper["BotHelper (Legacy Facade / Global Log Relay)"]
     end
 
     %% Dependency Connections
@@ -45,7 +44,6 @@ graph TD
     ViewModels --> Coordinators
     ViewModels --> BotEngines
     ViewModels --> RepoInterfaces
-    ViewModels --> Helper
 
     Coordinators --> Engine
     BotEngines --> Engine
@@ -195,8 +193,6 @@ Lapisan penyedia data, engine protokol, jaringan, dan persistensi penyimpanan.
 - **`froztt13.python.aqw.service.BotForegroundService`**:
     - Menjalankan bot dalam Foreground Service Android dengan persistent notification agar socket
       game tidak diputus oleh Doze Mode Android saat layar mati.
-- **`froztt13.python.aqw.helper.BotHelper`**:
-    - Facade transisi untuk backwards compatibility delegasi config dan relay log event bus global.
 
 ---
 
@@ -222,9 +218,9 @@ Lapisan penyedia data, engine protokol, jaringan, dan persistensi penyimpanan.
    - session.combat.castSkill(...) / session.combat.autoAttack()
    - session.quest.tryCompleteQuest(...)
    ↓
-9. Pesan log dicatat langsung ke AqwSession.logs -> Dikonsumsi secara reaktif oleh BasePartyCoordinator.slotLogs
+9. Pesan log dicatat langsung ke AqwSession.logs -> Dikonsumsi secara reaktif oleh BasePartyCoordinator.slotLogs atau bot engine logs
    ↓
-10. EclipseViewModel meneruskan slotLogs ke LiveLogConsole pada EclipseScreen (UI terupdate secara real-time)
+10. ViewModel meneruskan StateFlow log stream ke LiveLogConsole pada Screen UI (UI terupdate secara real-time)
 ```
 
 ---
@@ -246,3 +242,9 @@ Lapisan penyedia data, engine protokol, jaringan, dan persistensi penyimpanan.
 4. **Type-Safe Configuration**:
     - Setiap model konfigurasi disimpan dalam package `data/model` dengan anotasi `@Serializable`,
       diakses melalui `ConfigRepositoryImpl`.
+5. **Reactive Logging & State Streaming**:
+    - Seluruh logging dilakukan langsung melalui `session.log(slotKey, message, type)`.
+    - ViewModel mengamati log secara reaktif melalui `StateFlow<List<LogEntry>>` (untuk single
+      session bot seperti `NativeGeneralBot`, `NativeWeeklyDoomBot`) atau
+      `StateFlow<Map<String, List<LogEntry>>>` (untuk multi-slot bot via `BasePartyCoordinator` /
+      `NativeSlaveryBot`), tanpa perantara singleton statis global.

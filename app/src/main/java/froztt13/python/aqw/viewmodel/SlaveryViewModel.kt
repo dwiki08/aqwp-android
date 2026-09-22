@@ -10,7 +10,6 @@ import froztt13.python.aqw.data.model.SlotTelemetry
 import froztt13.python.aqw.data.repository.ConfigRepositoryImpl
 import froztt13.python.aqw.domain.bot.slavery.NativeSlaveryBot
 import froztt13.python.aqw.domain.repository.ConfigRepository
-import froztt13.python.aqw.helper.BotHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,16 +35,13 @@ class SlaveryViewModel(
         .map { map -> map.values.any { it.running } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    private val _slaveryLogs = MutableStateFlow<List<LogEntry>>(emptyList())
-    val slaveryLogs: StateFlow<List<LogEntry>> = _slaveryLogs.asStateFlow()
-
-    private var unsubscribeLogs: (() -> Unit)? = null
+    val slaveryLogs: StateFlow<List<LogEntry>> = NativeSlaveryBot.slotLogs
+        .map { map ->
+            map.values.flatten().sortedBy { it.timestamp }.takeLast(250)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        unsubscribeLogs = BotHelper.registerLogListener("slavery") { entry ->
-            _slaveryLogs.update { list -> (list + entry).takeLast(300) }
-        }
-
         loadConfig()
     }
 
@@ -116,12 +112,7 @@ class SlaveryViewModel(
         NativeSlaveryBot.stop()
     }
 
-    fun clearLogs() {
-        _slaveryLogs.value = emptyList()
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        unsubscribeLogs?.invoke()
+    fun clearLogs(slotKey: String? = null) {
+        NativeSlaveryBot.clearLogs(slotKey)
     }
 }

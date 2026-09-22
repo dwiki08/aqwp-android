@@ -14,7 +14,6 @@ import froztt13.python.aqw.domain.model.AqwItem
 import froztt13.python.aqw.domain.model.AqwOtherPlayer
 import froztt13.python.aqw.domain.model.AqwPlayerState
 import froztt13.python.aqw.domain.model.AqwSkill
-import froztt13.python.aqw.helper.BotHelper
 import froztt13.python.aqw.utils.stripAnsi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -81,7 +80,6 @@ class AqwSession {
         )
         _logs.update { list -> (list + entry).takeLast(250) }
         logCallback?.invoke(clean)
-        BotHelper.dispatchLog(botType, uname, clean)
     }
 
     fun clearLogs() {

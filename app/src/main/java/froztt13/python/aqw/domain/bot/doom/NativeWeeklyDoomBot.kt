@@ -8,7 +8,6 @@ import froztt13.python.aqw.data.model.LogEntry
 import froztt13.python.aqw.data.model.LogEntryType
 import froztt13.python.aqw.data.model.WeeklyDoomConfig
 import froztt13.python.aqw.data.model.WeeklyDoomTelemetry
-import froztt13.python.aqw.helper.BotHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -19,7 +18,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.time.Duration.Companion.milliseconds
 
 object NativeWeeklyDoomBot {
@@ -31,25 +29,14 @@ object NativeWeeklyDoomBot {
     private val _telemetry = MutableStateFlow(WeeklyDoomTelemetry())
     val telemetry: StateFlow<WeeklyDoomTelemetry> = _telemetry.asStateFlow()
 
-    private val logListeners = CopyOnWriteArrayList<(LogEntry) -> Unit>()
+    private val _logs = MutableStateFlow<List<LogEntry>>(emptyList())
+    val logs: StateFlow<List<LogEntry>> = _logs.asStateFlow()
 
     private var stopRequested = false
     private var startTimeMillis: Long = 0L
 
-    fun registerLogListener(onLog: (LogEntry) -> Unit): () -> Unit {
-        logListeners.add(onLog)
-        return { logListeners.remove(onLog) }
-    }
-
-    private fun dispatchLog(username: String, message: String, type: LogEntryType = LogEntryType.INFO) {
-        BotHelper.dispatchLog(type, username, message)
-        val entry = LogEntry(botType = type, username = username, message = message)
-        for (listener in logListeners) {
-            try {
-                listener(entry)
-            } catch (_: Exception) {
-            }
-        }
+    fun clearLogs() {
+        _logs.value = emptyList()
     }
 
     fun start(config: WeeklyDoomConfig): Pair<Boolean, String?> {
@@ -95,6 +82,7 @@ object NativeWeeklyDoomBot {
 
     fun stop() {
         stopRequested = true
+        currentSession?.log("Weekly Doom stopped by user", LogEntryType.WARNING)
         currentSession?.stop()
         runnerJob?.cancel()
         _telemetry.update {
@@ -113,7 +101,6 @@ object NativeWeeklyDoomBot {
 
                 val acc = accounts[idx]
                 val username = acc.username.trim()
-                val password = acc.password.trim()
                 val accId = acc.id
 
                 _telemetry.update { current ->
@@ -135,123 +122,52 @@ object NativeWeeklyDoomBot {
                     )
                 }
 
-                dispatchLog(
-                    username,
-                    "=== [Weekly Doom] Starting account ${idx + 1}/${accounts.size}: $username ==="
-                )
-
                 val session = AqwSession()
                 currentSession = session
+                session.socketClient.tag = username
+                session.playerState.username = username
                 val wheelDrops = mutableListOf<String>()
+
+                val logJob = scope.launch(Dispatchers.IO) {
+                    session.logs.collect { sessionLogs ->
+                        _logs.update { current ->
+                            (current + sessionLogs).distinctBy { it.id }.takeLast(300)
+                        }
+                    }
+                }
 
                 val eventJob = scope.launch(Dispatchers.IO) {
                     session.events.collect { event ->
                         when (event) {
                             is AqwEvent.WheelSpun -> {
                                 wheelDrops.addAll(event.dropNames)
-                                dispatchLog(
-                                    username,
-                                    "Wheel spun drops: ${event.dropNames.joinToString(", ")}"
+                                session.log(
+                                    "Wheel spun drops: ${event.dropNames.joinToString(", ")}",
+                                    LogEntryType.INFO
                                 )
                             }
-
-
 
                             else -> {}
                         }
                     }
                 }
 
-                var accountResultMsg = "Completed"
-                var accountResultStatus = "Finished"
+                var accountResultMsg: String
+                var accountResultStatus: String
                 var hasEioda = false
 
                 try {
-                    val connected = session.start(
-                        username = username,
-                        password = password,
-                        preferredServer = server
-                    )
-
-                    if (!connected) {
-                        accountResultStatus = "Failed"
-                        accountResultMsg = "Login failed / check credentials"
-                    } else {
-                        var waitCount = 0
-                        while (!session.isCharLoaded.value && waitCount < 150 && !stopRequested) {
-                            delay(100.milliseconds)
-                            waitCount++
-                        }
-
-                        if (!session.isCharLoaded.value) {
-                            accountResultStatus = "Timeout"
-                            accountResultMsg = "Character data load timeout"
-                        } else {
-                            hasEioda = session.playerState.inventory.any {
-                                it.name.equals(
-                                    "Epic Item of Digital Awesomeness",
-                                    ignoreCase = true
-                                )
-                            }
-                            if (hasEioda) {
-                                dispatchLog(
-                                    username,
-                                    "*** EPIC ITEM OF DIGITAL AWESOMENESS IN INVENTORY! ***"
-                                )
-                            }
-
-                            val hasInBank = session.playerState.bank.any {
-                                it.name.equals("Gear of Doom", ignoreCase = true)
-                            }
-                            if (hasInBank) {
-                                dispatchLog(
-                                    username,
-                                    "Moving Gear of Doom from bank to inventory..."
-                                )
-                                session.item.bankToInv("Gear of Doom")
-                                delay(1200.milliseconds)
-                            }
-
-                            val doomGears = session.playerState.inventory.firstOrNull {
-                                it.name.equals("Gear of Doom", ignoreCase = true)
-                            }
-                            val gearQty = doomGears?.qty ?: 0
-
-                            if (gearQty < 3) {
-                                accountResultStatus = "Not enough Gear"
-                                accountResultMsg = "Not enough Gear of Doom ($gearQty < 3)"
-                                dispatchLog(username, accountResultMsg)
-                            } else {
-                                dispatchLog(
-                                    username,
-                                    "Has $gearQty Gear of Doom. Joining map 'doom'..."
-                                )
-                                session.map.joinMap("doom")
-                                delay(2000.milliseconds)
-
-                                dispatchLog(username, "Accepting quest 3076 (Wheel of Doom)...")
-                                session.quest.acceptQuest(3076)
-                                delay(1500.milliseconds)
-
-                                dispatchLog(username, "Turning in quest 3076 (Spinning Wheel)...")
-                                session.quest.turnInQuest(3076)
-                                delay(3000.milliseconds)
-
-                                accountResultStatus = "Finished"
-                                accountResultMsg = if (wheelDrops.isNotEmpty()) {
-                                    "Finished: ${wheelDrops.joinToString(", ")}"
-                                } else {
-                                    "Completed successfully"
-                                }
-                                dispatchLog(username, "Spin completed!")
-                            }
-                        }
-                    }
+                    val result =
+                        processAccount(session, server, acc, idx, accounts.size, wheelDrops)
+                    accountResultStatus = result.status
+                    accountResultMsg = result.message
+                    hasEioda = result.hasEioda
                 } catch (e: Exception) {
                     accountResultStatus = "Error"
                     accountResultMsg = e.message ?: "Unknown error"
-                    dispatchLog(username, "Error: $accountResultMsg")
+                    session.log("Error: $accountResultMsg", LogEntryType.ERROR)
                 } finally {
+                    logJob.cancel()
                     eventJob.cancel()
                     session.stop()
                     currentSession = null
@@ -280,13 +196,13 @@ object NativeWeeklyDoomBot {
                     )
                 }
 
-                dispatchLog(
-                    username,
-                    "=== [Weekly Doom] Account $username result: $accountResultStatus ($accountResultMsg) ==="
+                session.log(
+                    "=== [Weekly Doom] Account $username result: $accountResultStatus ($accountResultMsg) ===",
+                    LogEntryType.INFO
                 )
 
                 if (!stopRequested && idx < accounts.size - 1) {
-                    dispatchLog(username, "Waiting 3 seconds before next account...")
+                    session.log("Waiting 3 seconds before next account...", LogEntryType.INFO)
                     delay(3000.milliseconds)
                 }
             }
@@ -298,7 +214,107 @@ object NativeWeeklyDoomBot {
                     timeRunning = (System.currentTimeMillis() - startTimeMillis) / 1000L
                 )
             }
-            dispatchLog("System", "=== [Weekly Doom] All accounts processed. Runner finished. ===")
         }
     }
+
+    private suspend fun processAccount(
+        session: AqwSession,
+        server: String,
+        acc: DoomAccount,
+        idx: Int,
+        totalAccounts: Int,
+        wheelDrops: List<String>
+    ): AccountResult {
+        val username = acc.username.trim()
+        val password = acc.password.trim()
+
+        session.log(
+            "=== [Weekly Doom] Starting account ${idx + 1}/$totalAccounts: $username ===",
+            LogEntryType.INFO
+        )
+
+        val connected = session.start(
+            username = username,
+            password = password,
+            preferredServer = server
+        )
+
+        if (!connected) {
+            session.log("Login failed / check credentials.", LogEntryType.ERROR)
+            return AccountResult(status = "Failed", message = "Login failed / check credentials")
+        }
+
+        var waitCount = 0
+        while (!session.isCharLoaded.value && waitCount < 150 && !stopRequested) {
+            delay(100.milliseconds)
+            waitCount++
+        }
+
+        if (!session.isCharLoaded.value) {
+            session.log("Character data load timeout.", LogEntryType.ERROR)
+            return AccountResult(status = "Timeout", message = "Character data load timeout")
+        }
+
+        val hasEioda = session.playerState.inventory.any {
+            it.name.equals("Epic Item of Digital Awesomeness", ignoreCase = true)
+        }
+        if (hasEioda) {
+            session.log(
+                "*** EPIC ITEM OF DIGITAL AWESOMENESS IN INVENTORY! ***",
+                LogEntryType.WARNING
+            )
+        }
+
+        val hasInBank = session.playerState.bank.any {
+            it.name.equals("Gear of Doom", ignoreCase = true)
+        }
+        if (hasInBank) {
+            session.log("Moving Gear of Doom from bank to inventory...", LogEntryType.INFO)
+            session.item.bankToInv("Gear of Doom")
+            delay(1200.milliseconds)
+        }
+
+        val doomGears = session.playerState.inventory.firstOrNull {
+            it.name.equals("Gear of Doom", ignoreCase = true)
+        }
+        val gearQty = doomGears?.qty ?: 0
+
+        if (gearQty < 3) {
+            val msg = "Not enough Gear of Doom ($gearQty < 3)"
+            session.log(msg, LogEntryType.WARNING)
+            return AccountResult(status = "Not enough Gear", message = msg, hasEioda = hasEioda)
+        }
+
+        session.log("Has $gearQty Gear of Doom. Joining map 'doom'...", LogEntryType.INFO)
+        session.map.joinMap("doom")
+        delay(2000.milliseconds)
+
+        session.log("Accepting quest 3076 (Wheel of Doom)...", LogEntryType.INFO)
+        session.quest.acceptQuest(3076)
+        delay(1500.milliseconds)
+
+        session.log("Turning in quest 3076 (Spinning Wheel)...", LogEntryType.INFO)
+        session.quest.turnInQuest(3076)
+        delay(3000.milliseconds)
+
+        session.log("Spin completed!", LogEntryType.INFO)
+        val resultMsg = if (wheelDrops.isNotEmpty()) {
+            "Finished: ${wheelDrops.joinToString(", ")}"
+        } else {
+            "Completed successfully"
+        }
+        return AccountResult(
+            status = "Finished",
+            message = resultMsg,
+            hasEioda = hasEioda,
+            wheelDrops = wheelDrops
+        )
+    }
+
+    private data class AccountResult(
+        val status: String,
+        val message: String,
+        val hasEioda: Boolean = false,
+        val wheelDrops: List<String> = emptyList()
+    )
 }

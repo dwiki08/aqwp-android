@@ -3,6 +3,8 @@ package froztt13.python.aqw.domain.bot.slavery
 import android.util.Log
 import froztt13.python.aqw.data.engine.AqwEvent
 import froztt13.python.aqw.data.engine.AqwSession
+import froztt13.python.aqw.data.model.LogEntry
+import froztt13.python.aqw.data.model.LogEntryType
 import froztt13.python.aqw.data.model.MonsterTelemetry
 import froztt13.python.aqw.data.model.PartyStats
 import froztt13.python.aqw.data.model.Skill
@@ -10,7 +12,6 @@ import froztt13.python.aqw.data.model.SlaveSlotConfig
 import froztt13.python.aqw.data.model.SlaveryConfig
 import froztt13.python.aqw.data.model.SlotTelemetry
 import froztt13.python.aqw.data.model.ThresholdType
-import froztt13.python.aqw.data.model.LogEntryType
 import froztt13.python.aqw.domain.bot.temple.NativeTauntCoordinator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +43,9 @@ object NativeSlaveryBot {
 
     private val _partyStats = MutableStateFlow(PartyStats())
     val partyStats: StateFlow<PartyStats> = _partyStats.asStateFlow()
+
+    private val _slotLogs = MutableStateFlow<Map<String, List<LogEntry>>>(emptyMap())
+    val slotLogs: StateFlow<Map<String, List<LogEntry>>> = _slotLogs.asStateFlow()
 
     private var stopRequested = false
     private var startTimeMillis = 0L
@@ -89,6 +93,12 @@ object NativeSlaveryBot {
 
     fun stop() {
         stopRequested = true
+        activeSessions.values.forEach {
+            it.log(
+                "=== Slavery Bot stopped by user ===",
+                LogEntryType.INFO
+            )
+        }
         for ((_, session) in activeSessions) {
             try {
                 session.stop()
@@ -102,7 +112,16 @@ object NativeSlaveryBot {
             current.mapValues { (_, tele) -> tele.copy(running = false, isConnected = false) }
         }
         _partyStats.update { it.copy(timeRunning = (System.currentTimeMillis() - startTimeMillis) / 1000L) }
-        activeSessions.values.forEach { it.log("=== Slavery Bot stopped by user ===", LogEntryType.INFO) }
+    }
+
+    fun clearLogs(slotKey: String? = null) {
+        if (slotKey != null) {
+            activeSessions[slotKey]?.clearLogs()
+            _slotLogs.update { it + (slotKey to emptyList()) }
+        } else {
+            activeSessions.values.forEach { it.clearLogs() }
+            _slotLogs.value = emptyMap()
+        }
     }
 
     private suspend fun runSlavery(
@@ -193,8 +212,17 @@ object NativeSlaveryBot {
         }
 
         val session = AqwSession()
+        session.slotKey = slotKey
         session.socketClient.tag = "$slotKey ($username)"
         activeSessions[slotKey] = session
+
+        val logJob = scope.launch(Dispatchers.IO) {
+            session.logs.collect { sessionLogs ->
+                _slotLogs.update { current ->
+                    current + (slotKey to sessionLogs)
+                }
+            }
+        }
 
         val cooldowns = ConcurrentHashMap<Int, Double>()
         for (i in 0..5) cooldowns[i] = 0.0
@@ -405,6 +433,7 @@ object NativeSlaveryBot {
         } catch (e: Exception) {
             session.log("Worker error: ${e.message}", LogEntryType.ERROR)
         } finally {
+            logJob.cancel()
             eventJob.cancel()
             session.stop()
             activeSessions.remove(slotKey)

@@ -10,7 +10,6 @@ import froztt13.python.aqw.data.model.SlotConfig
 import froztt13.python.aqw.data.model.SlotTelemetry
 import froztt13.python.aqw.data.model.TempleConfig
 import froztt13.python.aqw.domain.coordinator.BasePartyCoordinator
-import froztt13.python.aqw.helper.BotHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -21,7 +20,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration.Companion.milliseconds
 
 object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
@@ -75,10 +75,9 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
         pausedAtMillis = System.currentTimeMillis()
 
         scope.launch(Dispatchers.IO) {
-            BotHelper.dispatchLog(
-                LogEntryType.WARNING,
-                "System",
-                "Pausing Temple Party: all slots leaving combat and jumping to current cell..."
+            logToAllSessions(
+                "Pausing Temple Party: all slots leaving combat and jumping to current cell...",
+                LogEntryType.WARNING
             )
             val jobs = activeSessions.map { (slotKey, session) ->
                 launch {
@@ -89,10 +88,9 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
                         delay(200.milliseconds)
                         session.combat.rest()
                         session.playerState.isInCombat = false
-                        BotHelper.dispatchLog(
-                            LogEntryType.INFO,
-                            session.playerState.username,
-                            "[$slotKey] Left combat, jumped to $currentCell [$currentPad]"
+                        session.log(
+                            "[$slotKey] Left combat, jumped to $currentCell [$currentPad]",
+                            LogEntryType.INFO
                         )
                     } catch (e: Exception) {
                         Log.e(TAG, "Error leaving combat on pause for $slotKey: ${e.message}")
@@ -108,7 +106,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
                     isRunning = true
                 )
             }
-            BotHelper.dispatchLog(LogEntryType.WARNING, "System", "=== Temple Shrine Party PAUSED ===")
+            logToAllSessions("=== Temple Shrine Party PAUSED ===", LogEntryType.WARNING)
         }
     }
 
@@ -135,7 +133,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
                 isRunning = true
             )
         }
-        BotHelper.dispatchLog(LogEntryType.INFO, "System", "=== Temple Shrine Party RESUMED ===")
+        logToAllSessions("=== Temple Shrine Party RESUMED ===", LogEntryType.INFO)
     }
 
     fun start(config: TempleConfig): Pair<Boolean, String?> {
@@ -171,6 +169,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
         _latestAnimMsg.value = ""
         latestAnimMsgTime = 0L
         animClearJob?.cancel()
+        animClearJob = null
 
         val initialStatuses = mutableMapOf<String, SlotTelemetry>()
         for (key in NativeTempleConfig.ALL_SLOTS) {
@@ -191,17 +190,13 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
         stopRequested = true
         _isPaused.value = false
         pausedAtMillis = 0L
-        for ((_, session) in activeSessions) {
-            try {
-                session.stop()
-            } catch (_: Exception) {
-            }
-        }
-        activeSessions.clear()
+        logToAllSessions("=== Temple Shrine Party stopped by user ===", LogEntryType.INFO)
+        stopAllSessions()
         coordinatorJob?.cancel()
         _latestAnimMsg.value = ""
         latestAnimMsgTime = 0L
         animClearJob?.cancel()
+        animClearJob = null
 
         _status.update { current ->
             current.mapValues { (_, tele) ->
@@ -213,7 +208,6 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
             }
         }
         _stats.update { it.copy(timeRunning = (System.currentTimeMillis() - startTimeMillis) / 1000L) }
-        BotHelper.dispatchLog(LogEntryType.INFO, "System", "=== Temple Shrine Party stopped by user ===")
     }
 
     private suspend fun waitForSlavesInCell(targetCell: String, maxWaitMs: Long = 4000L) {
@@ -290,7 +284,7 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
             slotJobs.joinAll()
         } catch (e: Exception) {
             Log.e(TAG, "Error in Temple Party run: ${e.message}", e)
-            BotHelper.dispatchLog(LogEntryType.ERROR, "System", "Error in Temple Party run: ${e.message}")
+            logToAllSessions("Error in Temple Party run: ${e.message}", LogEntryType.ERROR)
         } finally {
             statsTimerJob.cancel()
             stop()
@@ -309,11 +303,11 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
         dropWhitelist: Set<String>
     ) {
         val username = slotConfig.username.trim()
-        val password = slotConfig.password.trim()
         val isTaunter = slotConfig.isTaunter
         val targetMonsters = slotConfig.defaultTarget.ifBlank { defaultTargetMonsters }
 
         val session = AqwSession()
+        session.slotKey = slotKey
         session.isPaused = { _isPaused.value }
         session.socketClient.tag = "$slotKey ($username)"
         activeSessions[slotKey] = session
@@ -326,12 +320,8 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
             }
         }
 
-        val cooldowns = ConcurrentHashMap<Int, Double>()
-        for (i in 0..5) cooldowns[i] = 0.0
-
-        var doTaunt = false
-        var targetMonstersOverride: String? = null
-        var isAttacking = false
+        val doTauntRef = AtomicBoolean(false)
+        val targetMonstersOverrideRef = AtomicReference<String?>(null)
 
         val eventJob = scope.launch(Dispatchers.IO) {
             session.events.collect { event ->
@@ -359,10 +349,10 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
                         for (msg in event.animMsgs) {
                             val lower = msg.lowercase()
                             if (lower.contains("gather")) {
-                                targetMonstersOverride = MONSTER_DYING_LIGHT
-                                doTaunt = true
+                                targetMonstersOverrideRef.set(MONSTER_DYING_LIGHT)
+                                doTauntRef.set(true)
                             } else if (lower.contains("converges")) {
-                                doTaunt = true
+                                doTauntRef.set(true)
                             }
                         }
 
@@ -376,8 +366,8 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
                                 if (aura.name.equals(AURA_SUNS_WARMTH, ignoreCase = true)) {
                                     scope.launch(Dispatchers.IO) {
                                         delay(5000.milliseconds)
-                                        targetMonstersOverride = MONSTER_DAWN_KNIGHT
-                                        doTaunt = true
+                                        targetMonstersOverrideRef.set(MONSTER_DAWN_KNIGHT)
+                                        doTauntRef.set(true)
                                     }
                                 }
                             }
@@ -386,10 +376,9 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
 
                     is AqwEvent.ItemDropped -> {
                         if (dropWhitelist.any { it.equals(event.itemName, ignoreCase = true) }) {
-                            BotHelper.dispatchLog(
-                                LogEntryType.INFO,
-                                username,
-                                "Picking up drop: ${event.itemName} x${event.qty}"
+                            session.log(
+                                "Picking up drop: ${event.itemName} x${event.qty}",
+                                LogEntryType.INFO
                             )
                             session.item.getItemDrop(event.itemId)
                         }
@@ -401,318 +390,29 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
         }
 
         try {
-            BotHelper.dispatchLog(LogEntryType.INFO, username, "[$slotKey] Logging in to $server...")
-            val connected = session.start(
-                username = username,
-                password = password,
-                preferredServer = server
-            )
-
-            if (!connected) {
-                BotHelper.dispatchLog(LogEntryType.ERROR, username, "[$slotKey] Failed to connect / login.")
-                updateTelemetry(slotKey, session, targetMonsters, isRunning = false)
-                return
-            }
-
-            // Wait for inventory and character to load
-            var loadWait = 0
-            while (!session.isCharLoaded.value && loadWait < 150 && !stopRequested) {
-                delay(100.milliseconds)
-                loadWait++
-            }
-
-            if (!session.isCharLoaded.value) {
-                BotHelper.dispatchLog(LogEntryType.ERROR, username, "[$slotKey] Character load timed out.")
-                return
-            }
-
-            // Equip farm class if specified
-            if (slotConfig.charClass.isNotBlank()) {
-                val classItem = session.playerState.inventory.firstOrNull {
-                    it.name.equals(slotConfig.charClass, ignoreCase = true)
-                }
-                if (classItem != null) {
-                    session.item.equipItem(classItem.itemId)
-                    delay(1000.milliseconds)
-                }
-            }
-
-            // Prepare Scroll of Enrage if taunter
-            var soeQty: Int
-            if (isTaunter) {
-                val soeItem = session.playerState.inventory.firstOrNull {
-                    it.name.equals(ITEM_SCROLL_OF_ENRAGE, ignoreCase = true)
-                }
-                soeQty = soeItem?.qty ?: 0
-                if (soeQty <= 0) {
-                    val err =
-                        "Taunter '$username' does not have $ITEM_SCROLL_OF_ENRAGE (SoE). Minimum 1 $ITEM_SCROLL_OF_ENRAGE is required."
-                    BotHelper.dispatchLog(LogEntryType.ERROR, username, err)
-                    stop()
-                    return
-                }
-                BotHelper.dispatchLog(
-                    LogEntryType.INFO,
-                    username,
-                    "Equipping $ITEM_SCROLL_OF_ENRAGE (Qty: $soeQty)..."
-                )
-                session.item.equipScroll(soeItem!!.itemId, soeItem.sMeta)
-                tauntCoordinator.registerTaunter(username)
-                delay(1500.milliseconds)
-            }
-
-            if (isMaster) {
-                // Master: Join yulgar, wait for party, invite slaves, queue dungeon
-                BotHelper.dispatchLog(
-                    LogEntryType.INFO,
-                    username,
-                    "Master joining $MAP_ASSEMBLY-$MAP_ASSEMBLY_ROOM to assemble party..."
-                )
-                session.map.joinMap(MAP_ASSEMBLY, MAP_ASSEMBLY_ROOM)
-                delay(3500.milliseconds)
-
-                // Wait until all slave sessions are connected
-                BotHelper.dispatchLog(
-                    LogEntryType.INFO,
-                    username,
-                    "Waiting for party members to be online..."
-                )
-                var partyWait = 0
-                while (activeSessions.size < NativeTempleConfig.ALL_SLOTS.size && partyWait < 60 && !stopRequested) {
-                    delay(500.milliseconds)
-                    partyWait++
-                }
-
-                // Send party invites
-                for (slaveName in slaveUsernames) {
-                    BotHelper.dispatchLog(
-                        LogEntryType.INFO,
-                        username,
-                        "Sending party invite to $slaveName..."
-                    )
-                    session.social.partyInvite(slaveName)
-                    delay(600.milliseconds)
-                }
-
-                delay(1000.milliseconds)
-                BotHelper.dispatchLog(LogEntryType.INFO, username, "Queueing dungeon '$dungeonMap'...")
-                session.social.dungeonQueue(dungeonMap)
-            } else {
-                // Slave: wait for party invite and accept
-                BotHelper.dispatchLog(LogEntryType.INFO, username, "Slave waiting for party invitation...")
-                var inviteWait = 0
-                while (session.latestPartyId == null && inviteWait < 120 && !stopRequested) {
-                    session.map.gotoPlayer(masterUsername)
-                    delay(1000.milliseconds)
-                    inviteWait++
-                }
-
-                val pid = session.latestPartyId
-                if (pid != null) {
-                    BotHelper.dispatchLog(
-                        LogEntryType.INFO,
-                        username,
-                        "Accepting party invite (PID: $pid)..."
-                    )
-                    session.social.partyAccept(pid)
-                    delay(1200.milliseconds)
-                }
-            }
-
-            // Main Combat & Cell Navigation Loop
-            val skillRotation = DEFAULT_SKILL_ROTATION
-            var skillIdx = 0
-
-            while (scope.isActive && !stopRequested && session.isConnected.value) {
-                if (_isPaused.value) {
-                    val soeItemNow = session.playerState.inventory.firstOrNull {
-                        it.name.equals(ITEM_SCROLL_OF_ENRAGE, ignoreCase = true)
-                    }
-                    soeQty = soeItemNow?.qty ?: 0
-                    updateTelemetry(
-                        slotKey,
-                        session,
-                        "PAUSED",
-                        isRunning = true,
-                        soeQty = soeQty
-                    )
-                    delay(500.milliseconds)
-                    continue
-                }
-
-                if (session.playerState.isDead) {
-                    delay(500.milliseconds)
-                    continue
-                }
-
-                val currentCell = session.playerState.cell
-                val currentMap = session.playerState.mapName
-
-                // Update Telemetry
-                val soeItemNow = session.playerState.inventory.firstOrNull {
-                    it.name.equals(ITEM_SCROLL_OF_ENRAGE, ignoreCase = true)
-                }
-                soeQty = soeItemNow?.qty ?: 0
-                updateTelemetry(
-                    slotKey,
+            if (!preparingCharacter(session, slotKey, slotConfig, server, targetMonsters)) return
+            if (!preparingParty(
                     session,
-                    targetMonstersOverride ?: targetMonsters,
-                    isRunning = true,
-                    soeQty = soeQty
+                    isMaster,
+                    masterUsername,
+                    slaveUsernames,
+                    dungeonMap
                 )
-
-                if (isMaster) {
-                    // Cell progression for master
-                    val hasMonsters = session.map.hasAliveMonsters(currentCell)
-                    if (!hasMonsters && currentMap.contains(dungeonMap, ignoreCase = true)) {
-                        when (currentCell) {
-                            CELL_ENTER -> {
-                                BotHelper.dispatchLog(
-                                    LogEntryType.INFO,
-                                    username,
-                                    "Cell cleared. Moving to $CELL_R1..."
-                                )
-                                session.map.jumpCell(CELL_R1, PAD_LEFT)
-                                delay(1200.milliseconds)
-                                waitForSlavesInCell(CELL_R1)
-                            }
-
-                            CELL_R1 -> {
-                                BotHelper.dispatchLog(
-                                    LogEntryType.INFO,
-                                    username,
-                                    "Cell cleared. Moving to $CELL_R2..."
-                                )
-                                session.map.jumpCell(CELL_R2, PAD_LEFT)
-                                delay(1200.milliseconds)
-                                waitForSlavesInCell(CELL_R2)
-                            }
-
-                            CELL_R2 -> {
-                                BotHelper.dispatchLog(
-                                    LogEntryType.INFO,
-                                    username,
-                                    "Cell cleared. Moving to $CELL_R3..."
-                                )
-                                session.map.jumpCell(CELL_R3, PAD_LEFT)
-                                delay(1200.milliseconds)
-                                waitForSlavesInCell(CELL_R3)
-                            }
-
-                            CELL_R3 -> {
-                                clearedRuns++
-                                BotHelper.dispatchLog(
-                                    LogEntryType.INFO,
-                                    username,
-                                    "=== Dungeon cleared $clearedRuns times! ==="
-                                )
-                                session.social.sendChat("Dungeon cleared $clearedRuns times.")
-                                delay(1000.milliseconds)
-                                session.map.joinMap(MAP_RESET, MAP_RESET_ROOM)
-                                delay(2500.milliseconds)
-                                session.social.dungeonQueue(dungeonMap)
-                                delay(2000.milliseconds)
-                            }
-                        }
-                    }
-                } else {
-                    // Slave: follow master if not in the same cell or map
-                    val masterSession = activeSessions[NativeTempleConfig.MASTER_SLOT_KEY]
-                    val masterCell = masterSession?.playerState?.cell
-                    val masterMap = masterSession?.playerState?.mapName ?: ""
-                    val isDifferentMap =
-                        masterMap.isNotBlank() && !currentMap.equals(masterMap, ignoreCase = true)
-                    val isDifferentCell =
-                        masterCell != null && !masterCell.equals(currentCell, ignoreCase = true)
-
-                    if (isDifferentMap || isDifferentCell) {
-                        BotHelper.dispatchLog(
-                            LogEntryType.INFO,
-                            username,
-                            "[$slotKey] Master is in $masterMap:$masterCell (current: $currentMap:$currentCell). Moving to master..."
-                        )
-                        val inDungeonMap = currentMap.contains(dungeonMap, ignoreCase = true) ||
-                                masterMap.contains(dungeonMap, ignoreCase = true)
-
-                        if (inDungeonMap && masterCell != null) {
-                            val masterPad = masterSession.playerState.pad.ifBlank { PAD_LEFT }
-                            session.map.jumpCell(masterCell, masterPad)
-                        } else if (!isDifferentMap && masterCell != null) {
-                            val masterPad = masterSession.playerState.pad.ifBlank { PAD_LEFT }
-                            session.map.jumpCell(masterCell, masterPad)
-                        } else {
-                            session.map.gotoPlayer(masterUsername)
-                        }
-                        delay(1200.milliseconds)
-                        continue
-                    }
-                }
-
-                // Attack Monsters in Current Cell
-                val aliveMonsters = session.map.getMonsters(currentCell)
-                if (aliveMonsters.isNotEmpty()) {
-                    if (!isAttacking) {
-                        isAttacking = true
-                    }
-
-                    // Determine target monster
-                    val activeTargetStr = targetMonstersOverride ?: targetMonsters
-                    val prioritized = activeTargetStr.split(",").map { it.trim().lowercase() }
-                    val targetMonster = aliveMonsters.firstOrNull { mon ->
-                        prioritized.any { p -> mon.name.lowercase().contains(p) }
-                    } ?: aliveMonsters.first()
-
-                    // Taunt handling
-                    if (doTaunt && isTaunter) {
-                        if (soeQty <= 0) {
-                            BotHelper.dispatchLog(
-                                LogEntryType.ERROR,
-                                username,
-                                "Ran out of $ITEM_SCROLL_OF_ENRAGE (SoE)!"
-                            )
-                            stop()
-                            break
-                        }
-
-                        if (tauntCoordinator.requestTaunt(username)) {
-                            BotHelper.dispatchLog(
-                                LogEntryType.INFO,
-                                username,
-                                "Executing Taunt on ${targetMonster.name}!"
-                            )
-                            session.combat.taunt(targetMonster.monMapId)
-                            doTaunt = false
-                            targetMonstersOverride = null
-                            delay(400.milliseconds)
-                            continue
-                        } else {
-                            doTaunt = false
-                            targetMonstersOverride = null
-                        }
-                    }
-
-                    // Skill usage
-                    val nextSkill = skillRotation[skillIdx]
-                    skillIdx = (skillIdx + 1) % skillRotation.size
-
-                    // Check inverted damage debuff "Sun's Heat"
-                    val hasSunsHeat = session.playerState.hasAura(AURA_SUNS_HEAT)
-                    if (hasSunsHeat && (nextSkill == 2 || nextSkill == 3)) {
-                        // Skip heal skills when debuffed with Sun's Heat
-                        session.combat.attack(targetMonster.monMapId)
-                    } else if (nextSkill == 0) {
-                        session.combat.attack(targetMonster.monMapId)
-                    } else {
-                        session.combat.useSkill(nextSkill, targetMonster.monMapId)
-                    }
-                } else {
-                    isAttacking = false
-                }
-
-                delay(500.milliseconds)
-            }
+            ) return
+            doCombat(
+                session = session,
+                slotKey = slotKey,
+                isMaster = isMaster,
+                isTaunter = isTaunter,
+                username = username,
+                masterUsername = masterUsername,
+                dungeonMap = dungeonMap,
+                targetMonsters = targetMonsters,
+                doTauntRef = doTauntRef,
+                targetMonstersOverrideRef = targetMonstersOverrideRef
+            )
         } catch (e: Exception) {
-            BotHelper.dispatchLog(LogEntryType.ERROR, username, "Worker error: ${e.message}")
+            session.log("Worker error: ${e.message}", LogEntryType.ERROR)
         } finally {
             eventJob.cancel()
             logJob.cancel()
@@ -720,6 +420,345 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
             activeSessions.remove(slotKey)
             if (isTaunter) tauntCoordinator.unregisterTaunter(username)
             updateTelemetry(slotKey, session, targetMonsters, isRunning = false)
+        }
+    }
+
+    private suspend fun preparingCharacter(
+        session: AqwSession,
+        slotKey: String,
+        slotConfig: SlotConfig,
+        server: String,
+        targetMonsters: String
+    ): Boolean {
+        val username = slotConfig.username.trim()
+        val password = slotConfig.password.trim()
+        val isTaunter = slotConfig.isTaunter
+
+        session.log("[$slotKey] Logging in to $server...", LogEntryType.INFO)
+        val connected = session.start(
+            username = username,
+            password = password,
+            preferredServer = server
+        )
+
+        if (!connected) {
+            session.log("[$slotKey] Failed to connect / login.", LogEntryType.ERROR)
+            updateTelemetry(slotKey, session, targetMonsters, isRunning = false)
+            return false
+        }
+
+        // Wait for inventory and character to load
+        var loadWait = 0
+        while (!session.isCharLoaded.value && loadWait < 150 && !stopRequested) {
+            delay(100.milliseconds)
+            loadWait++
+        }
+
+        if (!session.isCharLoaded.value) {
+            session.log("[$slotKey] Character load timed out.", LogEntryType.ERROR)
+            return false
+        }
+
+        // Equip farm class if specified
+        if (slotConfig.charClass.isNotBlank()) {
+            val classItem = session.playerState.inventory.firstOrNull {
+                it.name.equals(slotConfig.charClass, ignoreCase = true)
+            }
+            if (classItem != null) {
+                session.item.equipItem(classItem.itemId)
+                delay(1000.milliseconds)
+            }
+        }
+
+        // Prepare Scroll of Enrage if taunter
+        if (isTaunter) {
+            val soeItem = session.playerState.inventory.firstOrNull {
+                it.name.equals(ITEM_SCROLL_OF_ENRAGE, ignoreCase = true)
+            }
+            val soeQty = soeItem?.qty ?: 0
+            if (soeQty <= 0) {
+                val err =
+                    "Taunter '$username' does not have $ITEM_SCROLL_OF_ENRAGE (SoE). Minimum 1 $ITEM_SCROLL_OF_ENRAGE is required."
+                session.log(err, LogEntryType.ERROR)
+                stop()
+                return false
+            }
+            session.log(
+                "Equipping $ITEM_SCROLL_OF_ENRAGE (Qty: $soeQty)...",
+                LogEntryType.INFO
+            )
+            session.item.equipScroll(soeItem!!.itemId, soeItem.sMeta)
+            tauntCoordinator.registerTaunter(username)
+            delay(1500.milliseconds)
+        }
+
+        return true
+    }
+
+    private suspend fun preparingParty(
+        session: AqwSession,
+        isMaster: Boolean,
+        masterUsername: String,
+        slaveUsernames: List<String>,
+        dungeonMap: String
+    ): Boolean {
+        if (stopRequested) return false
+
+        if (isMaster) {
+            // Master: Join yulgar, wait for party, invite slaves, queue dungeon
+            session.log(
+                "Master joining $MAP_ASSEMBLY-$MAP_ASSEMBLY_ROOM to assemble party...",
+                LogEntryType.INFO
+            )
+            session.map.joinMap(MAP_ASSEMBLY, MAP_ASSEMBLY_ROOM)
+            delay(3500.milliseconds)
+
+            // Wait until all slave sessions are connected
+            session.log(
+                "Waiting for party members to be online...",
+                LogEntryType.INFO
+            )
+            var partyWait = 0
+            while (activeSessions.size < NativeTempleConfig.ALL_SLOTS.size && partyWait < 60 && !stopRequested) {
+                delay(500.milliseconds)
+                partyWait++
+            }
+
+            if (stopRequested) return false
+
+            // Send party invites
+            for (slaveName in slaveUsernames) {
+                session.log(
+                    "Sending party invite to $slaveName...",
+                    LogEntryType.INFO
+                )
+                session.social.partyInvite(slaveName)
+                delay(600.milliseconds)
+            }
+
+            delay(1000.milliseconds)
+            session.log("Queueing dungeon '$dungeonMap'...", LogEntryType.INFO)
+            session.social.dungeonQueue(dungeonMap)
+        } else {
+            // Slave: wait for party invite and accept
+            session.log("Slave waiting for party invitation...", LogEntryType.INFO)
+            var inviteWait = 0
+            while (session.latestPartyId == null && inviteWait < 120 && !stopRequested) {
+                session.map.gotoPlayer(masterUsername)
+                delay(1000.milliseconds)
+                inviteWait++
+            }
+
+            if (stopRequested) return false
+
+            val pid = session.latestPartyId
+            if (pid != null) {
+                session.log(
+                    "Accepting party invite (PID: $pid)...",
+                    LogEntryType.INFO
+                )
+                session.social.partyAccept(pid)
+                delay(1200.milliseconds)
+            }
+        }
+        return !stopRequested
+    }
+
+    private suspend fun doCombat(
+        session: AqwSession,
+        slotKey: String,
+        isMaster: Boolean,
+        isTaunter: Boolean,
+        username: String,
+        masterUsername: String,
+        dungeonMap: String,
+        targetMonsters: String,
+        doTauntRef: AtomicBoolean,
+        targetMonstersOverrideRef: AtomicReference<String?>
+    ) {
+        val skillRotation = DEFAULT_SKILL_ROTATION
+        var skillIdx = 0
+        var isAttacking = false
+
+        while (scope.isActive && !stopRequested && session.isConnected.value) {
+            val soeItemNow = session.playerState.inventory.firstOrNull {
+                it.name.equals(ITEM_SCROLL_OF_ENRAGE, ignoreCase = true)
+            }
+            val soeQty = soeItemNow?.qty ?: 0
+
+            if (_isPaused.value) {
+                updateTelemetry(
+                    slotKey,
+                    session,
+                    "PAUSED",
+                    isRunning = true,
+                    soeQty = soeQty
+                )
+                delay(500.milliseconds)
+                continue
+            }
+
+            if (session.playerState.isDead) {
+                delay(500.milliseconds)
+                continue
+            }
+
+            val currentCell = session.playerState.cell
+            val currentMap = session.playerState.mapName
+            val currentOverride = targetMonstersOverrideRef.get()
+
+            // Update Telemetry
+            updateTelemetry(
+                slotKey,
+                session,
+                currentOverride ?: targetMonsters,
+                isRunning = true,
+                soeQty = soeQty
+            )
+
+            if (isMaster) {
+                // Cell progression for master
+                val hasMonsters = session.map.hasAliveMonsters(currentCell)
+                if (!hasMonsters && currentMap.contains(dungeonMap, ignoreCase = true)) {
+                    when (currentCell) {
+                        CELL_ENTER -> {
+                            session.log(
+                                "Cell cleared. Moving to $CELL_R1...",
+                                LogEntryType.INFO
+                            )
+                            session.map.jumpCell(CELL_R1, PAD_LEFT)
+                            delay(1200.milliseconds)
+                            waitForSlavesInCell(CELL_R1)
+                        }
+
+                        CELL_R1 -> {
+                            session.log(
+                                "Cell cleared. Moving to $CELL_R2...",
+                                LogEntryType.INFO
+                            )
+                            session.map.jumpCell(CELL_R2, PAD_LEFT)
+                            delay(1200.milliseconds)
+                            waitForSlavesInCell(CELL_R2)
+                        }
+
+                        CELL_R2 -> {
+                            session.log(
+                                "Cell cleared. Moving to $CELL_R3...",
+                                LogEntryType.INFO
+                            )
+                            session.map.jumpCell(CELL_R3, PAD_LEFT)
+                            delay(1200.milliseconds)
+                            waitForSlavesInCell(CELL_R3)
+                        }
+
+                        CELL_R3 -> {
+                            clearedRuns++
+                            session.log(
+                                "=== Dungeon cleared $clearedRuns times! ===",
+                                LogEntryType.INFO
+                            )
+                            session.social.sendChat("Dungeon cleared $clearedRuns times.")
+                            delay(1000.milliseconds)
+                            session.map.joinMap(MAP_RESET, MAP_RESET_ROOM)
+                            delay(2500.milliseconds)
+                            session.social.dungeonQueue(dungeonMap)
+                            delay(2000.milliseconds)
+                        }
+                    }
+                }
+            } else {
+                // Slave: follow master if not in the same cell or map
+                val masterSession = activeSessions[NativeTempleConfig.MASTER_SLOT_KEY]
+                val masterCell = masterSession?.playerState?.cell
+                val masterMap = masterSession?.playerState?.mapName ?: ""
+                val isDifferentMap =
+                    masterMap.isNotBlank() && !currentMap.equals(masterMap, ignoreCase = true)
+                val isDifferentCell =
+                    masterCell != null && !masterCell.equals(currentCell, ignoreCase = true)
+
+                if (isDifferentMap || isDifferentCell) {
+                    session.log(
+                        "[$slotKey] Master is in $masterMap:$masterCell (current: $currentMap:$currentCell). Moving to master...",
+                        LogEntryType.INFO
+                    )
+                    val inDungeonMap = currentMap.contains(dungeonMap, ignoreCase = true) ||
+                            masterMap.contains(dungeonMap, ignoreCase = true)
+
+                    if (inDungeonMap && masterCell != null) {
+                        val masterPad = masterSession.playerState.pad.ifBlank { PAD_LEFT }
+                        session.map.jumpCell(masterCell, masterPad)
+                    } else if (!isDifferentMap && masterCell != null) {
+                        val masterPad = masterSession.playerState.pad.ifBlank { PAD_LEFT }
+                        session.map.jumpCell(masterCell, masterPad)
+                    } else {
+                        session.map.gotoPlayer(masterUsername)
+                    }
+                    delay(1200.milliseconds)
+                    continue
+                }
+            }
+
+            // Attack Monsters in Current Cell
+            val aliveMonsters = session.map.getMonsters(currentCell)
+            if (aliveMonsters.isNotEmpty()) {
+                if (!isAttacking) {
+                    isAttacking = true
+                }
+
+                // Determine target monster
+                val activeTargetStr = currentOverride ?: targetMonsters
+                val prioritized = activeTargetStr.split(",").map { it.trim().lowercase() }
+                val targetMonster = aliveMonsters.firstOrNull { mon ->
+                    prioritized.any { p -> mon.name.lowercase().contains(p) }
+                } ?: aliveMonsters.first()
+
+                // Taunt handling
+                val doTaunt = doTauntRef.get()
+                if (doTaunt && isTaunter) {
+                    if (soeQty <= 0) {
+                        session.log(
+                            "Ran out of $ITEM_SCROLL_OF_ENRAGE (SoE)!",
+                            LogEntryType.ERROR
+                        )
+                        stop()
+                        break
+                    }
+
+                    if (tauntCoordinator.requestTaunt(username)) {
+                        session.log(
+                            "Executing Taunt on ${targetMonster.name}!",
+                            LogEntryType.INFO
+                        )
+                        session.combat.taunt(targetMonster.monMapId)
+                        doTauntRef.set(false)
+                        targetMonstersOverrideRef.set(null)
+                        delay(400.milliseconds)
+                        continue
+                    } else {
+                        doTauntRef.set(false)
+                        targetMonstersOverrideRef.set(null)
+                    }
+                }
+
+                // Skill usage
+                val nextSkill = skillRotation[skillIdx]
+                skillIdx = (skillIdx + 1) % skillRotation.size
+
+                // Check inverted damage debuff "Sun's Heat"
+                val hasSunsHeat = session.playerState.hasAura(AURA_SUNS_HEAT)
+                if (hasSunsHeat && (nextSkill == 2 || nextSkill == 3)) {
+                    // Skip heal skills when debuffed with Sun's Heat
+                    session.combat.attack(targetMonster.monMapId)
+                } else if (nextSkill == 0) {
+                    session.combat.attack(targetMonster.monMapId)
+                } else {
+                    session.combat.useSkill(nextSkill, targetMonster.monMapId)
+                }
+            } else {
+                isAttacking = false
+            }
+
+            delay(500.milliseconds)
         }
     }
 

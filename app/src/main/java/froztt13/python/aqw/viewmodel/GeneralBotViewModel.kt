@@ -7,8 +7,8 @@ import froztt13.python.aqw.data.model.GeneralBotTelemetry
 import froztt13.python.aqw.data.model.GeneralSubModuleInfo
 import froztt13.python.aqw.data.model.LogEntry
 import froztt13.python.aqw.data.repository.ConfigRepositoryImpl
+import froztt13.python.aqw.domain.bot.general.NativeGeneralBot
 import froztt13.python.aqw.domain.repository.ConfigRepository
-import froztt13.python.aqw.helper.BotHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,33 +29,23 @@ class GeneralBotViewModel(
     private val _config = MutableStateFlow(GeneralBotConfig())
     val config: StateFlow<GeneralBotConfig> = _config.asStateFlow()
 
-    val telemetry: StateFlow<GeneralBotTelemetry> =
-        froztt13.python.aqw.domain.bot.general.NativeGeneralBot.telemetry
+    val telemetry: StateFlow<GeneralBotTelemetry> = NativeGeneralBot.telemetry
 
     val isRunning: StateFlow<Boolean> = telemetry
         .map { it.running }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    val isPaused: StateFlow<Boolean> =
-        froztt13.python.aqw.domain.bot.general.NativeGeneralBot.isPaused
+    val isPaused: StateFlow<Boolean> = NativeGeneralBot.isPaused
 
     private val _subModules = MutableStateFlow<List<GeneralSubModuleInfo>>(emptyList())
     val subModules: StateFlow<List<GeneralSubModuleInfo>> = _subModules.asStateFlow()
 
-    private val _logs = MutableStateFlow<List<LogEntry>>(emptyList())
-    val logs: StateFlow<List<LogEntry>> = _logs.asStateFlow()
+    val logs: StateFlow<List<LogEntry>> = NativeGeneralBot.logs
 
     private val _errorMessage = MutableSharedFlow<String>()
     val errorMessage: SharedFlow<String> = _errorMessage.asSharedFlow()
 
-    private var unsubscribeLogs: (() -> Unit)? = null
-
     init {
-        // Register log listener for General Bot
-        unsubscribeLogs = BotHelper.registerLogListener("general") { entry ->
-            _logs.update { list -> (list + entry).takeLast(300) }
-        }
-
         loadSubModules()
         loadConfig()
     }
@@ -63,7 +53,7 @@ class GeneralBotViewModel(
     private fun loadSubModules() {
         // Native modules catalog
         _subModules.value =
-            froztt13.python.aqw.domain.bot.general.NativeGeneralBot.availableSubModules
+            NativeGeneralBot.availableSubModules
     }
 
     private fun loadConfig() {
@@ -150,11 +140,11 @@ class GeneralBotViewModel(
     }
 
     fun resetState() {
-        froztt13.python.aqw.domain.bot.general.NativeGeneralBot.resetState()
+        NativeGeneralBot.resetState()
     }
 
     fun clearLogs() {
-        _logs.value = emptyList()
+        NativeGeneralBot.clearLogs()
     }
 
     fun startBot(onStarted: () -> Unit = {}) {
@@ -172,27 +162,21 @@ class GeneralBotViewModel(
             return
         }
 
-        froztt13.python.aqw.domain.bot.general.NativeGeneralBot.start(current)
+        NativeGeneralBot.start(current)
         viewModelScope.launch {
             onStarted()
         }
     }
 
     fun stopBot() {
-        froztt13.python.aqw.domain.bot.general.NativeGeneralBot.stop()
+        NativeGeneralBot.stop()
     }
 
     fun pauseBot() {
-        froztt13.python.aqw.domain.bot.general.NativeGeneralBot.pause()
+        NativeGeneralBot.pause()
     }
 
     fun resumeBot() {
-        froztt13.python.aqw.domain.bot.general.NativeGeneralBot.resume()
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        unsubscribeLogs?.invoke()
-        unsubscribeLogs = null
+        NativeGeneralBot.resume()
     }
 }

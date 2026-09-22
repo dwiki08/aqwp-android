@@ -7,6 +7,7 @@ import froztt13.python.aqw.data.model.GeneralBotConfig
 import froztt13.python.aqw.data.model.GeneralBotTelemetry
 import froztt13.python.aqw.data.model.GeneralSubModuleInfo
 import froztt13.python.aqw.data.model.GeneralTaskInfo
+import froztt13.python.aqw.data.model.LogEntry
 import froztt13.python.aqw.data.model.LogEntryType
 import froztt13.python.aqw.data.model.QuestRequirementTelemetry
 import kotlinx.coroutines.CoroutineScope
@@ -40,6 +41,9 @@ object NativeGeneralBot {
     private val _telemetry = MutableStateFlow(GeneralBotTelemetry())
     val telemetry: StateFlow<GeneralBotTelemetry> = _telemetry.asStateFlow()
 
+    private val _logs = MutableStateFlow<List<LogEntry>>(emptyList())
+    val logs: StateFlow<List<LogEntry>> = _logs.asStateFlow()
+
     private val _isPaused = MutableStateFlow(false)
     val isPaused: StateFlow<Boolean> = _isPaused.asStateFlow()
 
@@ -49,6 +53,11 @@ object NativeGeneralBot {
 
     val isRunning: Boolean
         get() = _telemetry.value.running
+
+    fun clearLogs() {
+        _logs.value = emptyList()
+        currentSession?.clearLogs()
+    }
 
     fun pause() {
         if (!isRunning || _isPaused.value) return
@@ -192,6 +201,12 @@ object NativeGeneralBot {
         session.isPaused = { _isPaused.value }
         session.socketClient.tag = username
         currentSession = session
+
+        val logJob = scope.launch(Dispatchers.IO) {
+            session.logs.collect { sessionLogs ->
+                _logs.value = sessionLogs
+            }
+        }
 
         val targetQty = config.targetQty
         val trackedItem = task.trackedItem
@@ -395,6 +410,7 @@ object NativeGeneralBot {
             session.log("Runner error: ${e.message}", LogEntryType.ERROR)
             Log.e(TAG, "runGeneralBot error", e)
         } finally {
+            logJob.cancel()
             eventJob.cancel()
             timerJob.cancel()
             session.stop()

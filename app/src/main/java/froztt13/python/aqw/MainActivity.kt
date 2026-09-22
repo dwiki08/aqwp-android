@@ -22,7 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import froztt13.python.aqw.helper.BotHelper
+import froztt13.python.aqw.data.repository.ConfigRepositoryImpl
 import froztt13.python.aqw.ui.components.LocalNavigateToPlayerState
 import froztt13.python.aqw.ui.screens.DashboardScreen
 import froztt13.python.aqw.ui.screens.EclipseScreen
@@ -56,8 +56,8 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT)
         )
 
-        // Initialize BotHelper storage directory
-        BotHelper.init(filesDir)
+        // Initialize ConfigRepository storage directory
+        ConfigRepositoryImpl.instance.init(filesDir)
 
         // 2. Acquire Partial WakeLock to keep game socket active
         try {

@@ -10,7 +10,6 @@ import froztt13.python.aqw.data.repository.ConfigRepositoryImpl
 import froztt13.python.aqw.data.util.DoomAccountJsonParser
 import froztt13.python.aqw.domain.bot.doom.NativeWeeklyDoomBot
 import froztt13.python.aqw.domain.repository.ConfigRepository
-import froztt13.python.aqw.helper.BotHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,20 +36,12 @@ class WeeklyDoomViewModel(
         .map { it.running }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    private val _doomLogs = MutableStateFlow<List<LogEntry>>(emptyList())
-    val doomLogs: StateFlow<List<LogEntry>> = _doomLogs.asStateFlow()
+    val doomLogs: StateFlow<List<LogEntry>> = NativeWeeklyDoomBot.logs
 
     private val _errorMessage = MutableSharedFlow<String>()
     val errorMessage: SharedFlow<String> = _errorMessage.asSharedFlow()
 
-    private var unsubscribeLogs: (() -> Unit)? = null
-
     init {
-        // Register log listener for Weekly Doom
-        unsubscribeLogs = BotHelper.registerLogListener("doom") { entry ->
-            _doomLogs.update { list -> (list + entry).takeLast(300) }
-        }
-
         // Load saved configs
         loadConfig()
     }
@@ -208,11 +199,6 @@ class WeeklyDoomViewModel(
     }
 
     fun clearLogs() {
-        _doomLogs.value = emptyList()
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        unsubscribeLogs?.invoke()
+        NativeWeeklyDoomBot.clearLogs()
     }
 }
