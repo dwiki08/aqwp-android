@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
@@ -50,19 +51,19 @@ object NativeSlaveryBot {
 
     fun start(config: SlaveryConfig): Pair<Boolean, String?> {
         if (isRunning) {
-            return Pair(false, "Slavery Bot is already running!")
+            return false to "Slavery Bot is already running!"
         }
 
         val followPlayer = config.followPlayer.trim()
         if (followPlayer.isEmpty()) {
-            return Pair(false, "Please specify the Master Account to follow.")
+            return false to "Please specify the Master Account to follow."
         }
 
         val enabledSlots = config.slots.filter {
             it.value.enabled && it.value.username.isNotBlank() && it.value.password.isNotBlank()
         }
         if (enabledSlots.isEmpty()) {
-            return Pair(false, "Please configure and enable at least one slot with credentials.")
+            return false to "Please configure and enable at least one slot with credentials."
         }
 
         stopRequested = false
@@ -83,7 +84,7 @@ object NativeSlaveryBot {
             runSlavery(config, enabledSlots)
         }
 
-        return Pair(true, null)
+        return true to null
     }
 
     fun stop() {
@@ -157,7 +158,7 @@ object NativeSlaveryBot {
                 slotJobs.add(job)
             }
 
-            slotJobs.forEach { it.join() }
+            slotJobs.joinAll()
         } catch (e: Exception) {
             Log.e(TAG, "Error in Slavery run: ${e.message}", e)
             BotHelper.dispatchLog("slavery", "System", "Error in Slavery run: ${e.message}")

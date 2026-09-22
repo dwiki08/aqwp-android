@@ -694,7 +694,7 @@ object NativeLegionRevenantBot {
         isStopRequested: () -> Boolean,
         onProgressUpdate: ((currentQty: Int) -> Unit)? = null
     ) {
-        for (mat in itemsToFarm) {
+        itemsToFarm.forEach { mat ->
             if (isStopRequested() || !session.isConnected.value) return
 
             if (mat.isSolo && config.soloClass.isNotBlank()) {

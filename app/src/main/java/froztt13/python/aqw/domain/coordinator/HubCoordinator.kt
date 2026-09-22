@@ -36,9 +36,9 @@ object HubCoordinator {
         val templeStatus = NativeTempleBot.status.value
         val templeStats = NativeTempleBot.stats.value
         if (templeStatus.values.any { it.running } || templeStats.timeRunning > 0) {
-            val runningSlots = templeStatus.filter { it.value.running }
+            val isTempleRunning = templeStatus.values.any { it.running }
             val templeSummary = BotSummary(
-                running = runningSlots.isNotEmpty(),
+                running = isTempleRunning,
                 count = templeStatus.size,
                 members = templeStatus.keys.toList(),
                 currentUsername = templeStatus["slot1"]?.map ?: "",
@@ -52,9 +52,9 @@ object HubCoordinator {
         val eclipseStatus = NativeEclipseBot.status.value
         val eclipseStats = NativeEclipseBot.stats.value
         if (eclipseStatus.values.any { it.running } || eclipseStats.timeRunning > 0) {
-            val runningSlots = eclipseStatus.filter { it.value.running }
+            val isEclipseRunning = eclipseStatus.values.any { it.running }
             val eclipseSummary = BotSummary(
-                running = runningSlots.isNotEmpty(),
+                running = isEclipseRunning,
                 count = eclipseStatus.size,
                 members = eclipseStatus.keys.toList(),
                 currentUsername = eclipseStatus["slot1"]?.map ?: "",

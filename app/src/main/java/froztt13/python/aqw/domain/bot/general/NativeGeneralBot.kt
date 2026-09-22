@@ -397,7 +397,7 @@ object NativeGeneralBot {
 
             _telemetry.update {
                 it.copy(
-                    status = if (targetQty > 0 && finalQty >= targetQty) "Finished" else "Done",
+                    status = if (targetQty in 1..finalQty) "Finished" else "Done",
                     message = "Task completed: $finalQty / $targetQty $trackedItem",
                     currentQty = finalQty,
                     questRequirements = resolveQuestRequirements(session, config, task)

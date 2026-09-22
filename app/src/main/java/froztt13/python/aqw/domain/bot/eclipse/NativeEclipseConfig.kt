@@ -100,8 +100,8 @@ object NativeEclipseConfig {
     fun createDefaultSlotConfig(slotKey: String): SlotConfig {
         val slot = getSlot(slotKey) ?: PartySlot(id = slotKey)
         val isMaster = slot.isMaster
-        val isSun = slotKey in listOf("slot1", "slot2")
-        val isMoon = slotKey in listOf("slot3", "slot4")
+        val isSun = slotKey == "slot1" || slotKey == "slot2"
+        val isMoon = slotKey == "slot3" || slotKey == "slot4"
         return SlotConfig(
             charClass = slot.equipClass,
             role = if (isMaster) "master" else "slave",

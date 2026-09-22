@@ -28,6 +28,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
 
+    @Suppress("PropertyName")
     val Config = NativeEclipseConfig
 
     private const val TAG = "NativeEclipseBot"
@@ -79,8 +80,8 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
     private val _tauntInfo = MutableStateFlow(EclipseTauntInfo())
     val tauntInfo: StateFlow<EclipseTauntInfo> = _tauntInfo.asStateFlow()
 
-    fun logToSession(slotKey: String, message: String) {
-        logToSession(slotKey, message, botType = "eclipse")
+    override fun logToSession(slotKey: String, message: String, botType: String) {
+        super.logToSession(slotKey, message, if (botType == "System") "eclipse" else botType)
     }
 
     internal val sunsetKnightCount = AtomicInteger(0)
@@ -202,7 +203,7 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
         BotHelper.dispatchLog(
             "eclipse",
             "System",
-            "Sun's Warmth #$waveCount -> Assigned taunt to $targetSlot ($username)"
+            "Sun's Warmth #$waveCount (from $sourceSlot) -> Assigned taunt to $targetSlot ($username)"
         )
         queueTaunt(targetSlot, MONSTER_SUNSET_KNIGHT, delayMs)
     }
@@ -227,7 +228,7 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
         BotHelper.dispatchLog(
             "eclipse",
             "System",
-            "Moonlight Gaze #$waveCount -> Assigned taunt to $targetSlot ($username)"
+            "Moonlight Gaze #$waveCount (from $sourceSlot) -> Assigned taunt to $targetSlot ($username)"
         )
         queueTaunt(targetSlot, MONSTER_MOON_HAZE, delayMs)
     }
@@ -257,7 +258,7 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
         BotHelper.dispatchLog(
             "eclipse",
             "System",
-            "Light Gather #$waveCount -> Assigned taunt to $targetSlot ($username)"
+            "Light Gather #$waveCount (from $sourceSlot) -> Assigned taunt to $targetSlot ($username)"
         )
         // Immediate taunt (no 5s delay, as in core_eclipse.py)
         queueTaunt(targetSlot, MONSTER_SUFFOCATED_LIGHT, delayMs)
@@ -286,7 +287,7 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
         BotHelper.dispatchLog(
             "eclipse",
             "System",
-            "Sun Converge #$waveCount -> Assigned taunt to $targetSlot ($username)"
+            "Sun Converge #$waveCount (from $sourceSlot) -> Assigned taunt to $targetSlot ($username)"
         )
         queueTaunt(targetSlot, MONSTER_ASCENDED_SOLSTICE, delayMs)
     }
@@ -314,7 +315,7 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
         BotHelper.dispatchLog(
             "eclipse",
             "System",
-            "Moon Converge #$waveCount -> Assigned taunt to $targetSlot ($username)"
+            "Moon Converge #$waveCount (from $sourceSlot) -> Assigned taunt to $targetSlot ($username)"
         )
         queueTaunt(targetSlot, MONSTER_ASCENDED_MIDNIGHT, delayMs)
     }
@@ -508,7 +509,7 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
         for (key in NativeEclipseConfig.ALL_SLOTS) {
             initialStatuses[key] = SlotTelemetry(
                 running = true,
-                isNextTaunter = key in listOf("slot1", "slot3")
+                isNextTaunter = key == "slot1" || key == "slot3"
             )
         }
         _status.value = initialStatuses
@@ -527,13 +528,7 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
         _isPaused.value = false
         pausedAtMillis = 0L
         logToAllSessions("=== Eclipse Shrine Party stopped by user ===")
-        for ((_, session) in activeSessions) {
-            try {
-                session.stop()
-            } catch (_: Exception) {
-            }
-        }
-        activeSessions.clear()
+        stopAllSessions()
         pendingTauntTargets.clear()
         latestAnimMsg = ""
         latestAnimMsgTime = 0L
@@ -795,8 +790,7 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
         val soeItem = session.playerState.inventory.firstOrNull {
             it.name.equals(ITEM_SCROLL_OF_ENRAGE, ignoreCase = true)
         }
-        val soeQty = soeItem?.qty ?: 0
-        if (soeQty <= 0) {
+        if (soeItem == null || soeItem.qty <= 0) {
             val err =
                 "Account '$username' ($slotKey) does not have Scroll of Enrage (SoE). Minimum 1 is required."
             BotHelper.dispatchLog("eclipse", username, err)
@@ -806,9 +800,9 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
         BotHelper.dispatchLog(
             "eclipse",
             username,
-            "Equipping Scroll of Enrage (Qty: $soeQty)..."
+            "Equipping Scroll of Enrage (Qty: ${soeItem.qty})..."
         )
-        session.item.equipScroll(soeItem!!.itemId, soeItem.sMeta)
+        session.item.equipScroll(soeItem.itemId, soeItem.sMeta)
         delay(1500.milliseconds)
 
         return true
@@ -897,13 +891,11 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
         var skillIdx = 0
         var doTaunt = false
         var tauntTarget: String? = null
-        var isAttacking = false
 
         while (scope.isActive && !stopRequested && session.isConnected.value) {
             if (_isPaused.value) {
                 doTaunt = false
                 tauntTarget = null
-                isAttacking = false
                 delay(500.milliseconds)
                 continue
             }
@@ -1094,10 +1086,6 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
 
             val aliveMonsters = session.map.getMonsters(currentCell)
             if (aliveMonsters.isNotEmpty()) {
-                if (!isAttacking) {
-                    isAttacking = true
-                }
-
                 // Check Solar Flare debuff
                 val hasSolarFlare = session.playerState.hasAura(AURA_SOLAR_FLARE)
                 val currentPrioritized = if (hasSolarFlare) {
@@ -1122,10 +1110,11 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
                         break
                     }
 
-                    val targetToTaunt = if (tauntTarget != null) {
+                    val currentTauntTarget = tauntTarget
+                    val targetToTaunt = if (currentTauntTarget != null) {
                         aliveMonsters.firstOrNull {
                             it.name.contains(
-                                tauntTarget,
+                                currentTauntTarget,
                                 ignoreCase = true
                             )
                         } ?: run {
@@ -1162,8 +1151,6 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
                 } else {
                     session.combat.useSkill(nextSkill, targetMonster.monMapId)
                 }
-            } else {
-                isAttacking = false
             }
 
             delay(500.milliseconds)
@@ -1200,8 +1187,7 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
         val isPending = pendingTauntTargets.containsKey(slotKey)
 
         _status.update { current ->
-            val mutable = current.toMutableMap()
-            mutable[slotKey] = SlotTelemetry(
+            current + (slotKey to SlotTelemetry(
                 running = isRunning,
                 isConnected = session.isConnected.value,
                 isPaused = _isPaused.value,
@@ -1222,8 +1208,7 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
                 targetMonsters = targetMonsters,
                 targetedMonster = session.lastTargetMonster,
                 auras = p.auras.toList()
-            )
-            mutable
+            ))
         }
     }
 }

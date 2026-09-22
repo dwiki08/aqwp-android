@@ -7,6 +7,7 @@ import froztt13.python.aqw.data.model.DoomAccountTelemetry
 import froztt13.python.aqw.data.model.LogEntry
 import froztt13.python.aqw.data.model.WeeklyDoomConfig
 import froztt13.python.aqw.data.model.WeeklyDoomTelemetry
+import froztt13.python.aqw.helper.BotHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -40,7 +41,7 @@ object NativeWeeklyDoomBot {
     }
 
     private fun dispatchLog(username: String, message: String) {
-        froztt13.python.aqw.helper.BotHelper.dispatchLog("doom", username, message)
+        BotHelper.dispatchLog("doom", username, message)
         val entry = LogEntry(botType = "doom", username = username, message = message)
         for (listener in logListeners) {
             try {

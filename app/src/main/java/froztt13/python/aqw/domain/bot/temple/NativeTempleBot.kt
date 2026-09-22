@@ -25,6 +25,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
 
+    @Suppress("PropertyName")
     val Config = NativeTempleConfig
 
     private const val TAG = "NativeTempleBot"
@@ -634,12 +635,10 @@ object NativeTempleBot : BasePartyCoordinator("NativeTempleBot") {
                                 masterMap.contains(dungeonMap, ignoreCase = true)
 
                         if (inDungeonMap && masterCell != null) {
-                            val masterPad =
-                                masterSession?.playerState?.pad?.ifBlank { PAD_LEFT } ?: PAD_LEFT
+                            val masterPad = masterSession.playerState.pad.ifBlank { PAD_LEFT }
                             session.map.jumpCell(masterCell, masterPad)
                         } else if (!isDifferentMap && masterCell != null) {
-                            val masterPad =
-                                masterSession?.playerState?.pad?.ifBlank { PAD_LEFT } ?: PAD_LEFT
+                            val masterPad = masterSession.playerState.pad.ifBlank { PAD_LEFT }
                             session.map.jumpCell(masterCell, masterPad)
                         } else {
                             session.map.gotoPlayer(masterUsername)
