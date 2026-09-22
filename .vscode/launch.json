@@ -1,0 +1,24 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Android: Run App (Emulator / Device)",
+      "type": "android",
+      "request": "launch",
+      "appSrcRoot": "${workspaceFolder}/app/src/main",
+      "apkFile": "${workspaceFolder}/app/build/outputs/apk/debug/app-debug.apk",
+      "packageName": "froztt13.python.aqw",
+      "activityName": ".MainActivity",
+      "target": "auto",
+      "preLaunchTask": "gradle: installDebug"
+    },
+    {
+      "name": "Android: Attach Debugger (Java/Kotlin)",
+      "type": "java",
+      "request": "attach",
+      "hostName": "localhost",
+      "port": 8700,
+      "preLaunchTask": "adb: forward jdwp"
+    }
+  ]
+}

@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "AQW Python"
+rootProject.name = "AQW Android"
 include(":app")

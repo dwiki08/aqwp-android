@@ -1,0 +1,115 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Install & Run App (One-Click)",
+      "type": "shell",
+      "command": "./gradlew installDebug && adb shell am start -n froztt13.python.aqw/.MainActivity",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$gradle"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+    },
+    {
+      "label": "gradle: installDebug",
+      "type": "shell",
+      "command": "./gradlew installDebug",
+      "group": "build",
+      "problemMatcher": ["$gradle"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "gradle: assembleDebug",
+      "type": "shell",
+      "command": "./gradlew assembleDebug",
+      "group": "build",
+      "problemMatcher": ["$gradle"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "adb: start app",
+      "type": "shell",
+      "command": "adb shell am start -n froztt13.python.aqw/.MainActivity",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "adb: stop app",
+      "type": "shell",
+      "command": "adb shell am force-stop froztt13.python.aqw",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "adb: restart app",
+      "type": "shell",
+      "command": "adb shell am force-stop froztt13.python.aqw && adb shell am start -n froztt13.python.aqw/.MainActivity",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "adb: forward jdwp",
+      "type": "shell",
+      "command": "PID=$(adb shell pidof -s froztt13.python.aqw); if [ -n \"$PID\" ]; then adb forward tcp:8700 jdwp:$PID && echo \"Port 8700 forwarded to PID $PID\"; else echo \"App is not running. Please start the app first.\"; exit 1; fi",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "adb: view logcat",
+      "type": "shell",
+      "command": "adb logcat -v time | grep --line-buffered -E \"froztt13.python.aqw|AndroidRuntime\"",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "gradle: lint",
+      "type": "shell",
+      "command": "./gradlew lintDebug",
+      "group": "test",
+      "problemMatcher": ["$gradle"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "gradle: compile check",
+      "type": "shell",
+      "command": "./gradlew compileDebugKotlin",
+      "group": "build",
+      "problemMatcher": ["$gradle"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    }
+  ]
+}
