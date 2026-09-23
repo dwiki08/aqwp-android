@@ -6,6 +6,7 @@ val BgDark = Color(0xFF090A10)
 val SurfaceDark = Color(0xFF131522)
 val CardDark = Color(0xFF1B1E30)
 val BorderDark = Color(0xFF2E3350)
+val BorderLight = Color(0xFF64748B)
 
 val PrimaryPurple = Color(0xFF8B5CF6)
 val PrimaryPurpleGlow = Color(0xFF7C3AED)

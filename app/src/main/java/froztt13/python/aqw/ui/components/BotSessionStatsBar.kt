@@ -284,7 +284,9 @@ private fun BotSessionStatsBarRunningPreview() {
             stats = PartyStats(timeRunning = 3725L, clearedCount = 12),
             isRunning = true,
             botType = "MidnightSunBot",
-            accentColor = SunGold
+            accentColor = SunGold,
+            onPause = {},
+            onResume = {}
         )
     }
 }

@@ -72,6 +72,12 @@ graph TD
 Lapisan presentasi yang berinteraksi langsung dengan pengguna, dibangun menggunakan **Jetpack
 Compose** dan pola **MVVM**.
 
+- **Navigation (`ui/navigation`)**:
+    - `AppDestination.kt`: Definisi rute type-safe berbasis `@Serializable` objek (`Dashboard`,
+      `Temple`, `Eclipse`, `WeeklyDoom`, `Slavery`, `GeneralBot`, `PlayerState`).
+    - `AppNavHost.kt`: Implementasi type-safe `NavHost` Jetpack Compose dengan transisi halus dan
+      backstack management otomatis.
+
 - **Screens (`ui/screens`)**:
     - `DashboardScreen.kt`: Hub ringkasan metrik semua modul bot (Eclipse, Temple, Slavery, Doom,
       General) yang berjalan bersamaan.

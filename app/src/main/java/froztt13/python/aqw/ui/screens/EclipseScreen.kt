@@ -95,13 +95,14 @@ import froztt13.python.aqw.ui.components.CustomOutlinedTextField
 import froztt13.python.aqw.ui.components.DefaultTopBar
 import froztt13.python.aqw.ui.components.EclipseTauntOverviewCard
 import froztt13.python.aqw.ui.components.LiveLogConsole
-import froztt13.python.aqw.ui.components.LocalNavigateToPlayerState
 import froztt13.python.aqw.ui.components.MonsterTelemetryCard
 import froztt13.python.aqw.ui.components.ServerDropdown
 import froztt13.python.aqw.ui.components.SlotCard
 import froztt13.python.aqw.ui.components.TopBarSettingsButton
 import froztt13.python.aqw.ui.components.defaultTextFieldColors
 import froztt13.python.aqw.ui.theme.BgDark
+import froztt13.python.aqw.ui.theme.BorderDark
+import froztt13.python.aqw.ui.theme.BorderLight
 import froztt13.python.aqw.ui.theme.CardDark
 import froztt13.python.aqw.ui.theme.EclipseMagenta
 import froztt13.python.aqw.ui.theme.ErrorRed
@@ -121,8 +122,9 @@ object EclipseAuthManager {
 
 @Composable
 fun EclipseScreen(
-    onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onBack: () -> Unit,
+    onNavigateToPlayerState: () -> Unit = {},
     viewModel: EclipseViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -140,6 +142,7 @@ fun EclipseScreen(
     ) { /* Permission result handled */ }
 
     EclipseContent(
+        modifier = modifier,
         config = config,
         telemetryMap = telemetryMap,
         partyStats = partyStats,
@@ -188,7 +191,7 @@ fun EclipseScreen(
         onPauseParty = { viewModel.pauseEclipse() },
         onResumeParty = { viewModel.resumeEclipse() },
         onClearSlotLogs = { slotKey -> viewModel.clearSlotLogs(slotKey) },
-        modifier = modifier
+        onNavigateToPlayerState = onNavigateToPlayerState
     )
 }
 
@@ -215,13 +218,13 @@ fun EclipseContent(
     onStopParty: () -> Unit,
     onPauseParty: () -> Unit = {},
     onResumeParty: () -> Unit = {},
-    onClearSlotLogs: (String) -> Unit = {}
+    onClearSlotLogs: (String) -> Unit = {},
+    onNavigateToPlayerState: () -> Unit = {}
 ) {
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
     var showSettings by remember { mutableStateOf(false) }
     var showResetConfirmDialog by remember { mutableStateOf(false) }
-    val navToPlayer = LocalNavigateToPlayerState.current
 
     var authorized by remember { mutableStateOf(isAuthorized || isRunning) }
 
@@ -387,7 +390,7 @@ fun EclipseContent(
                                             .border(
                                                 1.dp,
                                                 if (isChecked) EclipseMagenta.copy(alpha = 0.5f)
-                                                else Color(0xFF232840),
+                                                else BorderDark,
                                                 RoundedCornerShape(10.dp)
                                             )
                                             .clickable(enabled = !isRunning || isPaused) {
@@ -533,38 +536,40 @@ fun EclipseContent(
             )
 
             // View Full Player State Action Button
-            if (navToPlayer != null)
-                OutlinedButton(
-                    onClick = navToPlayer,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(40.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, EclipseMagenta.copy(alpha = 0.4f)),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = EclipseMagenta.copy(alpha = 0.08f),
-                        contentColor = EclipseMagenta
-                    ),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+            OutlinedButton(
+                onClick = onNavigateToPlayerState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(
+                    1.dp,
+                    (if (isRunning) EclipseMagenta else BorderLight).copy(alpha = 0.4f)
+                ),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = EclipseMagenta.copy(alpha = 0.08f),
+                    contentColor = EclipseMagenta
+                ),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Person,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = EclipseMagenta
-                        )
-                        Text(
-                            text = "View Player State & Telemetry",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = EclipseMagenta
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = EclipseMagenta
+                    )
+                    Text(
+                        text = "View Player State & Telemetry",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = EclipseMagenta
+                    )
                 }
+            }
 
             // Password Confirmation Dialog to Start Bot
             if (showPasswordDialog) {
@@ -734,7 +739,7 @@ fun EclipseContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, Color(0xFF2E3350), RoundedCornerShape(12.dp))
+                    .border(1.dp, BorderDark, RoundedCornerShape(12.dp))
             ) {
                 slotLabels.forEachIndexed { index, _ ->
                     val slotKey = slotKeys[index]
