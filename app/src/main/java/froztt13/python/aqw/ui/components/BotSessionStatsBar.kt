@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -32,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -114,7 +116,9 @@ fun BotSessionStatsBar(
                             text = botType,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = accentColor
+                            color = accentColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         if (!isRunning) {
                             Box(
@@ -148,51 +152,28 @@ fun BotSessionStatsBar(
                     }
                 }
 
-                // Stats items: Time Running & Cleared Loops
-                if (isRunning)
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Time Running
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Timer,
-                                contentDescription = "Time Running",
-                                tint = TextSecondary,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = stats.formattedTime,
-                                fontSize = 12.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
-                            )
-                        }
-
-                        // Total Cleared Loops
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.CheckCircle,
-                                contentDescription = "Cleared Count",
-                                tint = SuccessGreen,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = "${stats.clearedCount} Clears",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = SuccessGreen
-                            )
+                // Stats items: Time Running & Cleared Loops (responsive Column / Row based on available width)
+                if (isRunning) {
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                        val isNarrow = maxWidth < 190.dp
+                        if (isNarrow) {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                TimeRunningStat(stats.formattedTime)
+                                ClearedLoopsStat(stats.clearedCount)
+                            }
+                        } else {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TimeRunningStat(stats.formattedTime)
+                                ClearedLoopsStat(stats.clearedCount)
+                            }
                         }
                     }
+                }
             }
 
             // Start / Stop / Pause Action Buttons
@@ -276,9 +257,69 @@ fun BotSessionStatsBar(
     }
 }
 
+@Composable
+private fun TimeRunningStat(formattedTime: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Timer,
+            contentDescription = "Time Running",
+            tint = TextSecondary,
+            modifier = Modifier.size(14.dp)
+        )
+        Text(
+            text = formattedTime,
+            fontSize = 12.sp,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.SemiBold,
+            color = TextPrimary,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun ClearedLoopsStat(clearedCount: Int) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Filled.CheckCircle,
+            contentDescription = "Cleared Count",
+            tint = SuccessGreen,
+            modifier = Modifier.size(14.dp)
+        )
+        Text(
+            text = "$clearedCount Clears",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = SuccessGreen,
+            maxLines = 1
+        )
+    }
+}
+
 @Preview(showBackground = true, backgroundColor = 0xFF0B0D14)
 @Composable
 private fun BotSessionStatsBarRunningPreview() {
+    MyApplicationTheme {
+        BotSessionStatsBar(
+            stats = PartyStats(timeRunning = 3725L, clearedCount = 12),
+            isRunning = true,
+            botType = "MidnightSunBot",
+            accentColor = SunGold,
+            onPause = {},
+            onResume = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B0D14, widthDp = 280)
+@Composable
+private fun BotSessionStatsBarRunningNarrowPreview() {
     MyApplicationTheme {
         BotSessionStatsBar(
             stats = PartyStats(timeRunning = 3725L, clearedCount = 12),

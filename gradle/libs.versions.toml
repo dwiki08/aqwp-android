@@ -11,7 +11,7 @@ kotlin = "2.2.10"
 kotlinxSerialization = "1.11.0"
 composeBom = "2026.09.00"
 reorderable = "3.1.0"
-navigationCompose = "2.8.8"
+navigationCompose = "2.10.1"
 
 [libraries]
 json = { module = "org.json:json", version.ref = "json" }
