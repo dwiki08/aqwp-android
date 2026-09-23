@@ -7,7 +7,6 @@ import froztt13.python.aqw.data.model.LogEntry
 import froztt13.python.aqw.data.model.WeeklyDoomConfig
 import froztt13.python.aqw.data.model.WeeklyDoomTelemetry
 import froztt13.python.aqw.data.repository.ConfigRepositoryImpl
-import froztt13.python.aqw.data.util.DoomAccountJsonParser
 import froztt13.python.aqw.domain.bot.doom.NativeWeeklyDoomBot
 import froztt13.python.aqw.domain.repository.ConfigRepository
 import kotlinx.coroutines.Dispatchers
@@ -138,10 +137,10 @@ class WeeklyDoomViewModel(
     }
 
     fun exportAccountsJson(): String =
-        DoomAccountJsonParser.exportAccountsJson(_doomConfig.value.accounts)
+        configRepository.exportDoomAccounts(_doomConfig.value.accounts)
 
     fun parseAccountsJson(jsonStr: String): Pair<List<DoomAccount>?, String?> =
-        DoomAccountJsonParser.parseAccountsJson(jsonStr)
+        configRepository.parseDoomAccounts(jsonStr)
 
     fun importAccounts(importedList: List<DoomAccount>, replaceExisting: Boolean) {
         _doomConfig.update { config ->

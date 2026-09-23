@@ -24,4 +24,6 @@ data class SlotTelemetry(
     val targetMonsters: String = "",
     val targetedMonster: String = "",
     val auras: List<AqwAura> = emptyList()
-)
+) {
+    val activeAuras = auras.filter { it.isExpired().not() }
+}

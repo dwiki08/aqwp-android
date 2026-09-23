@@ -16,7 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -169,7 +169,7 @@ fun AurasList(
     accentColor: Color = PrimaryPurple,
     emptyText: String = "No active auras currently applied."
 ) {
-    var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
+    var currentTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     LaunchedEffect(Unit) {
         while (isActive) {
@@ -188,7 +188,6 @@ fun AurasList(
     } else {
         val displayAuras = remember(auras) {
             auras.sortedWith(compareByDescending { it.name.equals("Focus", ignoreCase = true) })
-                .filter { it.isExpired().not() }
         }
         FlowRow(
             modifier = modifier.fillMaxWidth(),

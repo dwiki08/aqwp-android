@@ -34,11 +34,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -49,10 +46,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.material3.Tab
@@ -60,7 +54,6 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -74,8 +67,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -116,10 +107,6 @@ import froztt13.python.aqw.ui.theme.TextSecondary
 import froztt13.python.aqw.viewmodel.EclipseViewModel
 import kotlinx.coroutines.launch
 
-object EclipseAuthManager {
-    var isAuthorized: Boolean = false
-}
-
 @Composable
 fun EclipseScreen(
     modifier: Modifier = Modifier,
@@ -151,8 +138,6 @@ fun EclipseScreen(
         slotLogs = slotLogs,
         isRunning = isRunning,
         isPaused = isPaused,
-        isAuthorized = EclipseAuthManager.isAuthorized,
-        onAuthorize = { EclipseAuthManager.isAuthorized = true },
         onBack = onBack,
         onUpdateSettings = { server, room ->
             viewModel.updateEclipseSettings(server, room)
@@ -207,8 +192,6 @@ fun EclipseContent(
     slotLogs: Map<String, List<LogEntry>> = emptyMap(),
     isRunning: Boolean,
     isPaused: Boolean = false,
-    isAuthorized: Boolean = EclipseAuthManager.isAuthorized,
-    onAuthorize: () -> Unit = { EclipseAuthManager.isAuthorized = true },
     onBack: () -> Unit,
     onUpdateSettings: (server: String, roomNumber: Int) -> Unit,
     onToggleLightGatherSlot: (slotKey: String) -> Unit = {},
@@ -225,20 +208,6 @@ fun EclipseContent(
     val scrollState = rememberScrollState()
     var showSettings by remember { mutableStateOf(false) }
     var showResetConfirmDialog by remember { mutableStateOf(false) }
-
-    var authorized by remember { mutableStateOf(isAuthorized || isRunning) }
-
-    LaunchedEffect(isRunning) {
-        if (isRunning && !authorized) {
-            authorized = true
-            onAuthorize()
-        }
-    }
-
-    var showPasswordDialog by remember { mutableStateOf(false) }
-    var passwordInput by remember { mutableStateOf("") }
-    var passwordError by remember { mutableStateOf(false) }
-    var passwordVisible by remember { mutableStateOf(false) }
 
     val slotKeys = listOf("slot1", "slot2", "slot3", "slot4")
     val slotLabels = listOf("Slot 1", "Slot 2", "Slot 3", "Slot 4")
@@ -358,7 +327,7 @@ fun EclipseContent(
                                         color = TextPrimary
                                     )
                                     Text(
-                                        text = "Taunter Suffocated Light (Slot 2, 3, 4)",
+                                        text = "Taunter Suffocated Light",
                                         fontSize = 10.sp,
                                         color = TextMuted
                                     )
@@ -367,7 +336,10 @@ fun EclipseContent(
 
                             // Slot list selection: Slot 2, Slot 3, Slot 4
                             val gatherSlotDefs = listOf(
-                                "slot2" to "Slot 2", "slot3" to "Slot 3", "slot4" to "Slot 4"
+                                "slot1" to "Slot 1",
+                                "slot2" to "Slot 2",
+                                "slot3" to "Slot 3",
+                                "slot4" to "Slot 4"
                             )
 
                             Column(
@@ -520,16 +492,7 @@ fun EclipseContent(
                 isPaused = isPaused,
                 botType = "Maid Eclipse",
                 accentColor = EclipseMagenta,
-                onStart = {
-                    if (authorized || EclipseAuthManager.isAuthorized) {
-                        onStartParty()
-                    } else {
-                        passwordInput = ""
-                        passwordError = false
-                        passwordVisible = false
-                        showPasswordDialog = true
-                    }
-                },
+                onStart = onStartParty,
                 onStop = onStopParty,
                 onPause = onPauseParty,
                 onResume = onResumeParty
@@ -569,118 +532,6 @@ fun EclipseContent(
                         color = EclipseMagenta
                     )
                 }
-            }
-
-            // Password Confirmation Dialog to Start Bot
-            if (showPasswordDialog) {
-                AlertDialog(
-                    onDismissRequest = {
-                        showPasswordDialog = false
-                        passwordInput = ""
-                        passwordError = false
-                    },
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Filled.Lock,
-                            contentDescription = "Security Authorization",
-                            tint = EclipseMagenta,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    },
-                    title = {
-                        Text(
-                            text = "Authorization Required",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                    },
-                    text = {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Text(
-                                text = "Enter authorization password to start Maid Eclipse bot.",
-                                fontSize = 13.sp,
-                                color = TextSecondary
-                            )
-
-                            OutlinedTextField(
-                                value = passwordInput,
-                                onValueChange = {
-                                    passwordInput = it
-                                    if (passwordError) passwordError = false
-                                },
-                                label = { Text("Password") },
-                                singleLine = true,
-                                isError = passwordError,
-                                supportingText = {
-                                    if (passwordError) {
-                                        Text(
-                                            text = "Incorrect password! Please try again.",
-                                            color = ErrorRed,
-                                            fontSize = 11.sp
-                                        )
-                                    }
-                                },
-                                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                trailingIcon = {
-                                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                        Icon(
-                                            imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                            contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                                            tint = TextMuted
-                                        )
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = defaultTextFieldColors(EclipseMagenta)
-                            )
-                        }
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                if (passwordInput.trim() == "tikus") {
-                                    showPasswordDialog = false
-                                    passwordInput = ""
-                                    passwordError = false
-                                    authorized = true
-                                    onAuthorize()
-                                    onStartParty()
-                                } else {
-                                    passwordError = true
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = EclipseMagenta),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text(
-                                text = "Start Bot",
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(
-                            onClick = {
-                                showPasswordDialog = false
-                                passwordInput = ""
-                                passwordError = false
-                            }
-                        ) {
-                            Text(
-                                text = "Cancel",
-                                color = TextSecondary
-                            )
-                        }
-                    },
-                    containerColor = Color(0xFF131522),
-                    shape = RoundedCornerShape(16.dp)
-                )
             }
 
             val activeMonsters =

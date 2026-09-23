@@ -397,7 +397,7 @@ fun SlotCard(
                                             .padding(horizontal = 6.dp, vertical = 1.dp)
                                     ) {
                                         Text(
-                                            text = "${telemetry.auras.size}",
+                                            text = "${telemetry.activeAuras.size}",
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = PrimaryPurple
@@ -435,7 +435,7 @@ fun SlotCard(
 
                         AnimatedVisibility(visible = showAuras) {
                             AurasList(
-                                auras = telemetry.auras,
+                                auras = telemetry.activeAuras,
                                 accentColor = accentColor,
                                 emptyText = "No active auras on player",
                                 modifier = Modifier.padding(top = 2.dp)

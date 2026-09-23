@@ -2,7 +2,6 @@ package froztt13.python.aqw.data.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 
 @Serializable
 data class EclipseConfig(
@@ -21,7 +20,6 @@ data class EclipseConfig(
     }
 
     fun withToggledLightGather(slotKey: String): EclipseConfig {
-        if (slotKey == "slot1") return this
         val slot = slots[slotKey] ?: return this
         val newSlots = slots.toMutableMap()
         newSlots[slotKey] = slot.copy(lightGatherTaunter = !slot.lightGatherTaunter)

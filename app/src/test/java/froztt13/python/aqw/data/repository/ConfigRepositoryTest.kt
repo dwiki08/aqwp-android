@@ -122,4 +122,31 @@ class ConfigRepositoryTest {
         assertNotNull(parsed)
         assertEquals(4, parsed.slots.size)
     }
+
+    @Test
+    fun testExportAndParseDoomAccounts() {
+        val accounts = listOf(
+            froztt13.python.aqw.data.model.DoomAccount(
+                username = "acc1",
+                password = "pass1",
+                enabled = true
+            ),
+            froztt13.python.aqw.data.model.DoomAccount(
+                username = "acc2",
+                password = "pass2",
+                enabled = false
+            )
+        )
+        val exportedJson = repo.exportDoomAccounts(accounts)
+        assertTrue(exportedJson.contains("acc1"))
+        assertTrue(exportedJson.contains("acc2"))
+
+        val (parsedList, error) = repo.parseDoomAccounts(exportedJson)
+        org.junit.Assert.assertNull(error)
+        assertNotNull(parsedList)
+        assertEquals(2, parsedList?.size)
+        assertEquals("acc1", parsedList?.get(0)?.username)
+        assertEquals("acc2", parsedList?.get(1)?.username)
+        assertEquals(false, parsedList?.get(1)?.enabled)
+    }
 }

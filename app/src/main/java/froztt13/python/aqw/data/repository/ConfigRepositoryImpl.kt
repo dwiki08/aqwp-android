@@ -9,6 +9,7 @@ import froztt13.python.aqw.data.model.SlaveryConfig
 import froztt13.python.aqw.data.model.SlotConfig
 import froztt13.python.aqw.data.model.TempleConfig
 import froztt13.python.aqw.data.model.WeeklyDoomConfig
+import froztt13.python.aqw.data.util.DoomAccountJsonParser
 import froztt13.python.aqw.domain.repository.ConfigRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -140,6 +141,14 @@ class ConfigRepositoryImpl(
     override suspend fun resetDoomConfig(): WeeklyDoomConfig {
         resetRawConfig(FILE_DOOM)
         return WeeklyDoomConfig()
+    }
+
+    override fun exportDoomAccounts(accounts: List<DoomAccount>): String {
+        return DoomAccountJsonParser.exportAccountsJson(accounts)
+    }
+
+    override fun parseDoomAccounts(jsonStr: String): Pair<List<DoomAccount>?, String?> {
+        return DoomAccountJsonParser.parseAccountsJson(jsonStr)
     }
 
     // --- Slavery Operations ---

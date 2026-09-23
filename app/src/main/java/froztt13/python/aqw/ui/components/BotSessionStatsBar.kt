@@ -4,8 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -152,26 +152,14 @@ fun BotSessionStatsBar(
                     }
                 }
 
-                // Stats items: Time Running & Cleared Loops (responsive Column / Row based on available width)
                 if (isRunning) {
-                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                        val isNarrow = maxWidth < 190.dp
-                        if (isNarrow) {
-                            Column(
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                TimeRunningStat(stats.formattedTime)
-                                ClearedLoopsStat(stats.clearedCount)
-                            }
-                        } else {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                TimeRunningStat(stats.formattedTime)
-                                ClearedLoopsStat(stats.clearedCount)
-                            }
-                        }
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        TimeRunningStat(stats.formattedTime)
+                        ClearedLoopsStat(stats.clearedCount)
                     }
                 }
             }

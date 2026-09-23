@@ -83,7 +83,7 @@ abstract class BasePartyCoordinator(protected val tag: String) {
             while (isActive && !stopRequested) {
                 delay(1.seconds)
                 if (!_isPaused.value && startTimeMillis > 0) {
-                    val elapsed = System.currentTimeMillis() - startTimeMillis
+                    val elapsed = (System.currentTimeMillis() - startTimeMillis) / 1000L
                     _stats.update { it.copy(timeRunning = elapsed, clearedCount = clearedRuns) }
                     onTick?.invoke(elapsed)
                 }

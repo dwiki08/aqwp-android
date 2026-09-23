@@ -371,6 +371,12 @@ data class AqwPlayerState(
         }
     }
 
+    fun getScrollOfEnrageCount(): Int {
+        return inventory.firstOrNull {
+            it.name.equals("Scroll of Enrage", ignoreCase = true)
+        }?.qty ?: 0
+    }
+
     fun snapshot(): AqwPlayerState {
         return this.copy(
             inventory = inventory.map { it.copy() }.toMutableList(),

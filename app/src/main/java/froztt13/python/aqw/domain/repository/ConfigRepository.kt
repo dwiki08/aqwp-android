@@ -1,5 +1,6 @@
 package froztt13.python.aqw.domain.repository
 
+import froztt13.python.aqw.data.model.DoomAccount
 import froztt13.python.aqw.data.model.EclipseConfig
 import froztt13.python.aqw.data.model.GeneralBotConfig
 import froztt13.python.aqw.data.model.SlaveryConfig
@@ -21,6 +22,8 @@ interface ConfigRepository {
     suspend fun saveDoomConfig(config: WeeklyDoomConfig): Boolean
     suspend fun loadDoomConfig(): WeeklyDoomConfig?
     suspend fun resetDoomConfig(): WeeklyDoomConfig
+    fun exportDoomAccounts(accounts: List<DoomAccount>): String
+    fun parseDoomAccounts(jsonStr: String): Pair<List<DoomAccount>?, String?>
 
     // Type-safe Slavery operations
     suspend fun saveSlaveryConfig(config: SlaveryConfig): Boolean

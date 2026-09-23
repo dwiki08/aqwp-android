@@ -83,20 +83,6 @@ class AqwCombatCommands(
         val found = playerState.skills.firstOrNull { it.index == index }
             ?: playerState.skills.getOrNull(index)
         if (found != null) return found
-
-        // Fallback for slot 5 (Scroll of Enrage / Potion)
-        if (index == 5) {
-            return AqwSkill(
-                id = scrollId.ifBlank { "scroll" },
-                index = 5,
-                name = "Scroll of Enrage",
-                cdSeconds = 15.0,
-                cdMillis = 15000.0,
-                mpCost = 0.0,
-                tgt = "h",
-                tgtMax = 1
-            )
-        }
         return null
     }
 
