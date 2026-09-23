@@ -18,6 +18,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,6 +35,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -93,6 +95,7 @@ import froztt13.python.aqw.ui.components.CustomOutlinedTextField
 import froztt13.python.aqw.ui.components.DefaultTopBar
 import froztt13.python.aqw.ui.components.EclipseTauntOverviewCard
 import froztt13.python.aqw.ui.components.LiveLogConsole
+import froztt13.python.aqw.ui.components.LocalNavigateToPlayerState
 import froztt13.python.aqw.ui.components.MonsterTelemetryCard
 import froztt13.python.aqw.ui.components.ServerDropdown
 import froztt13.python.aqw.ui.components.SlotCard
@@ -218,6 +221,7 @@ fun EclipseContent(
     val scrollState = rememberScrollState()
     var showSettings by remember { mutableStateOf(false) }
     var showResetConfirmDialog by remember { mutableStateOf(false) }
+    val navToPlayer = LocalNavigateToPlayerState.current
 
     var authorized by remember { mutableStateOf(isAuthorized || isRunning) }
 
@@ -527,6 +531,40 @@ fun EclipseContent(
                 onPause = onPauseParty,
                 onResume = onResumeParty
             )
+
+            // View Full Player State Action Button
+            if (navToPlayer != null)
+                OutlinedButton(
+                    onClick = navToPlayer,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, EclipseMagenta.copy(alpha = 0.4f)),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = EclipseMagenta.copy(alpha = 0.08f),
+                        contentColor = EclipseMagenta
+                    ),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Person,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = EclipseMagenta
+                        )
+                        Text(
+                            text = "View Player State & Telemetry",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = EclipseMagenta
+                        )
+                    }
+                }
 
             // Password Confirmation Dialog to Start Bot
             if (showPasswordDialog) {
