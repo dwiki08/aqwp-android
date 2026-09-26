@@ -44,11 +44,15 @@ object NativeSlaveryBot {
     private val _partyStats = MutableStateFlow(PartyStats())
     val partyStats: StateFlow<PartyStats> = _partyStats.asStateFlow()
 
+    private val _isPaused = MutableStateFlow(false)
+    val isPaused: StateFlow<Boolean> = _isPaused.asStateFlow()
+
     private val _slotLogs = MutableStateFlow<Map<String, List<LogEntry>>>(emptyMap())
     val slotLogs: StateFlow<Map<String, List<LogEntry>>> = _slotLogs.asStateFlow()
 
     private var stopRequested = false
     private var startTimeMillis = 0L
+    private var pausedAtMillis = 0L
 
     val isRunning: Boolean
         get() = _status.value.values.any { it.running }
@@ -71,7 +75,9 @@ object NativeSlaveryBot {
         }
 
         stopRequested = false
+        _isPaused.value = false
         startTimeMillis = System.currentTimeMillis()
+        pausedAtMillis = 0L
         tauntCoordinator.reset()
 
         val initialStatuses = mutableMapOf<String, SlotTelemetry>()
@@ -91,8 +97,67 @@ object NativeSlaveryBot {
         return true to null
     }
 
+    fun pause() {
+        if (!isRunning || _isPaused.value) return
+        _isPaused.value = true
+        pausedAtMillis = System.currentTimeMillis()
+
+        scope.launch(Dispatchers.IO) {
+            activeSessions.values.forEach { session ->
+                session.log(
+                    "Pausing Slavery Party: all slots leaving combat...",
+                    LogEntryType.WARNING
+                )
+            }
+            val jobs = activeSessions.map { (slotKey, session) ->
+                launch {
+                    try {
+                        val currentCell = session.playerState.cell.ifBlank { "Enter" }
+                        val currentPad = session.playerState.pad.ifBlank { "Spawn" }
+                        session.map.jumpCell(currentCell, currentPad)
+                        delay(200.milliseconds)
+                        session.combat.rest()
+                        session.playerState.isInCombat = false
+                        session.log(
+                            "[$slotKey] Left combat, jumped to $currentCell [$currentPad]",
+                            LogEntryType.INFO
+                        )
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error leaving combat on pause for $slotKey: ${e.message}")
+                    }
+                }
+            }
+            jobs.joinAll()
+            for ((slotKey, session) in activeSessions) {
+                updateTelemetry(
+                    slotKey = slotKey,
+                    session = session,
+                    isRunning = true
+                )
+            }
+            activeSessions.values.forEach {
+                it.log(
+                    "=== Slavery Bot PAUSED ===",
+                    LogEntryType.WARNING
+                )
+            }
+        }
+    }
+
+    fun resume() {
+        if (!isRunning || !_isPaused.value) return
+        if (pausedAtMillis > 0) {
+            startTimeMillis += (System.currentTimeMillis() - pausedAtMillis)
+            pausedAtMillis = 0L
+        }
+        _isPaused.value = false
+        activeSessions.values.forEach { it.log("=== Slavery Bot RESUMED ===", LogEntryType.INFO) }
+    }
+
     fun stop() {
         stopRequested = true
+        _isPaused.value = false
+        pausedAtMillis = 0L
         activeSessions.values.forEach {
             it.log(
                 "=== Slavery Bot stopped by user ===",
@@ -152,9 +217,11 @@ object NativeSlaveryBot {
 
         val timerJob = scope.launch(Dispatchers.IO) {
             while (isActive && !stopRequested) {
-                val elapsed = (System.currentTimeMillis() - startTimeMillis) / 1000L
-                _partyStats.update { it.copy(timeRunning = elapsed) }
                 delay(1000.milliseconds)
+                if (!_isPaused.value && startTimeMillis > 0) {
+                    val elapsed = (System.currentTimeMillis() - startTimeMillis) / 1000L
+                    _partyStats.update { it.copy(timeRunning = elapsed) }
+                }
             }
         }
 
@@ -170,8 +237,7 @@ object NativeSlaveryBot {
                         targetsPriority = targetsPriority,
                         whitelistItems = whitelistItems,
                         lockedZones = lockedZones,
-                        copyWalk = config.copyWalk,
-                        autoZone = config.autoZone
+                        copyWalk = config.copyWalk
                     )
                 }
                 slotJobs.add(job)
@@ -196,16 +262,17 @@ object NativeSlaveryBot {
         targetsPriority: List<String>,
         whitelistItems: List<String>,
         lockedZones: List<String>,
-        copyWalk: Boolean,
-        autoZone: String
+        copyWalk: Boolean
     ) {
         val username = slotConfig.username.trim()
         val password = slotConfig.password.trim()
         val isTaunter = slotConfig.isTaunter
         val skills = slotConfig.skills.ifEmpty {
             listOf(
+                Skill(index = 0),
                 Skill(index = 1),
                 Skill(index = 2),
+                Skill(index = 0),
                 Skill(index = 3),
                 Skill(index = 4)
             )
@@ -214,7 +281,11 @@ object NativeSlaveryBot {
         val session = AqwSession()
         session.slotKey = slotKey
         session.socketClient.tag = "$slotKey ($username)"
+        session.playerState.followedPlayer = followPlayer
         activeSessions[slotKey] = session
+
+        var lastWalkedX = -1
+        var lastWalkedY = -1
 
         val logJob = scope.launch(Dispatchers.IO) {
             session.logs.collect { sessionLogs ->
@@ -235,6 +306,26 @@ object NativeSlaveryBot {
                     is AqwEvent.Warning -> {
                         if (event.message.contains("locked zone", ignoreCase = true)) {
                             isCheckingLockedZone = true
+                        }
+                    }
+
+                    is AqwEvent.PlayerStateUpdated -> {
+                        if (copyWalk && event.username.equals(followPlayer, ignoreCase = true)) {
+                            val targetX = event.tx ?: event.x
+                            val targetY = event.ty ?: event.y
+                            if (targetX != null && targetY != null && (targetX != lastWalkedX || targetY != lastWalkedY)) {
+                                val master =
+                                    session.playerState.playersInMap[followPlayer.lowercase()]
+                                if (master != null && master.cell.equals(
+                                        session.playerState.cell,
+                                        ignoreCase = true
+                                    )
+                                ) {
+                                    session.map.walkTo(targetX, targetY, event.sp ?: 8)
+                                    lastWalkedX = targetX
+                                    lastWalkedY = targetY
+                                }
+                            }
                         }
                     }
 
@@ -315,6 +406,11 @@ object NativeSlaveryBot {
 
             // Main Slavery Loop
             while (scope.isActive && !stopRequested && session.isConnected.value) {
+                if (_isPaused.value) {
+                    delay(500.milliseconds)
+                    continue
+                }
+
                 if (session.playerState.isDead) {
                     delay(500.milliseconds)
                     continue
@@ -354,13 +450,38 @@ object NativeSlaveryBot {
                         ignoreCase = true
                     )
                 ) {
-                    session.map.gotoPlayer(followPlayer)
+                    session.map.jumpCell(masterPlayer.cell, masterPlayer.pad)
+                    lastWalkedX = -1
+                    lastWalkedY = -1
                     delay(800.milliseconds)
                     continue
                 } else if (masterPlayer == null && !isCheckingLockedZone) {
                     // Try jumping to master
+                    session.map.jumpCell(session.playerState.cell, session.playerState.pad)
+                    lastWalkedX = -1
+                    lastWalkedY = -1
+                    delay(1000.milliseconds)
                     session.map.gotoPlayer(followPlayer)
                     delay(1500.milliseconds)
+                }
+
+                // Copy walk if Master moved within current cell
+                if (copyWalk && masterPlayer != null && masterPlayer.cell.equals(
+                        currentCell,
+                        ignoreCase = true
+                    )
+                ) {
+                    val targetX = if (masterPlayer.tx != 0) masterPlayer.tx else masterPlayer.x
+                    val targetY = if (masterPlayer.ty != 0) masterPlayer.ty else masterPlayer.y
+                    if ((targetX != 0 || targetY != 0) && (targetX != lastWalkedX || targetY != lastWalkedY)) {
+                        session.map.walkTo(
+                            targetX,
+                            targetY,
+                            if (masterPlayer.sp > 0) masterPlayer.sp else 8
+                        )
+                        lastWalkedX = targetX
+                        lastWalkedY = targetY
+                    }
                 }
 
                 val aliveMonsters = session.map.getMonsters()

@@ -31,6 +31,8 @@ class SlaveryViewModel(
 
     val partyStats: StateFlow<PartyStats> = NativeSlaveryBot.partyStats
 
+    val isPaused: StateFlow<Boolean> = NativeSlaveryBot.isPaused
+
     val isRunning: StateFlow<Boolean> = NativeSlaveryBot.status
         .map { map -> map.values.any { it.running } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -110,6 +112,14 @@ class SlaveryViewModel(
 
     fun stopSlavery() {
         NativeSlaveryBot.stop()
+    }
+
+    fun pauseSlavery() {
+        NativeSlaveryBot.pause()
+    }
+
+    fun resumeSlavery() {
+        NativeSlaveryBot.resume()
     }
 
     fun clearLogs(slotKey: String? = null) {

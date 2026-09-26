@@ -90,7 +90,12 @@ sealed interface AqwEvent {
         val mp: Int? = null,
         val inCombat: Boolean? = null,
         val cell: String? = null,
-        val pad: String? = null
+        val pad: String? = null,
+        val x: Int? = null,
+        val y: Int? = null,
+        val tx: Int? = null,
+        val ty: Int? = null,
+        val sp: Int? = null
     ) : AqwEvent
 
     data class ItemDropped(
@@ -246,17 +251,34 @@ object AqwPacketParser {
                         val movement = if (parts.size > 5) parts[5] else ""
                         var cell: String? = null
                         var pad: String? = null
+                        var x: Int? = null
+                        var y: Int? = null
+                        var tx: Int? = null
+                        var ty: Int? = null
+                        var sp: Int? = null
                         movement.split(",").forEach { m ->
                             val kv = m.split(":")
                             if (kv.size == 2) {
-                                if (kv[0] == "strFrame") cell = kv[1]
-                                else if (kv[0] == "strPad") pad = kv[1]
+                                when (kv[0]) {
+                                    "strFrame" -> cell = kv[1]
+                                    "strPad" -> pad = kv[1]
+                                    "tx" -> tx = kv[1].toIntOrNull()
+                                    "ty" -> ty = kv[1].toIntOrNull()
+                                    "x" -> x = kv[1].toIntOrNull()
+                                    "y" -> y = kv[1].toIntOrNull()
+                                    "sp" -> sp = kv[1].toIntOrNull()
+                                }
                             }
                         }
                         return AqwEvent.PlayerStateUpdated(
                             username = username,
                             cell = cell,
-                            pad = pad
+                            pad = pad,
+                            x = x,
+                            y = y,
+                            tx = tx,
+                            ty = ty,
+                            sp = sp
                         )
                     }
 
@@ -344,6 +366,17 @@ object AqwPacketParser {
                         val state = if (uObj.has("intState")) uObj.optInt("intState") else 1
                         val entId = uObj.optInt("entID", 0)
 
+                        val x =
+                            if (uObj.has("x")) uObj.optInt("x") else if (uObj.has("tx")) uObj.optInt(
+                                "tx"
+                            ) else 0
+                        val y =
+                            if (uObj.has("y")) uObj.optInt("y") else if (uObj.has("ty")) uObj.optInt(
+                                "ty"
+                            ) else 0
+                        val tx = if (uObj.has("tx")) uObj.optInt("tx") else x
+                        val ty = if (uObj.has("ty")) uObj.optInt("ty") else y
+
                         if (uName.equals(currentUsername, ignoreCase = true)) {
                             pCell = frame
                             pPad = pad
@@ -359,6 +392,10 @@ object AqwPacketParser {
                                     roomUserId = entId,
                                     cell = frame,
                                     pad = pad,
+                                    x = x,
+                                    y = y,
+                                    tx = tx,
+                                    ty = ty,
                                     hp = hp ?: 100,
                                     maxHp = maxHp ?: 100,
                                     mp = mp ?: 100,
@@ -698,12 +735,28 @@ object AqwPacketParser {
                 val mp = if (oObj != null && oObj.has("intMP")) oObj.optInt("intMP") else null
                 val state =
                     if (oObj != null && oObj.has("intState")) (oObj.optInt("intState") == 2) else null
+                val tx = if (oObj != null && oObj.has("tx")) oObj.optInt("tx") else null
+                val ty = if (oObj != null && oObj.has("ty")) oObj.optInt("ty") else null
+                val x = if (oObj != null && oObj.has("x")) oObj.optInt("x") else null
+                val y = if (oObj != null && oObj.has("y")) oObj.optInt("y") else null
+                val sp = if (oObj != null && oObj.has("sp")) oObj.optInt("sp") else null
+                val strFrame =
+                    if (oObj != null && oObj.has("strFrame")) oObj.optString("strFrame") else null
+                val strPad =
+                    if (oObj != null && oObj.has("strPad")) oObj.optString("strPad") else null
                 AqwEvent.PlayerStateUpdated(
                     username = unm,
                     hp = hp,
                     maxHp = maxHp,
                     mp = mp,
-                    inCombat = state
+                    inCombat = state,
+                    cell = strFrame,
+                    pad = strPad,
+                    x = x,
+                    y = y,
+                    tx = tx,
+                    ty = ty,
+                    sp = sp
                 )
             }
 

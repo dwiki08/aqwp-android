@@ -39,11 +39,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -383,58 +379,21 @@ fun SlaverySettingsScreen(
                         color = themeColor
                     )
 
-                    var autoZoneExpanded by remember { mutableStateOf(false) }
-                    ExposedDropdownMenuBox(
-                        expanded = autoZoneExpanded && !isRunning,
-                        onExpandedChange = {
-                            if (!isRunning) autoZoneExpanded = !autoZoneExpanded
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        CustomOutlinedTextField(
-                            value = config.autoZone,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Boss Auto Zone Mechanics") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = autoZoneExpanded) },
-                            enabled = !isRunning,
-                            modifier = Modifier
-                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true)
-                                .fillMaxWidth(),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = themeColor,
-                                unfocusedBorderColor = Color(0xFF334155),
-                                focusedTextColor = TextPrimary,
-                                unfocusedTextColor = TextPrimary
-                            )
+                    // Boss Auto Zone Mechanics (Disabled)
+                    CustomOutlinedTextField(
+                        value = "Disabled",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Boss Auto Zone Mechanics (Disabled)") },
+                        enabled = false,
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            disabledBorderColor = Color(0xFF334155).copy(alpha = 0.5f),
+                            disabledTextColor = TextSecondary.copy(alpha = 0.5f),
+                            disabledLabelColor = TextSecondary.copy(alpha = 0.5f)
                         )
-
-                        ExposedDropdownMenu(
-                            expanded = autoZoneExpanded && !isRunning,
-                            onDismissRequest = { autoZoneExpanded = false },
-                            modifier = Modifier.background(CardDark)
-                        ) {
-                            AUTO_ZONE_OPTIONS.forEach { zoneName ->
-                                DropdownMenuItem(
-                                    text = { Text(text = zoneName, color = TextPrimary) },
-                                    onClick = {
-                                        onUpdateGlobalSettings(
-                                            config.server,
-                                            config.followPlayer,
-                                            config.defaultRoomNumber,
-                                            config.copyWalk,
-                                            zoneName,
-                                            config.targetsPriority,
-                                            config.whitelist,
-                                            config.lockedZones
-                                        )
-                                        autoZoneExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
+                    )
 
                     CustomOutlinedTextField(
                         value = config.targetsPriority,

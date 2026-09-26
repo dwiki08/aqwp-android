@@ -452,9 +452,10 @@ class AqwSession {
                     event.inCombat?.let { playerState.isInCombat = it }
                     event.cell?.let { playerState.cell = it }
                     event.pad?.let { playerState.pad = it }
-//                    if (event.hp != null && event.hp <= 0 && !playerState.isDead) {
-//                        triggerDeathHandler()
-//                    }
+                    event.x?.let { playerState.x = it }
+                    event.y?.let { playerState.y = it }
+                    event.tx?.let { playerState.tx = it }
+                    event.ty?.let { playerState.ty = it }
                 } else {
                     val p = playerState.playersInMap[event.username]
                     if (p != null) {
@@ -463,11 +464,21 @@ class AqwSession {
                         event.mp?.let { p.mp = it }
                         event.cell?.let { p.cell = it }
                         event.pad?.let { p.pad = it }
+                        event.x?.let { p.x = it }
+                        event.y?.let { p.y = it }
+                        event.tx?.let { p.tx = it }
+                        event.ty?.let { p.ty = it }
+                        event.sp?.let { p.sp = it }
                     } else if (event.username.isNotEmpty()) {
                         playerState.playersInMap[event.username] = AqwOtherPlayer(
                             username = event.username,
                             cell = event.cell ?: "Enter",
                             pad = event.pad ?: "Spawn",
+                            x = event.x ?: event.tx ?: 0,
+                            y = event.y ?: event.ty ?: 0,
+                            tx = event.tx ?: event.x ?: 0,
+                            ty = event.ty ?: event.y ?: 0,
+                            sp = event.sp ?: 8,
                             hp = event.hp ?: 100,
                             maxHp = event.maxHp ?: 100,
                             mp = event.mp ?: 100
@@ -476,9 +487,11 @@ class AqwSession {
                     if (event.username.equals(
                             playerState.followedPlayer,
                             ignoreCase = true
-                        ) && event.cell != null
+                        )
                     ) {
-                        playerState.followedPlayerCell = event.cell
+                        if (event.cell != null) {
+                            playerState.followedPlayerCell = event.cell
+                        }
                     }
                 }
             }

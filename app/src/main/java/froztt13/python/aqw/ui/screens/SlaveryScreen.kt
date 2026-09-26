@@ -110,6 +110,7 @@ import froztt13.python.aqw.ui.components.CustomOutlinedTextField
 import froztt13.python.aqw.ui.components.DefaultTopBar
 import froztt13.python.aqw.ui.components.LiveLogConsole
 import froztt13.python.aqw.ui.components.MonsterTelemetryCard
+import froztt13.python.aqw.ui.components.SkillCooldownsRow
 import froztt13.python.aqw.ui.components.defaultTextFieldColors
 import froztt13.python.aqw.ui.theme.BgDark
 import froztt13.python.aqw.ui.theme.CardDark
@@ -125,7 +126,6 @@ import froztt13.python.aqw.ui.theme.TextSecondary
 import froztt13.python.aqw.viewmodel.SlaveryViewModel
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableColumn
-import java.util.Locale
 import java.util.UUID
 
 val AUTO_ZONE_OPTIONS =
@@ -142,6 +142,7 @@ fun SlaveryScreen(
     val telemetryMap by viewModel.slaveryStatus.collectAsState()
     val partyStats by viewModel.partyStats.collectAsState()
     val isRunning by viewModel.isRunning.collectAsState()
+    val isPaused by viewModel.isPaused.collectAsState()
     val logs by viewModel.slaveryLogs.collectAsState()
 
     var isSettingsOpen by remember { mutableStateOf(false) }
@@ -183,11 +184,14 @@ fun SlaveryScreen(
             partyStats = partyStats,
             logs = logs,
             isRunning = isRunning,
+            isPaused = isPaused,
             onBack = onBack,
             onOpenSettings = { isSettingsOpen = true },
             onUpdateSlot = { slotKey, slotConfig ->
                 viewModel.updateSlot(slotKey, slotConfig)
             },
+            onPauseParty = { viewModel.pauseSlavery() },
+            onResumeParty = { viewModel.resumeSlavery() },
             onStartParty = {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     if (!BatteryOptimizationHelper.hasNotificationPermission(context)) {
@@ -222,18 +226,21 @@ fun SlaveryScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SlaveryContent(
+    modifier: Modifier = Modifier,
     config: SlaveryConfig,
     telemetryMap: Map<String, SlotTelemetry>,
     partyStats: PartyStats,
     logs: List<LogEntry>,
     isRunning: Boolean,
+    isPaused: Boolean = false,
     onBack: () -> Unit,
     onOpenSettings: () -> Unit,
     onUpdateSlot: (slotKey: String, slotConfig: SlaveSlotConfig) -> Unit,
+    onPauseParty: () -> Unit = {},
+    onResumeParty: () -> Unit = {},
     onStartParty: () -> Unit,
     onStopParty: () -> Unit,
     onClearLogs: () -> Unit,
-    modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
@@ -357,22 +364,6 @@ fun SlaveryContent(
                             )
                         }
 
-                        // Auto Zone if set
-                        if (config.autoZone.isNotEmpty() && config.autoZone != "none") {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(MoonCyan.copy(alpha = 0.15f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = config.autoZone,
-                                    fontSize = 11.sp,
-                                    color = MoonCyan,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
 
                         // Copy Walk
                         if (config.copyWalk)
@@ -397,12 +388,17 @@ fun SlaveryContent(
             BotSessionStatsBar(
                 stats = partyStats,
                 isRunning = isRunning,
+                isPaused = isPaused,
                 botType = "Slavery Party",
                 accentColor = SlaveIndigo,
                 startLabel = "START",
                 stopLabel = "STOP",
+                pauseLabel = "PAUSE",
+                resumeLabel = "RESUME",
                 onStart = onStartParty,
-                onStop = onStopParty
+                onStop = onStopParty,
+                onPause = onPauseParty,
+                onResume = onResumeParty
             )
 
             // Real-time Monster HP
@@ -800,65 +796,11 @@ fun SlaveSlotCard(
                         }
 
                         // Skill Cooldowns
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            for (i in 0..5) {
-                                val cd = telemetry.cooldowns[i] ?: 0.0
-                                val isReady = cd <= 0.0
-                                val isSoE = i == 5
-                                val label = if (isSoE) "SoE" else "$i"
-
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(32.dp)
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(
-                                                when {
-                                                    !isReady -> Color(0xFF1E2130)
-                                                    isSoE -> SunGold.copy(alpha = 0.25f)
-                                                    else -> accentColor.copy(alpha = 0.2f)
-                                                }
-                                            )
-                                            .border(
-                                                1.dp,
-                                                when {
-                                                    !isReady -> Color(0xFF2E3350)
-                                                    isSoE -> SunGold.copy(alpha = 0.6f)
-                                                    else -> accentColor.copy(alpha = 0.5f)
-                                                },
-                                                RoundedCornerShape(6.dp)
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = if (isReady) label else String.format(
-                                                Locale.US,
-                                                "%.1f",
-                                                cd
-                                            ),
-                                            fontSize = if (isReady) 11.sp else 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = when {
-                                                !isReady -> TextMuted
-                                                isSoE -> SunGold
-                                                else -> TextPrimary
-                                            }
-                                        )
-                                    }
-                                    Text(
-                                        text = if (isSoE) "Taunt" else "S$i",
-                                        fontSize = 8.sp,
-                                        color = TextMuted
-                                    )
-                                }
-                            }
-                        }
+                        SkillCooldownsRow(
+                            cooldowns = telemetry.cooldowns,
+                            accentColor = accentColor,
+                            modifier = Modifier.fillMaxWidth()
+                        )
 
                         // SoE Warning if active taunter but empty inventory
                         if (config.isTaunter) {
@@ -1327,7 +1269,11 @@ private fun SkillVerticalItem(
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = if (skill.index == 5) "Skill 5 (Taunt)" else "Skill ${skill.index}",
+                        text = when (skill.index) {
+                            0 -> "Skill 0 (AA)"
+                            5 -> "Skill 5 (Taunt)"
+                            else -> "Skill ${skill.index}"
+                        },
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -1509,9 +1455,9 @@ private fun SkillEditorDialog(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        (1..5).forEach { num ->
+                        (0..5).forEach { num ->
                             val isSelected = selectedIndex == num
                             Box(
                                 modifier = Modifier
@@ -1532,8 +1478,12 @@ private fun SkillEditorDialog(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = if (num == 5) "S5" else "S$num",
-                                    fontSize = 12.sp,
+                                    text = when (num) {
+                                        0 -> "AA"
+                                        5 -> "S5"
+                                        else -> "S$num"
+                                    },
+                                    fontSize = 11.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                     color = if (isSelected) Color.White else TextSecondary
                                 )
@@ -1795,8 +1745,10 @@ private fun SkillEditorDialog(
 
                             // Plain text preview
                             val condText = if (selectedOperator == "<") "below" else "above"
+                            val skillName =
+                                if (selectedIndex == 0) "Skill 0 (AA)" else "Skill $selectedIndex"
                             Text(
-                                text = "💡 Cast Skill $selectedIndex ONLY when ${selectedThresholdType.name} is $condText $selectedThresholdValue%.",
+                                text = "💡 Cast $skillName ONLY when ${selectedThresholdType.name} is $condText $selectedThresholdValue%.",
                                 fontSize = 10.sp,
                                 color = Color(0xFFCBD5E1)
                             )
