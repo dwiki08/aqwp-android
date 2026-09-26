@@ -342,6 +342,20 @@ class AqwSession {
                 if (event.monsterHpMap.isNotEmpty()) {
                     map.updateMonstersHp(event.monsterHpMap)
                 }
+
+                // Update skill cooldown upon server-confirmed SARSA execution
+                for (sarsa in event.sarsa) {
+                    val isMe =
+                        (playerState.roomUserId > 0 && sarsa.cInf == "p:${playerState.roomUserId}") ||
+                                sarsa.cInf.equals("p:${playerState.username}", ignoreCase = true)
+                    if (isMe) {
+                        val skillIdx = AqwPacketParser.parseSkillIndex(sarsa.actRef)
+                        if (skillIdx != null) {
+//                            combat.updateNextUse(skillIdx)
+                        }
+                    }
+                }
+
                 for ((auraObj, tInf) in event.auras) {
                     val auraName = auraObj.name
 

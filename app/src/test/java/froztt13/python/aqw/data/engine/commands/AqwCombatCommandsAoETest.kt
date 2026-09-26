@@ -249,9 +249,10 @@ class AqwCombatCommandsAoETest {
         // Initially skill 5 can be used
         assertTrue(combat.canUseSkill(5))
 
-        val start = System.currentTimeMillis()
         val sent = combat.taunt("99")
         assertTrue(sent)
+        val start = System.currentTimeMillis()
+        combat.updateNextUse(5)
 
         val skill5 = combat.getSkill(5)
         org.junit.Assert.assertNotNull(skill5)

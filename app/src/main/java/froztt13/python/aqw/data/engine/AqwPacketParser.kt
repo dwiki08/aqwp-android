@@ -13,6 +13,14 @@ import froztt13.python.aqw.domain.model.AqwSkill
 import froztt13.python.aqw.utils.Utils
 import org.json.JSONObject
 
+data class AqwSarsaAction(
+    val cInf: String,
+    val actRef: String,
+    val type: String = "",
+    val tInf: String = "",
+    val hp: Int? = null
+)
+
 sealed interface AqwEvent {
     data object PolicyReceived : AqwEvent
     data object LoginResponseReceived : AqwEvent
@@ -63,7 +71,8 @@ sealed interface AqwEvent {
         val monsterHpMap: Map<String, Int>,
         val animMsgs: List<String> = emptyList(),
         val auras: List<Pair<AqwAura, String>> = emptyList(),
-        val aurasRemoved: List<Pair<String, String>> = emptyList()
+        val aurasRemoved: List<Pair<String, String>> = emptyList(),
+        val sarsa: List<AqwSarsaAction> = emptyList()
     ) : AqwEvent
 
     data class PartyInviteReceived(val partyId: Int, val owner: String) : AqwEvent
@@ -555,6 +564,37 @@ object AqwPacketParser {
                     animMsgs.add(directMsg)
                 }
 
+                // Sarsa
+                val sarsaList = mutableListOf<AqwSarsaAction>()
+                val sarsaArr = data.optJSONArray("sarsa")
+                if (sarsaArr != null) {
+                    for (i in 0 until sarsaArr.length()) {
+                        val sarsaElm = sarsaArr.optJSONObject(i) ?: continue
+                        val cInf = sarsaElm.optString("cInf")
+                        val aArr = sarsaElm.optJSONArray("a")
+                        if (aArr != null) {
+                            for (j in 0 until aArr.length()) {
+                                val aSarsa = aArr.optJSONObject(j) ?: continue
+                                val sarsaType = aSarsa.optString("type")
+                                val sarsaTarget = aSarsa.optString("tInf")
+                                val sarsaActRef = aSarsa.optString("actRef")
+                                val hpVal = if (aSarsa.has("hp")) aSarsa.optInt("hp") else null
+                                if (sarsaActRef.isNotEmpty()) {
+                                    sarsaList.add(
+                                        AqwSarsaAction(
+                                            cInf = cInf,
+                                            actRef = sarsaActRef,
+                                            type = sarsaType,
+                                            tInf = sarsaTarget,
+                                            hp = hpVal
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Auras
                 val aurasList = mutableListOf<Pair<AqwAura, String>>()
                 val aurasRemovedList = mutableListOf<Pair<String, String>>()
@@ -635,7 +675,8 @@ object AqwPacketParser {
                     monsterHpMap,
                     animMsgs,
                     aurasList,
-                    aurasRemovedList
+                    aurasRemovedList,
+                    sarsaList
                 )
             }
 
@@ -966,6 +1007,22 @@ object AqwPacketParser {
             }
 
             else -> AqwEvent.Unknown(jsonStr)
+        }
+    }
+
+    fun parseSkillIndex(actRef: String): Int? {
+        val ref = actRef.trim().lowercase().substringBefore('>').substringBefore('%')
+        return when {
+            ref == "aa" || ref == "a0" || ref == "s0" -> 0
+            ref == "a1" || ref == "s1" -> 1
+            ref == "a2" || ref == "s2" -> 2
+            ref == "a3" || ref == "s3" -> 3
+            ref == "a4" || ref == "s4" -> 4
+            ref == "a5" || ref == "s5" || ref == "i1" || ref.startsWith("i") -> 5
+            else -> {
+                val digits = ref.filter { it.isDigit() }.toIntOrNull()
+                if (digits != null && digits in 0..5) digits else null
+            }
         }
     }
 
