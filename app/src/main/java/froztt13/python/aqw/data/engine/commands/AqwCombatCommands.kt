@@ -78,6 +78,7 @@ class AqwCombatCommands(
 
     var scrollId: String = ""
     var lastTargetMonster: String = ""
+    var skillReloadTime: Long = 0L
 
     fun getSkill(index: Int): AqwSkill? {
         val found = playerState.skills.firstOrNull { it.index == index }
@@ -153,7 +154,7 @@ class AqwCombatCommands(
         val baseCd = if (skill.cdMillis > 0.0) skill.cdMillis else (skill.cdSeconds * 1000.0)
         val effectiveCd = when {
             staticCooldownMs != null -> staticCooldownMs.toDouble()
-            index == 0 || skill.index == 0 -> baseCd
+//            index == 0 || skill.index == 0 -> baseCd
             else -> {
                 val cdr = minOf(maxOf(playerState.cdReduction, 0.0), 0.5)
                 baseCd * (1.0 - cdr)
@@ -181,11 +182,12 @@ class AqwCombatCommands(
             currentHp = maxHp
             mp = 100
             isInCombat = false
-            cdReduction = 0.0
+//            cdReduction = 0.0
             manaCost = 1.0
             removeAllAuras()
             resetAllSkills()
         }
+        skillReloadTime = 0L
         return sent
     }
 
@@ -207,7 +209,7 @@ class AqwCombatCommands(
 
     suspend fun useBuff(
         index: Int,
-        reloadDelayMs: Long = 200L
+        reloadDelayMs: Long = 500L
     ): Boolean {
         if (!ensureAlive()) {
             return false
@@ -220,6 +222,11 @@ class AqwCombatCommands(
         val tgtType = skill?.tgt ?: "h"
         if (tgtType.equals("h", ignoreCase = true)) {
             return false
+        }
+
+        val waitReloadMs = skillReloadTime - System.currentTimeMillis()
+        if (waitReloadMs > 0 && index != 0) {
+            delay(waitReloadMs.milliseconds)
         }
 
         val usernameId = playerState.roomUserId
@@ -244,12 +251,11 @@ class AqwCombatCommands(
             else -> "a$index>p:$usernameId"
         }
 
-        val sent = client.send("%xt%zm%gar%1%0%${targetParam}%wvz%")
+        val sent = client.send("%xt%zm%gar%1%1%${targetParam}%wvz%")
         if (sent) {
+            delay(200.milliseconds)
             updateNextUse(index)
-            if (reloadDelayMs > 0) {
-                delay(reloadDelayMs.milliseconds)
-            }
+            skillReloadTime = System.currentTimeMillis() + reloadDelayMs
             return true
         }
         return false
@@ -258,7 +264,7 @@ class AqwCombatCommands(
     suspend fun useSkill(
         index: Int,
         targetMonMapId: String? = null,
-        reloadDelayMs: Long = 200L
+        reloadDelayMs: Long = 500L
     ): Boolean {
         if (!ensureAlive()) {
             return false
@@ -271,6 +277,11 @@ class AqwCombatCommands(
         val tgtType = skill?.tgt ?: "h"
         if (!tgtType.equals("h", ignoreCase = true)) {
             return useBuff(index, reloadDelayMs)
+        }
+
+        val waitReloadMs = skillReloadTime - System.currentTimeMillis()
+        if (waitReloadMs > 0 && index != 0) {
+            delay(waitReloadMs.milliseconds)
         }
 
         val maxTarget = (skill?.tgtMax ?: 1).coerceAtLeast(1)
@@ -304,38 +315,36 @@ class AqwCombatCommands(
             selectedMonIds.add(id)
         }
 
-        val targetParam = selectedMonIds.joinToString(",") { monId ->
-            when (index) {
-                0 -> {
-                    "aa>m:$monId"
-                }
-
-                5 if scrollId.isNotBlank() -> {
-                    "i1>m:$monId%$scrollId"
-                }
-
-                else -> {
-                    "a$index>m:$monId"
-                }
-            }
+        val packet = if (index == 5 && scrollId.isNotBlank()) {
+            val targets = selectedMonIds.joinToString(",") { monId -> "i1>m:$monId" }
+            "%xt%zm%gar%1%0%${targets}%${scrollId}%wvz%"
+        } else {
+            val prefix = if (index == 0) "aa" else "a$index"
+            val targets = selectedMonIds.joinToString(",") { monId -> "$prefix>m:$monId" }
+            "%xt%zm%gar%1%0%${targets}%wvz%"
         }
 
-        val packet = "%xt%zm%gar%1%0%${targetParam}%wvz%"
         val sent = client.send(packet)
         if (sent) {
+            delay(200.milliseconds)
             updateNextUse(index)
+            val newReloadTime = System.currentTimeMillis() + reloadDelayMs
+            skillReloadTime =
+                if (index != 0) newReloadTime else maxOf(skillReloadTime, newReloadTime)
             val mon = monstersProvider().firstOrNull { it.monMapId == primaryId }
             val resolvedName = mon?.name?.trim()?.ifEmpty { null }
             lastTargetMonster = resolvedName ?: targetMonMapId ?: "Monster #$primaryId"
-            if (reloadDelayMs > 0) {
-                delay(reloadDelayMs.milliseconds)
-            }
             return true
         }
         return false
     }
 
     suspend fun useSkillToPlayer(skillIndex: Int, maxTarget: Int = 1): Boolean {
+        val waitReloadMs = skillReloadTime - System.currentTimeMillis()
+        if (waitReloadMs > 0 && skillIndex != 0) {
+            delay(waitReloadMs.milliseconds)
+        }
+
         val usernameId = playerState.roomUserId
         val userIds = playerState.roomUserIds.ifEmpty {
             playerState.playersInMap.values.mapNotNull {
@@ -355,7 +364,9 @@ class AqwCombatCommands(
         val packet = "%xt%zm%gar%1%0%${finalTarget}%wvz%"
         val sent = client.send(packet)
         if (sent) {
+            delay(200.milliseconds)
             updateNextUse(skillIndex)
+            skillReloadTime = System.currentTimeMillis() + 500L
         }
         return sent
     }
@@ -380,16 +391,23 @@ class AqwCombatCommands(
     }
 
     suspend fun taunt(monMapId: String): Boolean {
-        val targetParam =
-            if (scrollId.isNotBlank()) "i1>m:$monMapId%$scrollId" else "a5>m:$monMapId"
-        val packet = "%xt%zm%gar%1%0%${targetParam}%wvz%"
+        val waitReloadMs = skillReloadTime - System.currentTimeMillis()
+        if (waitReloadMs > 0) {
+            delay(waitReloadMs.milliseconds)
+        }
+        val packet = if (scrollId.isNotBlank()) {
+            "%xt%zm%gar%1%0%i1>m:${monMapId}%${scrollId}%wvz%"
+        } else {
+            "%xt%zm%gar%1%0%a5>m:${monMapId}%wvz%"
+        }
         val sent = client.send(packet)
         if (sent) {
+            delay(200.milliseconds)
             updateNextUse(5)
+            skillReloadTime = System.currentTimeMillis() + 500L
             val mon = monstersProvider().firstOrNull { it.monMapId == monMapId }
             val resolvedName = mon?.name?.trim()?.ifEmpty { null }
             lastTargetMonster = resolvedName ?: monMapId
-            delay(500.milliseconds)
         }
         return sent
     }

@@ -898,7 +898,7 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
                                 LogEntryType.INFO
                             )
                             session.map.jumpCell(CELL_R1, PAD_LEFT)
-                            waitForSlavesInCell(CELL_R1)
+//                            waitForSlavesInCell(CELL_R1)
                         }
 
                         CELL_R1 -> {
@@ -908,7 +908,7 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
                                 LogEntryType.INFO
                             )
                             session.map.jumpCell(CELL_R2, PAD_LEFT)
-                            waitForSlavesInCell(CELL_R2)
+//                            waitForSlavesInCell(CELL_R2)
                         }
 
                         CELL_R2 -> {
@@ -951,14 +951,14 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
                     if (!isDifferentMap) {
                         if (!isInCombat || currentCell == CELL_R3) {
                             session.log(
-                                "[$slotKey] Master is in $masterMap:$masterCell (current: $currentMap:$currentCell). Moving to master...",
+                                "[$slotKey] Master is in $masterMap:$masterCell (current: $currentMap:$currentCell). `Jump cell` to master...",
                                 LogEntryType.INFO
                             )
                             session.map.jumpCell(masterCell, masterPad)
                         }
                     } else {
                         session.log(
-                            "[$slotKey] Master is in $masterMap:$masterCell (current: $currentMap:$currentCell). Moving to master...",
+                            "[$slotKey] Master is in $masterMap:$masterCell (current: $currentMap:$currentCell). `Goto` to master...",
                             LogEntryType.INFO
                         )
                         session.map.gotoPlayer(masterUsername)
@@ -1035,7 +1035,7 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
                 }
             }
 
-            delay(500.milliseconds)
+            delay(200.milliseconds)
         }
     }
 

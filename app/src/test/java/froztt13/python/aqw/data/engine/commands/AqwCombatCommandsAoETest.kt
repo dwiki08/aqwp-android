@@ -421,5 +421,172 @@ class AqwCombatCommandsAoETest {
         assertTrue(playerState.auras.isEmpty())
         assertEquals(0L, skill.nextUseTimestamp)
         assertTrue(skill.isReady())
+        assertEquals(0L, combat.skillReloadTime)
     }
+
+    @Test
+    fun testUseSkill_skill5WithScroll_singleAndMultiTargetPacketFormat() = runBlocking {
+        val client = FakeSocketClient()
+        val playerState = AqwPlayerState(
+            cell = "r2",
+            currentHp = 1000,
+            maxHp = 1000,
+            mp = 100
+        )
+        // Skill 5 with scroll (tgtMax = 2)
+        playerState.skills.add(
+            AqwSkill(
+                index = 5,
+                name = "Scroll of Enrage",
+                tgt = "h",
+                tgtMax = 2,
+                mpCost = 0.0,
+                cdMillis = 1000.0
+            )
+        )
+        val monsters = listOf(
+            AqwMonster(
+                monMapId = "1",
+                name = "Mob A",
+                currentHp = 100,
+                isAlive = true,
+                frame = "r2"
+            ),
+            AqwMonster(
+                monMapId = "2",
+                name = "Mob B",
+                currentHp = 100,
+                isAlive = true,
+                frame = "r2"
+            )
+        )
+        val combat = AqwCombatCommands(
+            client = client,
+            playerState = playerState,
+            monstersProvider = { monsters }
+        )
+        combat.scrollId = "98765"
+
+        // Multi-target skill 5 with scroll: should place scrollId as a separate segment at the end
+        val success = combat.useSkill(index = 5, targetMonMapId = "1", reloadDelayMs = 0)
+        assertTrue(success)
+        assertEquals("%xt%zm%gar%1%0%i1>m:1,i1>m:2%98765%wvz%", client.sentPackets.last())
+
+        // Taunt with scroll: should also format as i1>m:<id>%<scrollId>%wvz%
+        client.sentPackets.clear()
+        combat.taunt("2")
+        assertEquals("%xt%zm%gar%1%0%i1>m:2%98765%wvz%", client.sentPackets.last())
+    }
+
+    @Test
+    fun testUseSkill_skill5WithoutScroll_fallsBackToNormalSkillPacket() = runBlocking {
+        val client = FakeSocketClient()
+        val playerState = AqwPlayerState(
+            cell = "r2",
+            currentHp = 1000,
+            maxHp = 1000,
+            mp = 100
+        )
+        playerState.skills.add(
+            AqwSkill(
+                index = 5,
+                name = "Class Skill 5",
+                tgt = "h",
+                tgtMax = 1,
+                mpCost = 10.0,
+                cdMillis = 1000.0
+            )
+        )
+        val monsters = listOf(
+            AqwMonster(
+                monMapId = "1",
+                name = "Mob A",
+                currentHp = 100,
+                isAlive = true,
+                frame = "r2"
+            )
+        )
+        val combat = AqwCombatCommands(
+            client = client,
+            playerState = playerState,
+            monstersProvider = { monsters }
+        )
+        combat.scrollId = "" // Blank scrollId
+
+        val success = combat.useSkill(index = 5, targetMonMapId = "1", reloadDelayMs = 0)
+        assertTrue(success)
+        assertEquals("%xt%zm%gar%1%0%a5>m:1%wvz%", client.sentPackets.last())
+    }
+
+    @Test
+    fun testUseSkill_skillReloadTime_autoAttackBypassesBufferAndNonZeroSkillRespectsBuffer() =
+        runBlocking {
+            val client = FakeSocketClient()
+            val playerState = AqwPlayerState(
+                cell = "r2",
+                currentHp = 1000,
+                maxHp = 1000,
+                mp = 100
+            )
+            playerState.skills.add(
+                AqwSkill(
+                    index = 0,
+                    name = "Auto Attack",
+                    tgt = "h",
+                    tgtMax = 1,
+                    mpCost = 0.0,
+                    cdMillis = 1000.0
+                )
+            )
+            playerState.skills.add(
+                AqwSkill(
+                    index = 1,
+                    name = "Strike",
+                    tgt = "h",
+                    tgtMax = 1,
+                    mpCost = 10.0,
+                    cdMillis = 1000.0
+                )
+            )
+            val monsters = listOf(
+                AqwMonster(
+                    monMapId = "1",
+                    name = "Mob A",
+                    currentHp = 100,
+                    isAlive = true,
+                    frame = "r2"
+                )
+            )
+            val combat = AqwCombatCommands(
+                client = client,
+                playerState = playerState,
+                monstersProvider = { monsters }
+            )
+
+            // Set buffer 250ms in the future
+            combat.skillReloadTime = System.currentTimeMillis() + 250L
+
+            // Auto Attack (index 0) must bypass buffer and execute immediately (< 50ms)
+            val t0 = System.currentTimeMillis()
+            val aaSuccess = combat.useSkill(index = 0, targetMonMapId = "1", reloadDelayMs = 0)
+            val elapsedAa = System.currentTimeMillis() - t0
+            assertTrue(aaSuccess)
+            assertTrue(
+                "Auto attack should not wait for skillReloadTime, took $elapsedAa ms",
+                elapsedAa < 100
+            )
+
+            // Non-zero skill (index 1) must wait for remaining buffer
+            val t1 = System.currentTimeMillis()
+            val s1Success = combat.useSkill(index = 1, targetMonMapId = "1", reloadDelayMs = 300)
+            val elapsedS1 = System.currentTimeMillis() - t1
+            assertTrue(s1Success)
+            assertTrue(
+                "Skill 1 should have waited for buffer, took $elapsedS1 ms",
+                elapsedS1 >= 100
+            )
+            // And skillReloadTime should now be set ~300ms in the future
+            assertTrue(combat.skillReloadTime >= System.currentTimeMillis() + 150)
+        }
 }
+
