@@ -26,5 +26,17 @@ sealed interface AppDestination {
     data object GeneralBot : AppDestination
 
     @Serializable
+    data object UltraBoss : AppDestination
+
+    @Serializable
+    data object UltraGramiel : AppDestination
+
+    @Serializable
+    data object UltraMalgor : AppDestination
+
+    @Serializable
+    data object UltraDrakath : AppDestination
+
+    @Serializable
     data object PlayerState : AppDestination
 }

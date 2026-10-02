@@ -9,12 +9,15 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import froztt13.python.aqw.data.model.UltraBossType
 import froztt13.python.aqw.ui.screens.DashboardScreen
 import froztt13.python.aqw.ui.screens.EclipseScreen
 import froztt13.python.aqw.ui.screens.GeneralBotScreen
 import froztt13.python.aqw.ui.screens.PlayerStateScreen
 import froztt13.python.aqw.ui.screens.SlaveryScreen
 import froztt13.python.aqw.ui.screens.TempleScreen
+import froztt13.python.aqw.ui.screens.UltraBossDetailScreen
+import froztt13.python.aqw.ui.screens.UltraBossScreen
 import froztt13.python.aqw.ui.screens.WeeklyDoomBotScreen
 
 @Composable
@@ -39,7 +42,8 @@ fun AppNavHost(
                     onNavigateToEclipse = { navController.navigate(AppDestination.Eclipse) },
                     onNavigateToDoom = { navController.navigate(AppDestination.WeeklyDoom) },
                     onNavigateToSlavery = { navController.navigate(AppDestination.Slavery) },
-                    onNavigateToGeneral = { navController.navigate(AppDestination.GeneralBot) }
+                    onNavigateToGeneral = { navController.navigate(AppDestination.GeneralBot) },
+                    onNavigateToUltraBoss = { navController.navigate(AppDestination.UltraBoss) }
                 )
             }
 
@@ -76,6 +80,36 @@ fun AppNavHost(
                     onNavigateToPlayerState = {
                         navController.navigate(AppDestination.PlayerState)
                     }
+                )
+            }
+
+            composable<AppDestination.UltraBoss> {
+                UltraBossScreen(
+                    onBack = { navController.popBackStack() },
+                    onNavigateToGramiel = { navController.navigate(AppDestination.UltraGramiel) },
+                    onNavigateToMalgor = { navController.navigate(AppDestination.UltraMalgor) },
+                    onNavigateToDrakath = { navController.navigate(AppDestination.UltraDrakath) }
+                )
+            }
+
+            composable<AppDestination.UltraGramiel> {
+                UltraBossDetailScreen(
+                    bossType = UltraBossType.GRAMIEL,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable<AppDestination.UltraMalgor> {
+                UltraBossDetailScreen(
+                    bossType = UltraBossType.MALGOR,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable<AppDestination.UltraDrakath> {
+                UltraBossDetailScreen(
+                    bossType = UltraBossType.DRAKATH,
+                    onBack = { navController.popBackStack() }
                 )
             }
 

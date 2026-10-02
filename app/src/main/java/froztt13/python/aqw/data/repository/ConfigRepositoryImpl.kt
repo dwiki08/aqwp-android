@@ -8,6 +8,7 @@ import froztt13.python.aqw.data.model.SlaveSlotConfig
 import froztt13.python.aqw.data.model.SlaveryConfig
 import froztt13.python.aqw.data.model.SlotConfig
 import froztt13.python.aqw.data.model.TempleConfig
+import froztt13.python.aqw.data.model.UltraBossConfig
 import froztt13.python.aqw.data.model.WeeklyDoomConfig
 import froztt13.python.aqw.data.util.DoomAccountJsonParser
 import froztt13.python.aqw.domain.repository.ConfigRepository
@@ -26,6 +27,7 @@ class ConfigRepositoryImpl(
         private const val FILE_DOOM = "doom_config.json"
         private const val FILE_SLAVERY = "slavery_config.json"
         private const val FILE_GENERAL = "general_config.json"
+        private const val FILE_ULTRA_BOSS = "ultra_boss_config.json"
 
         // Singleton instance for backward-compatibility / ease of access
         val instance = ConfigRepositoryImpl()
@@ -43,6 +45,7 @@ class ConfigRepositoryImpl(
             "doom_load_config", "doom_save_config", "doom_reset_config", FILE_DOOM -> FILE_DOOM
             "slavery_load_config", "slavery_save_config", "slavery_reset_config", FILE_SLAVERY -> FILE_SLAVERY
             "general_load_config", "general_save_config", "general_reset_config", FILE_GENERAL -> FILE_GENERAL
+            "ultra_boss_load_config", "ultra_boss_save_config", "ultra_boss_reset_config", FILE_ULTRA_BOSS -> FILE_ULTRA_BOSS
             else -> if (name.endsWith(".json")) name else "$name.json"
         }
         return File(dir, fileName)
@@ -191,6 +194,26 @@ class ConfigRepositoryImpl(
         return GeneralBotConfig()
     }
 
+    // --- Ultra Boss Operations ---
+    override suspend fun saveUltraBossConfig(config: UltraBossConfig): Boolean {
+        return saveRawConfig(FILE_ULTRA_BOSS, serializeUltraBossConfig(config))
+    }
+
+    override suspend fun loadUltraBossConfig(): UltraBossConfig? {
+        val raw = loadRawConfig(FILE_ULTRA_BOSS) ?: return null
+        return try {
+            parseUltraBossConfig(raw)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed parsing Ultra Boss config: ${e.message}")
+            null
+        }
+    }
+
+    override suspend fun resetUltraBossConfig(): UltraBossConfig {
+        resetRawConfig(FILE_ULTRA_BOSS)
+        return UltraBossConfig()
+    }
+
     // --- Type-safe Data Class Serialization & Parsing ---
 
     fun parseEclipseConfig(jsonStr: String): EclipseConfig {
@@ -288,4 +311,29 @@ class ConfigRepositoryImpl(
     }
 
     fun serializeGeneralConfig(cfg: GeneralBotConfig): String = cfg.toJson()
+
+    fun parseUltraBossConfig(jsonStr: String): UltraBossConfig {
+        val parsed = try {
+            UltraBossConfig.fromJson(jsonStr)
+        } catch (e: Exception) {
+            Log.e(
+                TAG,
+                "Error deserializing UltraBossConfig, falling back to default: ${e.message}"
+            )
+            UltraBossConfig()
+        }
+        val defaultSlots = UltraBossConfig.defaultSlots()
+        val mergedSlots = defaultSlots.toMutableMap()
+        parsed.slots.forEach { (k, v) ->
+            val def = defaultSlots[k] ?: SlotConfig()
+            mergedSlots[k] = v.copy(
+                charClass = v.charClass.ifBlank { def.charClass },
+                role = v.role.ifBlank { def.role },
+                defaultTarget = v.defaultTarget.ifBlank { def.defaultTarget }
+            )
+        }
+        return parsed.copy(slots = mergedSlots)
+    }
+
+    fun serializeUltraBossConfig(cfg: UltraBossConfig): String = cfg.toJson()
 }

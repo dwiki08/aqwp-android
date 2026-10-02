@@ -5,6 +5,7 @@ import froztt13.python.aqw.data.model.EclipseConfig
 import froztt13.python.aqw.data.model.GeneralBotConfig
 import froztt13.python.aqw.data.model.SlaveryConfig
 import froztt13.python.aqw.data.model.TempleConfig
+import froztt13.python.aqw.data.model.UltraBossConfig
 import froztt13.python.aqw.data.model.WeeklyDoomConfig
 
 interface ConfigRepository {
@@ -34,6 +35,11 @@ interface ConfigRepository {
     suspend fun saveGeneralConfig(config: GeneralBotConfig): Boolean
     suspend fun loadGeneralConfig(): GeneralBotConfig?
     suspend fun resetGeneralConfig(): GeneralBotConfig
+
+    // Type-safe Ultra Boss operations
+    suspend fun saveUltraBossConfig(config: UltraBossConfig): Boolean
+    suspend fun loadUltraBossConfig(): UltraBossConfig?
+    suspend fun resetUltraBossConfig(): UltraBossConfig
 
     // Raw JSON string persistence (backward-compatibility)
     suspend fun saveRawConfig(key: String, content: String): Boolean

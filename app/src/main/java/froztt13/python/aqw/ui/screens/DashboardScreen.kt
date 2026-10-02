@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Nightlight
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -98,6 +99,7 @@ fun DashboardScreen(
     onNavigateToDoom: () -> Unit,
     onNavigateToSlavery: () -> Unit,
     onNavigateToGeneral: () -> Unit,
+    onNavigateToUltraBoss: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DashboardViewModel = viewModel()
 ) {
@@ -110,6 +112,7 @@ fun DashboardScreen(
         onNavigateToDoom = onNavigateToDoom,
         onNavigateToSlavery = onNavigateToSlavery,
         onNavigateToGeneral = onNavigateToGeneral,
+        onNavigateToUltraBoss = onNavigateToUltraBoss,
         modifier = modifier
     )
 }
@@ -123,7 +126,8 @@ fun DashboardContent(
     onNavigateToEclipse: () -> Unit,
     onNavigateToDoom: () -> Unit,
     onNavigateToSlavery: () -> Unit,
-    onNavigateToGeneral: () -> Unit
+    onNavigateToGeneral: () -> Unit,
+    onNavigateToUltraBoss: () -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -209,7 +213,8 @@ fun DashboardContent(
                     onNavigateToEclipse = onNavigateToEclipse,
                     onNavigateToDoom = onNavigateToDoom,
                     onNavigateToSlavery = onNavigateToSlavery,
-                    onNavigateToGeneral = onNavigateToGeneral
+                    onNavigateToGeneral = onNavigateToGeneral,
+                    onNavigateToUltraBoss = onNavigateToUltraBoss
                 )
             }
 
@@ -253,7 +258,7 @@ fun DashboardContent(
                             )
                         }
                         Text(
-                            text = if (hubOverview.anyRunning) "${hubOverview.activeCount} RUNNING" else "5 Modules",
+                            text = if (hubOverview.anyRunning) "${hubOverview.activeCount} RUNNING" else "6 Modules",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = if (hubOverview.anyRunning) SuccessGreen else PrimaryPurple
@@ -262,16 +267,17 @@ fun DashboardContent(
                 }
             }
 
-            // Grid Row 1: General Bot (Modular Farm Engine)
+            // Grid Row 1: General Bot & Ultra Boss
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(IntrinsicSize.Max)
+                    .height(IntrinsicSize.Max),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 BotModuleGridCard(
                     title = "General Bot",
                     category = "Modular Farms",
-                    description = "Multi-purpose modular engine. Features Legion Revenant (Fealty 1-3), Nulgath Nation (Larva), & Void Aura (NSOD Quest 4432).",
+                    description = "Multi-purpose modular engine.",
                     icon = Icons.Filled.Extension,
                     accentColor = GeneralTeal,
                     onClick = onNavigateToGeneral,
@@ -280,7 +286,23 @@ fun DashboardContent(
                         "${hubOverview.general.subModule.ifEmpty { "Farm" }} • ${hubOverview.general.formattedTime}"
                     } else null,
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .weight(1f)
+                        .fillMaxHeight()
+                )
+
+                BotModuleGridCard(
+                    title = "Ultra Boss",
+                    category = "Raid Party",
+                    description = "Ultra Gramiel, Ultra Malgor, and Ultra Drakath.",
+                    icon = Icons.Filled.Shield,
+                    accentColor = PrimaryPurple,
+                    onClick = onNavigateToUltraBoss,
+                    isRunning = hubOverview.ultraBoss.running,
+                    runningDetail = if (hubOverview.ultraBoss.running) {
+                        "${hubOverview.ultraBoss.subModule.ifEmpty { "Raid" }} • ${hubOverview.ultraBoss.formattedTime}"
+                    } else null,
+                    modifier = Modifier
+                        .weight(1f)
                         .fillMaxHeight()
                 )
             }
@@ -466,6 +488,7 @@ fun ActiveBotSessionsCard(
     onNavigateToDoom: () -> Unit,
     onNavigateToSlavery: () -> Unit,
     onNavigateToGeneral: () -> Unit,
+    onNavigateToUltraBoss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -575,6 +598,15 @@ fun ActiveBotSessionsCard(
                     details = "${hubOverview.general.subModule.ifEmpty { "Farm" }} • ${hubOverview.general.formattedTime}",
                     accentColor = GeneralTeal,
                     onClick = onNavigateToGeneral
+                )
+            }
+
+            if (hubOverview.ultraBoss.running) {
+                ActiveBotItemRow(
+                    title = "Ultra Boss",
+                    details = "${hubOverview.ultraBoss.subModule.ifEmpty { "Raid" }} • ${hubOverview.ultraBoss.formattedTime}",
+                    accentColor = PrimaryPurple,
+                    onClick = onNavigateToUltraBoss
                 )
             }
         }
@@ -1007,7 +1039,8 @@ private fun DashboardContentIdlePreview() {
             onNavigateToEclipse = {},
             onNavigateToDoom = {},
             onNavigateToSlavery = {},
-            onNavigateToGeneral = {}
+            onNavigateToGeneral = {},
+            onNavigateToUltraBoss = {}
         )
     }
 }
@@ -1047,7 +1080,8 @@ private fun DashboardContentActivePreview() {
             onNavigateToEclipse = {},
             onNavigateToDoom = {},
             onNavigateToSlavery = {},
-            onNavigateToGeneral = {}
+            onNavigateToGeneral = {},
+            onNavigateToUltraBoss = {}
         )
     }
 }
@@ -1083,7 +1117,8 @@ private fun ActiveBotSessionsCardPreview() {
                 onNavigateToEclipse = {},
                 onNavigateToDoom = {},
                 onNavigateToSlavery = {},
-                onNavigateToGeneral = {}
+                onNavigateToGeneral = {},
+                onNavigateToUltraBoss = {}
             )
         }
     }

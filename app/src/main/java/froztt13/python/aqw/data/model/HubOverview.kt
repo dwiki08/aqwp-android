@@ -33,15 +33,17 @@ data class HubOverview(
     val eclipse: BotSummary = BotSummary(),
     val doom: BotSummary = BotSummary(),
     val slavery: BotSummary = BotSummary(),
-    val general: BotSummary = BotSummary()
+    val general: BotSummary = BotSummary(),
+    val ultraBoss: BotSummary = BotSummary()
 ) {
     val anyRunning: Boolean
-        get() = temple.running || eclipse.running || doom.running || slavery.running || general.running
+        get() = temple.running || eclipse.running || doom.running || slavery.running || general.running || ultraBoss.running
 
     val activeCount: Int
         get() = (if (temple.running) 1 else 0) +
                 (if (eclipse.running) 1 else 0) +
                 (if (doom.running) 1 else 0) +
                 (if (slavery.running) 1 else 0) +
-                (if (general.running) 1 else 0)
+                (if (general.running) 1 else 0) +
+                (if (ultraBoss.running) 1 else 0)
 }
