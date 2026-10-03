@@ -305,6 +305,10 @@ fun PlayerStateContent(
                     }
                 }
             } else {
+                val equippedItems = remember(playerState.inventory) {
+                    playerState.inventory.filter { it.isEquipped }
+                }
+
                 // Active Player Data
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -321,6 +325,7 @@ fun PlayerStateContent(
                     item {
                         val tabs = listOf(
                             "Skills (${playerState.skills.size})",
+                            "Equipments (${equippedItems.size})",
                             "Inventory (${playerState.inventory.size})",
                             "Temp (${playerState.tempInventory.size})",
                             "Drops (${playerState.droppedItems.size})",
@@ -360,11 +365,25 @@ fun PlayerStateContent(
 
                     when (selectedTab) {
                         0 -> { // Skills & Auras
-                            item { SkillsSection(skills = playerState.skills) }
+                            item {
+                                SkillsSection(
+                                    skills = playerState.skills,
+                                    cdReduction = playerState.cdReduction
+                                )
+                            }
                             item { AurasSection(auras = playerState.auras) }
                         }
 
-                        1 -> { // Inventory
+                        1 -> { // Equipments
+                            item {
+                                ItemListSection(
+                                    items = equippedItems,
+                                    title = "Equipped Items"
+                                )
+                            }
+                        }
+
+                        2 -> { // Inventory
                             item {
                                 ItemListSection(
                                     items = playerState.inventory,
@@ -373,7 +392,7 @@ fun PlayerStateContent(
                             }
                         }
 
-                        2 -> { // Temp Inventory
+                        3 -> { // Temp Inventory
                             item {
                                 ItemListSection(
                                     items = playerState.tempInventory,
@@ -382,7 +401,7 @@ fun PlayerStateContent(
                             }
                         }
 
-                        3 -> { // Drops
+                        4 -> { // Drops
                             item {
                                 ItemListSection(
                                     items = playerState.droppedItems,
@@ -393,11 +412,11 @@ fun PlayerStateContent(
                             }
                         }
 
-                        4 -> { // Bank
+                        5 -> { // Bank
                             item { ItemListSection(items = playerState.bank, title = "Bank Items") }
                         }
 
-                        5 -> { // Quests & Shops
+                        6 -> { // Quests & Shops
                             item {
                                 QuestsSection(
                                     quests = playerState.loadedQuests,
@@ -407,11 +426,11 @@ fun PlayerStateContent(
                             item { ShopsSection(shops = playerState.loadedShops) }
                         }
 
-                        6 -> { // Factions
+                        7 -> { // Factions
                             item { FactionsSection(factions = playerState.factions) }
                         }
 
-                        7 -> { // Players in Room
+                        8 -> { // Players in Room
                             item { PlayersInMapSection(players = playerState.playersInMap.values.toList()) }
                         }
                     }
@@ -592,9 +611,10 @@ private fun PlayerVitalsCard(state: AqwPlayerState) {
                 StatItem(label = "Gold", value = "${state.gold}", color = SunGold)
                 StatItem(label = "Gold Farmed", value = "+${state.goldFarmed}", color = DoomGold)
                 StatItem(label = "Exp Farmed", value = "+${state.expFarmed}", color = PrimaryPurple)
+                val cappedCdr = minOf(maxOf(state.cdReduction, 0.0), 0.5)
                 StatItem(
                     label = "CDR (Haste)",
-                    value = "${(state.cdReduction * 100).toInt()}%",
+                    value = "${(cappedCdr * 100).toInt()}%",
                     color = GeneralTeal
                 )
                 StatItem(label = "Mana Cost", value = "${state.manaCost}x", color = LegionBlue)
@@ -625,7 +645,7 @@ private fun StatusBadge(text: String, color: Color) {
 }
 
 @Composable
-private fun SkillsSection(skills: List<AqwSkill>) {
+private fun SkillsSection(skills: List<AqwSkill>, cdReduction: Double = 0.0) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -641,7 +661,12 @@ private fun SkillsSection(skills: List<AqwSkill>) {
         if (skills.isEmpty()) {
             Text("No active skills loaded.", fontSize = 12.sp, color = TextMuted)
         } else {
+            val cappedCdr = minOf(maxOf(cdReduction, 0.0), 0.5)
             skills.forEach { skill ->
+                val baseCd = skill.cdSeconds
+                val effectiveCd = baseCd * (1.0 - cappedCdr)
+                val formattedEffectiveCd = String.format(Locale.US, "%.2fs", effectiveCd)
+
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = CardDark),
@@ -690,10 +715,15 @@ private fun SkillsSection(skills: List<AqwSkill>) {
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
-                                "CD: ${skill.cdSeconds}s",
+                                "Base CD: ${baseCd}s",
+                                fontSize = 10.sp,
+                                color = TextMuted
+                            )
+                            Text(
+                                "CD: $formattedEffectiveCd",
                                 fontSize = 11.sp,
                                 color = SunGold,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.Bold
                             )
                             Text(
                                 "MP: ${skill.mpCost.toInt()}",

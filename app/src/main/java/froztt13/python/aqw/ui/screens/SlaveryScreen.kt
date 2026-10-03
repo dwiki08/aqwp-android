@@ -704,7 +704,8 @@ fun SlaveSlotCard(
                         }
 
                         // Targeted Monster
-                        val currentTargeted = telemetry.targetedMonster.ifEmpty { "-" }
+                        val currentTargeted =
+                            telemetry.targetedMonster?.name?.ifEmpty { "-" } ?: "-"
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()

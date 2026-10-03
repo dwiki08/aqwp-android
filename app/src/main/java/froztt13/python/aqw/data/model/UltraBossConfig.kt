@@ -36,15 +36,14 @@ object UltraBossData {
         title = "Ultra Gramiel",
         mapName = "ultagramiel",
         recommendedClasses = listOf(
-            "DPS (Ravenous)",
-            "Lord of Order",
+            "LightCaster",
+            "ArchPaladain",
             "StoneCrusher",
-            "Legion Revenant"
+            "Lord of Order",
         ),
         mechanics = listOf(
-            "Phase 1: Alternate crystal taunts (LOO/DPS Left, LR/SC Right)",
-            "Guard Break: Deal 20 Hits to Gramiel (Mid)",
-            "Phase 2: Stop taunt for 4s on HP triggers (7.5M, 5.25M, 3.0M, 750k)"
+            "Phase 1: Odd-even taunt rotation for crystals",
+            "Phase 2: All slots do loop taunt on 'Gramiel the Graceful'"
         ),
         insigniaName = "Gramiel Insignia",
         colorHex = 0xFFF59E0B // Sun Gold
@@ -115,28 +114,28 @@ data class UltraBossConfig(
     companion object {
         fun defaultSlots(): Map<String, SlotConfig> = mapOf(
             "slot1" to SlotConfig(
-                charClass = "ArchPaladin",
+                charClass = "LightCaster",
                 role = "master",
                 isTaunter = true,
-                defaultTarget = "Ultra Gramiel"
+                defaultTarget = "2"
             ),
             "slot2" to SlotConfig(
+                charClass = "ArchPaladin",
+                role = "slave",
+                isTaunter = true,
+                defaultTarget = "2"
+            ),
+            "slot3" to SlotConfig(
+                charClass = "StoneCrusher",
+                role = "slave",
+                isTaunter = true,
+                defaultTarget = "3"
+            ),
+            "slot4" to SlotConfig(
                 charClass = "Lord of Order",
                 role = "slave",
                 isTaunter = true,
-                defaultTarget = "Ultra Gramiel"
-            ),
-            "slot3" to SlotConfig(
-                charClass = "Chaos Avenger",
-                role = "slave",
-                isTaunter = false,
-                defaultTarget = "Ultra Gramiel"
-            ),
-            "slot4" to SlotConfig(
-                charClass = "StoneCrusher",
-                role = "slave",
-                isTaunter = false,
-                defaultTarget = "Ultra Gramiel"
+                defaultTarget = "3"
             )
         )
 

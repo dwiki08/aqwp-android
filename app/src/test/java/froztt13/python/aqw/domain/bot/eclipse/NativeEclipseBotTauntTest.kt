@@ -1,5 +1,6 @@
 package froztt13.python.aqw.domain.bot.eclipse
 
+import org.junit.Assert
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -20,83 +21,84 @@ class NativeEclipseBotTauntTest {
         NativeEclipseBot.lastSunConvergeTime = 0L
         NativeEclipseBot.lastMoonConvergeTime = 0L
         NativeEclipseBot.pendingTauntTargets.clear()
+        NativeEclipseBot.refreshTauntInfo()
     }
 
     @Test
     fun testSunWarmthAlternatesBetweenSlot1AndSlot2() {
         // Wave 1: Detected by slot 1
-        NativeEclipseBot.onSunWarmthDetected("slot1", delayMs = 0)
+        NativeEclipseBot.onSunWarmthDetected("slot1")
         assertEquals(1, NativeEclipseBot.sunsetKnightCount.get())
 
         // Concurrent/immediate call from slot 2 must be debounced (ignored)
-        NativeEclipseBot.onSunWarmthDetected("slot2", delayMs = 0)
+        NativeEclipseBot.onSunWarmthDetected("slot2")
         assertEquals(1, NativeEclipseBot.sunsetKnightCount.get())
 
         // Wave 2: Next wave after debounce period (simulated by resetting timestamp)
         NativeEclipseBot.lastSunsetKnightTime = 0L
-        NativeEclipseBot.onSunWarmthDetected("slot2", delayMs = 0)
+        NativeEclipseBot.onSunWarmthDetected("slot2")
         assertEquals(2, NativeEclipseBot.sunsetKnightCount.get())
 
         // Wave 3: Next wave alternates back to slot 1
         NativeEclipseBot.lastSunsetKnightTime = 0L
-        NativeEclipseBot.onSunWarmthDetected("slot1", delayMs = 0)
+        NativeEclipseBot.onSunWarmthDetected("slot1")
         assertEquals(3, NativeEclipseBot.sunsetKnightCount.get())
 
         // Wave 4: Next wave alternates to slot 2
         NativeEclipseBot.lastSunsetKnightTime = 0L
-        NativeEclipseBot.onSunWarmthDetected("slot4", delayMs = 0)
+        NativeEclipseBot.onSunWarmthDetected("slot4")
         assertEquals(4, NativeEclipseBot.sunsetKnightCount.get())
     }
 
     @Test
     fun testMoonGazeAlternatesBetweenSlot3AndSlot4() {
         // Wave 1: Detected by slot 3
-        NativeEclipseBot.onMoonGazeDetected("slot3", delayMs = 0)
+        NativeEclipseBot.onMoonGazeDetected("slot3")
         assertEquals(1, NativeEclipseBot.moonHazeCount.get())
 
         // Immediate duplicate call from another slot must be debounced
-        NativeEclipseBot.onMoonGazeDetected("slot4", delayMs = 0)
+        NativeEclipseBot.onMoonGazeDetected("slot4")
         assertEquals(1, NativeEclipseBot.moonHazeCount.get())
 
         // Wave 2: Next wave after debounce period -> slot 4
         NativeEclipseBot.lastMoonHazeTime = 0L
-        NativeEclipseBot.onMoonGazeDetected("slot4", delayMs = 0)
+        NativeEclipseBot.onMoonGazeDetected("slot4")
         assertEquals(2, NativeEclipseBot.moonHazeCount.get())
 
         // Wave 3: Next wave alternates back to slot 3
         NativeEclipseBot.lastMoonHazeTime = 0L
-        NativeEclipseBot.onMoonGazeDetected("slot1", delayMs = 0)
+        NativeEclipseBot.onMoonGazeDetected("slot1")
         assertEquals(3, NativeEclipseBot.moonHazeCount.get())
 
         // Wave 4: Next wave alternates to slot 4
         NativeEclipseBot.lastMoonHazeTime = 0L
-        NativeEclipseBot.onMoonGazeDetected("slot2", delayMs = 0)
+        NativeEclipseBot.onMoonGazeDetected("slot2")
         assertEquals(4, NativeEclipseBot.moonHazeCount.get())
     }
 
     @Test
     fun testLightGatherAlternatesBetweenSlot2Slot3AndSlot4() {
         // Wave 1: Detected by slot 1 -> assigned to slot 2
-        NativeEclipseBot.onLightGatherDetected("slot1", delayMs = 0)
+        NativeEclipseBot.onLightGatherDetected("slot1")
         assertEquals(1, NativeEclipseBot.lightGatherCount.get())
 
         // Immediate duplicate call from another slot must be debounced
-        NativeEclipseBot.onLightGatherDetected("slot2", delayMs = 0)
+        NativeEclipseBot.onLightGatherDetected("slot2")
         assertEquals(1, NativeEclipseBot.lightGatherCount.get())
 
         // Wave 2: Next wave after debounce period -> slot 3
         NativeEclipseBot.lastLightGatherTime = 0L
-        NativeEclipseBot.onLightGatherDetected("slot3", delayMs = 0)
+        NativeEclipseBot.onLightGatherDetected("slot3")
         assertEquals(2, NativeEclipseBot.lightGatherCount.get())
 
         // Wave 3: Alternates to slot 4
         NativeEclipseBot.lastLightGatherTime = 0L
-        NativeEclipseBot.onLightGatherDetected("slot4", delayMs = 0)
+        NativeEclipseBot.onLightGatherDetected("slot4")
         assertEquals(3, NativeEclipseBot.lightGatherCount.get())
 
         // Wave 4: Alternates back to slot 2
         NativeEclipseBot.lastLightGatherTime = 0L
-        NativeEclipseBot.onLightGatherDetected("slot1", delayMs = 0)
+        NativeEclipseBot.onLightGatherDetected("slot1")
         assertEquals(4, NativeEclipseBot.lightGatherCount.get())
     }
 
@@ -110,7 +112,7 @@ class NativeEclipseBotTauntTest {
         assertEquals(null, initialInfo.sunSide.pendingSlot)
 
         // Simulate Sun's warmth wave 1 -> Next Sun taunter becomes slot2
-        NativeEclipseBot.onSunWarmthDetected("slot1", delayMs = 0)
+        NativeEclipseBot.onSunWarmthDetected("slot1")
         val sunInfo = NativeEclipseBot.tauntInfo.value
         assertEquals("slot2", sunInfo.sunSide.nextSlot)
         assertEquals(1, sunInfo.sunSide.waveCount)
@@ -122,7 +124,7 @@ class NativeEclipseBotTauntTest {
         assertEquals("slot1", pendingInfo.sunSide.pendingSlot)
 
         // Simulate Moon haze wave 1 -> Next Moon taunter becomes slot4
-        NativeEclipseBot.onMoonGazeDetected("slot3", delayMs = 0)
+        NativeEclipseBot.onMoonGazeDetected("slot3")
         val moonInfo = NativeEclipseBot.tauntInfo.value
         assertEquals("slot4", moonInfo.moonSide.nextSlot)
         assertEquals(1, moonInfo.moonSide.waveCount)
@@ -131,47 +133,49 @@ class NativeEclipseBotTauntTest {
     @Test
     fun testSunConvergeAlternatesBetweenSlot1AndSlot2() {
         // Wave 1: Detected by slot 1 -> assigned to slot 1
-        NativeEclipseBot.onSunConvergeDetected("slot1", delayMs = 0)
+        NativeEclipseBot.onSunConvergeDetected("slot1")
         assertEquals(1, NativeEclipseBot.sunConvergeCount.get())
         assertEquals("slot2", NativeEclipseBot.tauntInfo.value.sunConverge.nextSlot)
 
         // Immediate duplicate call must be debounced
-        NativeEclipseBot.onSunConvergeDetected("slot2", delayMs = 0)
+        NativeEclipseBot.onSunConvergeDetected("slot2")
         assertEquals(1, NativeEclipseBot.sunConvergeCount.get())
 
         // Wave 2: Next wave -> slot 2
         NativeEclipseBot.lastSunConvergeTime = 0L
-        NativeEclipseBot.onSunConvergeDetected("slot2", delayMs = 0)
+        NativeEclipseBot.onSunConvergeDetected("slot2")
         assertEquals(2, NativeEclipseBot.sunConvergeCount.get())
         assertEquals("slot1", NativeEclipseBot.tauntInfo.value.sunConverge.nextSlot)
 
         // Wave 3: Alternates back to slot 1
         NativeEclipseBot.lastSunConvergeTime = 0L
-        NativeEclipseBot.onSunConvergeDetected("slot1", delayMs = 0)
+        NativeEclipseBot.onSunConvergeDetected("slot1")
         assertEquals(3, NativeEclipseBot.sunConvergeCount.get())
         assertEquals("slot2", NativeEclipseBot.tauntInfo.value.sunConverge.nextSlot)
     }
 
     @Test
     fun testMoonConvergeAlternatesBetweenSlot3AndSlot4() {
+        NativeEclipseBot.lastMoonConvergeTime = 0L
+        NativeEclipseBot.moonConvergeCount.set(0)
         // Wave 1: Detected by slot 3 -> assigned to slot 3
-        NativeEclipseBot.onMoonConvergeDetected("slot3", delayMs = 0)
+        NativeEclipseBot.onMoonConvergeDetected("slot3")
         assertEquals(1, NativeEclipseBot.moonConvergeCount.get())
         assertEquals("slot4", NativeEclipseBot.tauntInfo.value.moonConverge.nextSlot)
 
         // Immediate duplicate call must be debounced
-        NativeEclipseBot.onMoonConvergeDetected("slot4", delayMs = 0)
+        NativeEclipseBot.onMoonConvergeDetected("slot4")
         assertEquals(1, NativeEclipseBot.moonConvergeCount.get())
 
         // Wave 2: Next wave -> slot 4
         NativeEclipseBot.lastMoonConvergeTime = 0L
-        NativeEclipseBot.onMoonConvergeDetected("slot4", delayMs = 0)
+        NativeEclipseBot.onMoonConvergeDetected("slot4")
         assertEquals(2, NativeEclipseBot.moonConvergeCount.get())
         assertEquals("slot3", NativeEclipseBot.tauntInfo.value.moonConverge.nextSlot)
 
         // Wave 3: Alternates back to slot 3
         NativeEclipseBot.lastMoonConvergeTime = 0L
-        NativeEclipseBot.onMoonConvergeDetected("slot3", delayMs = 0)
+        NativeEclipseBot.onMoonConvergeDetected("slot3")
         assertEquals(3, NativeEclipseBot.moonConvergeCount.get())
         assertEquals("slot4", NativeEclipseBot.tauntInfo.value.moonConverge.nextSlot)
     }
@@ -204,27 +208,28 @@ class NativeEclipseBotTauntTest {
         ).enforceFixedRoles()
 
         // enforceFixedRoles ensures slot1 is false and preserves slot4 lightGatherTaunter
-        org.junit.Assert.assertFalse(config.slots["slot1"]!!.lightGatherTaunter)
-        org.junit.Assert.assertFalse(config.slots["slot2"]!!.lightGatherTaunter)
-        org.junit.Assert.assertFalse(config.slots["slot3"]!!.lightGatherTaunter)
-        org.junit.Assert.assertTrue(config.slots["slot4"]!!.lightGatherTaunter)
+        Assert.assertFalse(config.slots["slot1"]!!.lightGatherTaunter)
+        Assert.assertFalse(config.slots["slot2"]!!.lightGatherTaunter)
+        Assert.assertFalse(config.slots["slot3"]!!.lightGatherTaunter)
+        Assert.assertTrue(config.slots["slot4"]!!.lightGatherTaunter)
 
         // Test start() configuration
         val (started, err) = NativeEclipseBot.start(config)
-        org.junit.Assert.assertTrue(err ?: "", started)
+        Assert.assertTrue(err ?: "", started)
+        NativeEclipseBot.cancelCoordinatorJob()
 
         try {
             // Next taunter should be slot4 initially
             assertEquals("slot4", NativeEclipseBot.tauntInfo.value.lightGather.nextSlot)
 
             // Wave 1
-            NativeEclipseBot.onLightGatherDetected("slot1", delayMs = 0)
+            NativeEclipseBot.onLightGatherDetected("slot1")
             assertEquals(1, NativeEclipseBot.lightGatherCount.get())
             assertEquals("slot4", NativeEclipseBot.tauntInfo.value.lightGather.nextSlot)
 
             // Wave 2
             NativeEclipseBot.lastLightGatherTime = 0L
-            NativeEclipseBot.onLightGatherDetected("slot2", delayMs = 0)
+            NativeEclipseBot.onLightGatherDetected("slot2")
             assertEquals(2, NativeEclipseBot.lightGatherCount.get())
             assertEquals("slot4", NativeEclipseBot.tauntInfo.value.lightGather.nextSlot)
         } finally {
@@ -259,26 +264,27 @@ class NativeEclipseBotTauntTest {
             )
         ).enforceFixedRoles()
 
-        org.junit.Assert.assertFalse(config.slots["slot1"]!!.lightGatherTaunter)
-        org.junit.Assert.assertTrue(config.slots["slot2"]!!.lightGatherTaunter)
-        org.junit.Assert.assertFalse(config.slots["slot3"]!!.lightGatherTaunter)
-        org.junit.Assert.assertTrue(config.slots["slot4"]!!.lightGatherTaunter)
+        Assert.assertFalse(config.slots["slot1"]!!.lightGatherTaunter)
+        Assert.assertTrue(config.slots["slot2"]!!.lightGatherTaunter)
+        Assert.assertFalse(config.slots["slot3"]!!.lightGatherTaunter)
+        Assert.assertTrue(config.slots["slot4"]!!.lightGatherTaunter)
 
         val (started, err) = NativeEclipseBot.start(config)
-        org.junit.Assert.assertTrue(err ?: "", started)
+        Assert.assertTrue(err ?: "", started)
+        NativeEclipseBot.cancelCoordinatorJob()
 
         try {
             // Initially slot 2
             assertEquals("slot2", NativeEclipseBot.tauntInfo.value.lightGather.nextSlot)
 
             // Wave 1 -> should rotate to slot 4
-            NativeEclipseBot.onLightGatherDetected("slot1", delayMs = 0)
+            NativeEclipseBot.onLightGatherDetected("slot1")
             assertEquals(1, NativeEclipseBot.lightGatherCount.get())
             assertEquals("slot4", NativeEclipseBot.tauntInfo.value.lightGather.nextSlot)
 
             // Wave 2 -> should rotate back to slot 2
             NativeEclipseBot.lastLightGatherTime = 0L
-            NativeEclipseBot.onLightGatherDetected("slot1", delayMs = 0)
+            NativeEclipseBot.onLightGatherDetected("slot1")
             assertEquals(2, NativeEclipseBot.lightGatherCount.get())
             assertEquals("slot2", NativeEclipseBot.tauntInfo.value.lightGather.nextSlot)
         } finally {
@@ -310,20 +316,21 @@ class NativeEclipseBotTauntTest {
         ).enforceFixedRoles()
 
         val (started, err) = NativeEclipseBot.start(config)
-        org.junit.Assert.assertTrue(err ?: "", started)
-        org.junit.Assert.assertFalse(NativeEclipseBot.isPaused.value)
+        Assert.assertTrue(err ?: "", started)
+        NativeEclipseBot.cancelCoordinatorJob()
+        Assert.assertFalse(NativeEclipseBot.isPaused.value)
 
         try {
             // Pause the bot
             NativeEclipseBot.pause()
-            org.junit.Assert.assertTrue(NativeEclipseBot.isPaused.value)
+            Assert.assertTrue(NativeEclipseBot.isPaused.value)
 
             // Resume the bot
             NativeEclipseBot.resume()
-            org.junit.Assert.assertFalse(NativeEclipseBot.isPaused.value)
+            Assert.assertFalse(NativeEclipseBot.isPaused.value)
         } finally {
             NativeEclipseBot.stop()
-            org.junit.Assert.assertFalse(NativeEclipseBot.isPaused.value)
+            Assert.assertFalse(NativeEclipseBot.isPaused.value)
         }
     }
 
@@ -354,11 +361,12 @@ class NativeEclipseBotTauntTest {
         ).enforceFixedRoles()
 
         val (started, err) = NativeEclipseBot.start(config)
-        org.junit.Assert.assertTrue(err ?: "", started)
+        Assert.assertTrue(err ?: "", started)
+        NativeEclipseBot.cancelCoordinatorJob()
 
         try {
             NativeEclipseBot.pause()
-            org.junit.Assert.assertTrue(NativeEclipseBot.isPaused.value)
+            Assert.assertTrue(NativeEclipseBot.isPaused.value)
 
             // Initially light gather rotates between slot2, slot3, slot4
             assertEquals("slot2", NativeEclipseBot.tauntInfo.value.lightGather.nextSlot)

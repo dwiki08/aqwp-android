@@ -486,7 +486,8 @@ object AqwPacketParser {
                                 isTemp = itObj.optInt("bTemp", 0) == 1,
                                 sMeta = itObj.optString("sMeta", "0"),
                                 sType = itObj.optString("sType", ""),
-                                isEquipped = itObj.optInt("bEquip", 0) == 1
+                                isEquipped = itObj.optInt("bEquip", 0) == 1,
+                                isWeared = itObj.optInt("bWear", 0) == 1
                             )
                         )
                     }

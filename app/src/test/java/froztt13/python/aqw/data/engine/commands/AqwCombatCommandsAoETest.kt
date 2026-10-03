@@ -102,7 +102,7 @@ class AqwCombatCommandsAoETest {
         assertEquals(1, client.sentPackets.size)
         // Primary is 2, followed by remaining alive in r2 sorted: 1, 10
         assertEquals("%xt%zm%gar%1%0%a1>m:2,a1>m:1,a1>m:10%wvz%", client.sentPackets.first())
-        assertEquals("Goblin B", combat.lastTargetMonster)
+        assertEquals("Goblin B", combat.lastTargetMonster?.name)
     }
 
     @Test
@@ -155,7 +155,7 @@ class AqwCombatCommandsAoETest {
         val success = combat.useSkill(index = 0, targetMonMapId = "5", reloadDelayMs = 0)
         assertTrue(success)
         assertEquals("%xt%zm%gar%1%0%aa>m:5,aa>m:2%wvz%", client.sentPackets.first())
-        assertEquals("Wolf A", combat.lastTargetMonster)
+        assertEquals("Wolf A", combat.lastTargetMonster?.name)
     }
 
     @Test
@@ -208,7 +208,7 @@ class AqwCombatCommandsAoETest {
         assertTrue(success)
         // Sorted: 3 is first, followed by 7
         assertEquals("%xt%zm%gar%1%0%a2>m:3,a2>m:7%wvz%", client.sentPackets.first())
-        assertEquals("Minion A", combat.lastTargetMonster)
+        assertEquals("Minion A", combat.lastTargetMonster?.name)
     }
 
     @Test
@@ -264,7 +264,7 @@ class AqwCombatCommandsAoETest {
         )
         // canUseSkill(5) must now be false
         org.junit.Assert.assertFalse(combat.canUseSkill(5))
-        assertEquals("Boss Monster", combat.lastTargetMonster)
+        assertEquals("Boss Monster", combat.lastTargetMonster?.name)
     }
 
     @Test

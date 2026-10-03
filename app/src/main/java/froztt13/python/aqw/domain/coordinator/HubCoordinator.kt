@@ -5,6 +5,7 @@ import froztt13.python.aqw.data.model.HubOverview
 import froztt13.python.aqw.domain.bot.doom.NativeWeeklyDoomBot
 import froztt13.python.aqw.domain.bot.eclipse.NativeEclipseBot
 import froztt13.python.aqw.domain.bot.general.NativeGeneralBot
+import froztt13.python.aqw.domain.bot.gramiel.NativeUltraGramielBot
 import froztt13.python.aqw.domain.bot.slavery.NativeSlaveryBot
 import froztt13.python.aqw.domain.bot.temple.NativeTempleBot
 import kotlinx.coroutines.flow.Flow
@@ -95,12 +96,27 @@ object HubCoordinator {
             overview = overview.copy(general = generalSummary)
         }
 
+        val gramielStatus = NativeUltraGramielBot.status.value
+        val gramielStats = NativeUltraGramielBot.stats.value
+        if (gramielStatus.values.any { it.running } || gramielStats.timeRunning > 0) {
+            val isGramielRunning = gramielStatus.values.any { it.running }
+            val gramielSummary = BotSummary(
+                running = isGramielRunning,
+                count = gramielStatus.size,
+                members = gramielStatus.keys.toList(),
+                currentUsername = gramielStatus["slot1"]?.map ?: "",
+                subModule = "Native Ultra Gramiel",
+                task = "Runs: ${gramielStats.clearedCount}",
+                timeRunning = gramielStats.timeRunning
+            )
+            overview = overview.copy(ultraBoss = gramielSummary)
+        }
+
         return overview
     }
 
     /**
-     * Reaktif: Menggabungkan StateFlow dari semua bot sehingga UI terupdate otomatis
-     * ketika salah satu status bot berubah.
+     * Reactive: Combines StateFlow from all bots for automatic UI updates.
      */
     fun observeOverview(): Flow<HubOverview> =
         combine(
@@ -112,7 +128,9 @@ object HubCoordinator {
                 NativeEclipseBot.stats,
                 NativeSlaveryBot.status,
                 NativeSlaveryBot.partyStats,
-                NativeGeneralBot.telemetry
+                NativeGeneralBot.telemetry,
+                NativeUltraGramielBot.status,
+                NativeUltraGramielBot.stats
             )
         ) {
             calculateOverview()

@@ -103,7 +103,8 @@ data class AqwItem(
     val isTemp: Boolean = false,
     val sMeta: String = "",
     val sType: String = "",
-    var isEquipped: Boolean = false
+    var isEquipped: Boolean = false,
+    var isWeared: Boolean = false
 ) {
     fun matches(otherName: String?): Boolean {
         return Utils.normalize(name) == Utils.normalize(otherName)
@@ -161,6 +162,7 @@ data class AqwAura(
     fun refresh(dur: Int) {
         duration = dur
         appliedAt = System.currentTimeMillis()
+        count++
         expiredAt = if (dur > 0) appliedAt + (dur * 1000L) else 0L
     }
 

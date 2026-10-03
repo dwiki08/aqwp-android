@@ -77,7 +77,7 @@ class AqwCombatCommands(
     // ==========================================
 
     var scrollId: String = ""
-    var lastTargetMonster: String = ""
+    var lastTargetMonster: AqwMonster? = null
     var skillReloadTime: Long = 0L
 
     fun getSkill(index: Int): AqwSkill? {
@@ -209,7 +209,7 @@ class AqwCombatCommands(
 
     suspend fun useBuff(
         index: Int,
-        reloadDelayMs: Long = 500L
+        reloadDelayMs: Long = 700L
     ): Boolean {
         if (!ensureAlive()) {
             return false
@@ -251,9 +251,9 @@ class AqwCombatCommands(
             else -> "a$index>p:$usernameId"
         }
 
-        val sent = client.send("%xt%zm%gar%1%1%${targetParam}%wvz%")
+        val sent = client.send("%xt%zm%gar%1%0%${targetParam}%wvz%")
         if (sent) {
-            delay(200.milliseconds)
+//            delay(200.milliseconds)
             updateNextUse(index)
             skillReloadTime = System.currentTimeMillis() + reloadDelayMs
             return true
@@ -264,7 +264,7 @@ class AqwCombatCommands(
     suspend fun useSkill(
         index: Int,
         targetMonMapId: String? = null,
-        reloadDelayMs: Long = 500L
+        reloadDelayMs: Long = 700L
     ): Boolean {
         if (!ensureAlive()) {
             return false
@@ -326,14 +326,17 @@ class AqwCombatCommands(
 
         val sent = client.send(packet)
         if (sent) {
-            delay(200.milliseconds)
+//            delay(200.milliseconds)
             updateNextUse(index)
             val newReloadTime = System.currentTimeMillis() + reloadDelayMs
             skillReloadTime =
                 if (index != 0) newReloadTime else maxOf(skillReloadTime, newReloadTime)
             val mon = monstersProvider().firstOrNull { it.monMapId == primaryId }
-            val resolvedName = mon?.name?.trim()?.ifEmpty { null }
-            lastTargetMonster = resolvedName ?: targetMonMapId ?: "Monster #$primaryId"
+            lastTargetMonster = mon ?: AqwMonster(
+                monMapId = primaryId,
+                monId = primaryId,
+                name = targetMonMapId ?: "Monster #$primaryId"
+            )
             return true
         }
         return false
@@ -406,8 +409,11 @@ class AqwCombatCommands(
             updateNextUse(5)
             skillReloadTime = System.currentTimeMillis() + 500L
             val mon = monstersProvider().firstOrNull { it.monMapId == monMapId }
-            val resolvedName = mon?.name?.trim()?.ifEmpty { null }
-            lastTargetMonster = resolvedName ?: monMapId
+            lastTargetMonster = mon ?: AqwMonster(
+                monMapId = monMapId,
+                monId = monMapId,
+                name = monMapId
+            )
         }
         return sent
     }

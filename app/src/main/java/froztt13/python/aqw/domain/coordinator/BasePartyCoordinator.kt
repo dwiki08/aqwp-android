@@ -30,6 +30,10 @@ abstract class BasePartyCoordinator(protected val tag: String) {
     protected var coordinatorJob: Job? = null
     protected var timerJob: Job? = null
 
+    fun cancelCoordinatorJob() {
+        coordinatorJob?.cancel()
+    }
+
     val activeSessions = ConcurrentHashMap<String, AqwSession>()
 
     protected val _status = MutableStateFlow<Map<String, SlotTelemetry>>(emptyMap())

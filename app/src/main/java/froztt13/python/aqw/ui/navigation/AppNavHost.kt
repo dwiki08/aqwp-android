@@ -95,21 +95,30 @@ fun AppNavHost(
             composable<AppDestination.UltraGramiel> {
                 UltraBossDetailScreen(
                     bossType = UltraBossType.GRAMIEL,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onNavigateToPlayerState = {
+                        navController.navigate(AppDestination.PlayerState)
+                    }
                 )
             }
 
             composable<AppDestination.UltraMalgor> {
                 UltraBossDetailScreen(
                     bossType = UltraBossType.MALGOR,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onNavigateToPlayerState = {
+                        navController.navigate(AppDestination.PlayerState)
+                    }
                 )
             }
 
             composable<AppDestination.UltraDrakath> {
                 UltraBossDetailScreen(
                     bossType = UltraBossType.DRAKATH,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onNavigateToPlayerState = {
+                        navController.navigate(AppDestination.PlayerState)
+                    }
                 )
             }
 

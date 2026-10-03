@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -291,41 +290,6 @@ fun UltraBossMenuCard(
                             overflow = TextOverflow.Ellipsis,
                             softWrap = false
                         )
-                    }
-                }
-            }
-
-            // Recommended Classes Badges
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = "Recommended Party Comp:",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextMuted
-                )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    bossInfo.recommendedClasses.forEach { className ->
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFF131522))
-                                .border(
-                                    1.dp,
-                                    accentColor.copy(alpha = 0.3f),
-                                    RoundedCornerShape(6.dp)
-                                )
-                                .padding(horizontal = 10.dp, vertical = 5.dp)
-                        ) {
-                            Text(
-                                text = className,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
-                            )
-                        }
                     }
                 }
             }

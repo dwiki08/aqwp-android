@@ -105,7 +105,7 @@ fun LiveLogConsole(
                     cleanSlotKey != null && u.contains(cleanSlotKey, ignoreCase = true)
                 val matchesUser =
                     cleanUsername != null && u.contains(cleanUsername, ignoreCase = true)
-                (matchesSlot || matchesUser) && !entry.message.contains("%gar%")
+                (matchesSlot || matchesUser) /*&& !entry.message.contains("%gar%")*/
             }
         }
     }

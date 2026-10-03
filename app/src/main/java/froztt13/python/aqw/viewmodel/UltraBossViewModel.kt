@@ -11,7 +11,9 @@ import froztt13.python.aqw.data.model.UltraBossConfig
 import froztt13.python.aqw.data.model.UltraBossData
 import froztt13.python.aqw.data.model.UltraBossType
 import froztt13.python.aqw.data.repository.ConfigRepositoryImpl
+import froztt13.python.aqw.domain.bot.gramiel.NativeUltraGramielBot
 import froztt13.python.aqw.domain.repository.ConfigRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -51,41 +53,92 @@ class UltraBossViewModel(
     )
     val logs: StateFlow<List<LogEntry>> = _logs.asStateFlow()
 
+    val slotLogs: StateFlow<Map<String, List<LogEntry>>> = NativeUltraGramielBot.slotLogs
+
+    val animMsg: StateFlow<String> = NativeUltraGramielBot.animMsg
+
+    val isFinished: StateFlow<Boolean> = NativeUltraGramielBot.isFinished
+
+    fun resetFinishedState() {
+        NativeUltraGramielBot.resetFinishedState()
+    }
+
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
 
     private val _isPaused = MutableStateFlow(false)
     val isPaused: StateFlow<Boolean> = _isPaused.asStateFlow()
 
+    @Volatile
+    private var isConfigLoaded = false
+
     init {
         loadConfig()
+        observeGramielBot()
     }
 
     private fun loadConfig() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val loaded = configRepository.loadUltraBossConfig()
             if (loaded != null) {
                 _ultraBossConfig.value = loaded
                 _selectedBossTab.value = loaded.selectedBoss
+            }
+            isConfigLoaded = true
+        }
+    }
+
+    private fun observeGramielBot() {
+        viewModelScope.launch {
+            NativeUltraGramielBot.status.collect { gramielStatus ->
+                if (NativeUltraGramielBot.isRunning) {
+                    _telemetryMap.value = gramielStatus
+                    _isRunning.value = gramielStatus.values.any { it.running }
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            NativeUltraGramielBot.stats.collect { gramielStats ->
+                if (NativeUltraGramielBot.isRunning) {
+                    _partyStats.value = gramielStats
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            NativeUltraGramielBot.slotLogs.collect { slotLogsMap ->
+                if (NativeUltraGramielBot.isRunning) {
+                    val combinedLogs = slotLogsMap.values.flatten().sortedBy { it.timestamp }
+                    _logs.value = combinedLogs.takeLast(200)
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            NativeUltraGramielBot.isPaused.collect { paused ->
+                if (NativeUltraGramielBot.isRunning) {
+                    _isPaused.value = paused
+                }
             }
         }
     }
 
     fun selectBossTab(type: UltraBossType) {
         _selectedBossTab.value = type
-        val currentCfg = _ultraBossConfig.value
-        val updatedCfg = currentCfg.copy(selectedBoss = type)
-        _ultraBossConfig.value = updatedCfg
+        if (!isConfigLoaded) return
 
-        // Update default target on slots
+        val currentCfg = _ultraBossConfig.value
+        if (currentCfg.selectedBoss == type) return
+
         val target = type.defaultTarget
-        val updatedSlots = updatedCfg.slots.mapValues { (_, slot) ->
+        val updatedSlots = currentCfg.slots.mapValues { (_, slot) ->
             slot.copy(defaultTarget = target)
         }
-        val finalCfg = updatedCfg.copy(slots = updatedSlots)
+        val finalCfg = currentCfg.copy(selectedBoss = type, slots = updatedSlots)
         _ultraBossConfig.value = finalCfg
 
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             configRepository.saveUltraBossConfig(finalCfg)
         }
 
@@ -108,9 +161,7 @@ class UltraBossViewModel(
             useScrollOfEnrage = useScrollOfEnrage
         )
         _ultraBossConfig.value = updated
-        viewModelScope.launch {
-            configRepository.saveUltraBossConfig(updated)
-        }
+        saveConfig()
         addLog(
             "Updated Ultra Boss settings: Server=$server, Room=$roomNumber, Potions=$autoPotions",
             LogEntryType.INFO
@@ -123,20 +174,24 @@ class UltraBossViewModel(
         newSlots[slotKey] = slotConfig
         val updated = current.copy(slots = newSlots)
         _ultraBossConfig.value = updated
+        saveConfig()
 
-        viewModelScope.launch {
-            configRepository.saveUltraBossConfig(updated)
-        }
         addLog(
             "Updated $slotKey (${slotConfig.username}) -> Class: ${slotConfig.charClass}",
             LogEntryType.INFO
         )
     }
 
+    private fun saveConfig() {
+        if (!isConfigLoaded) return
+        val current = _ultraBossConfig.value
+        viewModelScope.launch(Dispatchers.IO) {
+            configRepository.saveUltraBossConfig(current)
+        }
+    }
+
     fun startBot() {
         if (_isRunning.value) return
-        _isRunning.value = true
-        _isPaused.value = false
 
         val bossInfo = UltraBossData.getInfo(_selectedBossTab.value)
         addLog(
@@ -144,24 +199,40 @@ class UltraBossViewModel(
             LogEntryType.SYSTEM
         )
 
-        // Update telemetry slots running state
-        val updatedMap = _telemetryMap.value.mapValues { (key, tele) ->
-            tele.copy(
-                running = true,
-                map = "${bossInfo.mapName}-${_ultraBossConfig.value.roomNumber}",
-                hp = 2500,
-                maxHp = 2500,
-                mp = 500,
-                maxMp = 500,
-                isInCombat = true,
-                isDead = false
-            )
+        if (_selectedBossTab.value == UltraBossType.GRAMIEL) {
+            val (started, errorMsg) = NativeUltraGramielBot.start(_ultraBossConfig.value)
+            if (!started) {
+                addLog("❌ Failed to start Native Ultra Gramiel Bot: $errorMsg", LogEntryType.ERROR)
+                return
+            }
+            _isRunning.value = true
+            _isPaused.value = false
+        } else {
+            _isRunning.value = true
+            _isPaused.value = false
+            val updatedMap = _telemetryMap.value.mapValues { (_, tele) ->
+                tele.copy(
+                    running = true,
+                    map = "${bossInfo.mapName}-${_ultraBossConfig.value.roomNumber}",
+                    hp = 2500,
+                    maxHp = 2500,
+                    mp = 500,
+                    maxMp = 500,
+                    isInCombat = true,
+                    isDead = false
+                )
+            }
+            _telemetryMap.value = updatedMap
         }
-        _telemetryMap.value = updatedMap
     }
 
     fun stopBot() {
         if (!_isRunning.value) return
+
+        if (_selectedBossTab.value == UltraBossType.GRAMIEL && NativeUltraGramielBot.isRunning) {
+            NativeUltraGramielBot.stop()
+        }
+
         _isRunning.value = false
         _isPaused.value = false
 
@@ -177,6 +248,16 @@ class UltraBossViewModel(
     }
 
     fun togglePause() {
+        if (_selectedBossTab.value == UltraBossType.GRAMIEL && NativeUltraGramielBot.isRunning) {
+            if (_isPaused.value) {
+                NativeUltraGramielBot.resume()
+            } else {
+                NativeUltraGramielBot.pause()
+            }
+            _isPaused.value = !_isPaused.value
+            return
+        }
+
         val nextState = !_isPaused.value
         _isPaused.value = nextState
         if (nextState) {
@@ -188,6 +269,12 @@ class UltraBossViewModel(
 
     fun clearLogs() {
         _logs.value = emptyList()
+    }
+
+    fun clearSlotLogs(slotKey: String) {
+        if (_selectedBossTab.value == UltraBossType.GRAMIEL) {
+            NativeUltraGramielBot.clearLogs(slotKey)
+        }
     }
 
     private fun addLog(message: String, type: LogEntryType = LogEntryType.INFO) {

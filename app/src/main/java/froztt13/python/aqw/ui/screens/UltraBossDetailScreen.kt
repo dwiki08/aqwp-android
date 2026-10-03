@@ -5,6 +5,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,17 +22,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MilitaryTech
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -47,16 +52,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -74,11 +81,14 @@ import froztt13.python.aqw.ui.components.BotSessionStatsBar
 import froztt13.python.aqw.ui.components.CustomOutlinedTextField
 import froztt13.python.aqw.ui.components.DefaultTopBar
 import froztt13.python.aqw.ui.components.LiveLogConsole
+import froztt13.python.aqw.ui.components.LocalNavigateToPlayerState
+import froztt13.python.aqw.ui.components.MonsterTelemetryCard
 import froztt13.python.aqw.ui.components.ServerDropdown
 import froztt13.python.aqw.ui.components.SlotCard
 import froztt13.python.aqw.ui.components.TopBarSettingsButton
 import froztt13.python.aqw.ui.theme.BgDark
 import froztt13.python.aqw.ui.theme.BorderDark
+import froztt13.python.aqw.ui.theme.BorderLight
 import froztt13.python.aqw.ui.theme.CardDark
 import froztt13.python.aqw.ui.theme.ErrorRed
 import froztt13.python.aqw.ui.theme.MyApplicationTheme
@@ -88,11 +98,13 @@ import froztt13.python.aqw.ui.theme.TextMuted
 import froztt13.python.aqw.ui.theme.TextPrimary
 import froztt13.python.aqw.ui.theme.TextSecondary
 import froztt13.python.aqw.viewmodel.UltraBossViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun UltraBossDetailScreen(
     bossType: UltraBossType,
     onBack: () -> Unit,
+    onNavigateToPlayerState: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: UltraBossViewModel = viewModel()
 ) {
@@ -100,11 +112,67 @@ fun UltraBossDetailScreen(
     val telemetryMap by viewModel.telemetryMap.collectAsState()
     val partyStats by viewModel.partyStats.collectAsState()
     val logs by viewModel.logs.collectAsState()
+    val slotLogs by viewModel.slotLogs.collectAsState()
+    val animMsg by viewModel.animMsg.collectAsState()
     val isRunning by viewModel.isRunning.collectAsState()
     val isPaused by viewModel.isPaused.collectAsState()
+    val isFinished by viewModel.isFinished.collectAsState()
+
+    var showFinishedDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(bossType) {
         viewModel.selectBossTab(bossType)
+    }
+
+    LaunchedEffect(isFinished) {
+        if (isFinished) {
+            showFinishedDialog = true
+        }
+    }
+
+    if (showFinishedDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showFinishedDialog = false
+                viewModel.resetFinishedState()
+            },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = "Finished",
+                    tint = SuccessGreen,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Bot Execution Completed",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "Ultra Gramiel has been defeated and Quest ID 10301 has been completed!",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showFinishedDialog = false
+                        viewModel.resetFinishedState()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen)
+                ) {
+                    Text("OK", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = CardDark,
+            shape = RoundedCornerShape(16.dp)
+        )
     }
 
     UltraBossDetailContent(
@@ -114,9 +182,12 @@ fun UltraBossDetailScreen(
         telemetryMap = telemetryMap,
         partyStats = partyStats,
         logs = logs,
+        slotLogs = slotLogs,
+        animMsg = animMsg,
         isRunning = isRunning,
         isPaused = isPaused,
         onBack = onBack,
+        onNavigateToPlayerState = onNavigateToPlayerState,
         onUpdateSettings = { server, room, autoPotions, useScroll ->
             viewModel.updateSettings(server, room, autoPotions, useScroll)
         },
@@ -126,7 +197,8 @@ fun UltraBossDetailScreen(
         onStartBot = { viewModel.startBot() },
         onStopBot = { viewModel.stopBot() },
         onTogglePause = { viewModel.togglePause() },
-        onClearLogs = { viewModel.clearLogs() }
+        onClearLogs = { viewModel.clearLogs() },
+        onClearSlotLogs = { slotKey -> viewModel.clearSlotLogs(slotKey) }
     )
 }
 
@@ -138,15 +210,19 @@ fun UltraBossDetailContent(
     telemetryMap: Map<String, SlotTelemetry>,
     partyStats: PartyStats,
     logs: List<LogEntry>,
+    slotLogs: Map<String, List<LogEntry>> = emptyMap(),
+    animMsg: String = "",
     isRunning: Boolean,
     isPaused: Boolean,
     onBack: () -> Unit,
+    onNavigateToPlayerState: (() -> Unit)? = null,
     onUpdateSettings: (String, Int, Boolean, Boolean) -> Unit,
     onUpdateSlot: (String, SlotConfig) -> Unit,
     onStartBot: () -> Unit,
     onStopBot: () -> Unit,
     onTogglePause: () -> Unit,
-    onClearLogs: () -> Unit
+    onClearLogs: () -> Unit,
+    onClearSlotLogs: (String) -> Unit = {}
 ) {
     var showSettingsPanel by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
@@ -208,8 +284,7 @@ fun UltraBossDetailContent(
                 accentColor = bossAccentColor,
                 onStart = onStartBot,
                 onStop = onStopBot,
-                onTogglePause = onTogglePause,
-                onClearLogs = onClearLogs
+                onTogglePause = onTogglePause
             )
 
             // Session Stats Bar
@@ -217,36 +292,75 @@ fun UltraBossDetailContent(
                 stats = partyStats,
                 isRunning = isRunning,
                 isPaused = isPaused,
-                botType = "Native ${bossInfo.title}",
+                botType = bossInfo.title,
                 accentColor = bossAccentColor,
                 showActionButton = false
             )
 
-            // Party Slot Tab View ("untuk SlotCard buat menjadi tab view")
-            Text(
-                text = "4-PLAYER PARTY CONFIGURATION",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = TextSecondary,
-                letterSpacing = 0.8.sp
+            // Boss Animation / Event Message Card
+            UltraBossAnimMsgCard(
+                animMsg = animMsg,
+                accentColor = bossAccentColor,
+                isRunning = isRunning
             )
 
+            // View Full Player State Action Button
+            val navToPlayer = onNavigateToPlayerState ?: LocalNavigateToPlayerState.current
+            if (navToPlayer != null) {
+                OutlinedButton(
+                    onClick = navToPlayer,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(
+                        1.dp,
+                        (if (isRunning) bossAccentColor else BorderLight).copy(alpha = 0.4f)
+                    ),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = bossAccentColor.copy(alpha = 0.08f),
+                        contentColor = bossAccentColor
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = bossAccentColor
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "VIEW FULL PLAYER STATE & AURAS",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = bossAccentColor
+                    )
+                }
+            }
+
+            // Monster Telemetry Card (When Bot is Running)
+            if (isRunning) {
+                val activeSlotTelemetry = telemetryMap["slot1"] ?: SlotTelemetry()
+                if (activeSlotTelemetry.monsters.isNotEmpty()) {
+                    MonsterTelemetryCard(
+                        monsters = activeSlotTelemetry.monsters,
+                        currentCell = activeSlotTelemetry.cell
+                    )
+                }
+            }
+
+            // Party Slot ViewPager section (SlotCard + Slot Console Logs in sync)
             PartySlotTabView(
                 config = config,
                 telemetryMap = telemetryMap,
+                logs = logs,
+                slotLogs = slotLogs,
                 isRunning = isRunning,
                 isPaused = isPaused,
                 accentColor = bossAccentColor,
-                onUpdateSlot = onUpdateSlot
-            )
-
-            // Live Log Console
-            LiveLogConsole(
-                logs = logs,
-                onClearLogs = onClearLogs,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(260.dp)
+                showTauntToggle = bossType != UltraBossType.GRAMIEL,
+                onUpdateSlot = onUpdateSlot,
+                onClearSlotLogs = onClearSlotLogs
             )
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -405,8 +519,7 @@ fun UltraBossControlBar(
     accentColor: Color,
     onStart: () -> Unit,
     onStop: () -> Unit,
-    onTogglePause: () -> Unit,
-    onClearLogs: () -> Unit
+    onTogglePause: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -491,19 +604,6 @@ fun UltraBossControlBar(
                     )
                 }
             }
-
-            OutlinedButton(
-                onClick = onClearLogs,
-                modifier = Modifier.height(44.dp),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Delete,
-                    contentDescription = "Clear Logs",
-                    tint = TextMuted,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
         }
     }
 }
@@ -512,20 +612,25 @@ fun UltraBossControlBar(
 fun PartySlotTabView(
     config: UltraBossConfig,
     telemetryMap: Map<String, SlotTelemetry>,
+    logs: List<LogEntry>,
+    slotLogs: Map<String, List<LogEntry>>,
     isRunning: Boolean,
     isPaused: Boolean,
     accentColor: Color,
-    onUpdateSlot: (String, SlotConfig) -> Unit
+    showTauntToggle: Boolean = true,
+    onUpdateSlot: (String, SlotConfig) -> Unit,
+    onClearSlotLogs: (String) -> Unit
 ) {
-    var selectedSlotIndex by remember { mutableIntStateOf(0) }
-
     val slotKeys = listOf("slot1", "slot2", "slot3", "slot4")
     val slotLabels =
         listOf("Slot 1 (Master)", "Slot 2 (Slave 1)", "Slot 3 (Slave 2)", "Slot 4 (Slave 3)")
 
+    val pagerState = rememberPagerState(pageCount = { slotKeys.size })
+    val coroutineScope = rememberCoroutineScope()
+
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // Tab Selector Row
         Row(
@@ -538,7 +643,7 @@ fun PartySlotTabView(
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             slotLabels.forEachIndexed { index, _ ->
-                val isSelected = selectedSlotIndex == index
+                val isSelected = pagerState.currentPage == index
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -551,7 +656,11 @@ fun PartySlotTabView(
                             if (isSelected) accentColor.copy(alpha = 0.6f) else Color.Transparent,
                             RoundedCornerShape(10.dp)
                         )
-                        .clickable { selectedSlotIndex = index }
+                        .clickable {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(index)
+                            }
+                        }
                         .padding(vertical = 10.dp, horizontal = 2.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -565,24 +674,57 @@ fun PartySlotTabView(
             }
         }
 
-        // Active Selected Slot Card
-        val activeSlotKey = slotKeys[selectedSlotIndex]
-        val activeSlotConfig = config.slots[activeSlotKey] ?: SlotConfig()
-        val activeSlotTelemetry = telemetryMap[activeSlotKey] ?: SlotTelemetry()
+        // HorizontalPager Content (SlotCard + Slot LiveLogConsole in sync per page)
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth()
+        ) { page ->
+            val slotKey = slotKeys[page]
+            val slotTitle = slotLabels[page]
+            val slotConf = config.slots[slotKey] ?: SlotConfig()
+            val slotTel = telemetryMap[slotKey] ?: SlotTelemetry()
+            val slotUsername = slotConf.username.trim()
 
-        SlotCard(
-            slotKey = activeSlotKey,
-            title = slotLabels[selectedSlotIndex],
-            config = activeSlotConfig,
-            telemetry = activeSlotTelemetry,
-            isPartyRunning = isRunning,
-            isPaused = isPaused,
-            accentColor = accentColor,
-            showTauntToggle = true,
-            onConfigChange = { updated ->
-                onUpdateSlot(activeSlotKey, updated)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // 1. Active Slot Configuration Card
+                SlotCard(
+                    slotKey = slotKey,
+                    title = if (isRunning) slotConf.username.ifEmpty { slotTitle } else slotTitle,
+                    config = slotConf,
+                    telemetry = slotTel,
+                    isPartyRunning = isRunning,
+                    isPaused = isPaused,
+                    accentColor = accentColor,
+                    showTauntToggle = showTauntToggle,
+                    onConfigChange = { updated ->
+                        onUpdateSlot(slotKey, updated)
+                    }
+                )
+
+                // 3. Dedicated Live Log Console for this Slot
+                val currentSlotLogs = slotLogs[slotKey] ?: logs.filter { entry ->
+                    entry.username.contains(slotKey, ignoreCase = true) ||
+                            (slotUsername.isNotEmpty() && entry.username.contains(
+                                slotUsername,
+                                ignoreCase = true
+                            ))
+                }
+
+                LiveLogConsole(
+                    logs = currentSlotLogs,
+                    slotKey = slotKey,
+                    targetUsername = slotUsername,
+                    title = "Console Logs - Slot ${page + 1}${if (slotUsername.isNotEmpty()) " ($slotUsername)" else ""}",
+                    onClearLogs = { onClearSlotLogs(slotKey) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(280.dp)
+                )
             }
-        )
+        }
     }
 }
 
@@ -609,43 +751,37 @@ fun UltraBossDetailHeaderCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Header Row: Icon + Title + Map Tag + Insignia Badge
+            // Header Row: Title + Map Tag + Insignia Badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
+                Column(
                     modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    Text(
+                        text = bossInfo.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF131522))
+                            .border(1.dp, BorderDark, RoundedCornerShape(6.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = bossInfo.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            text = "/join ${bossInfo.mapName}-$roomNumber",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = TextSecondary
                         )
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFF131522))
-                                .border(1.dp, BorderDark, RoundedCornerShape(6.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "/join ${bossInfo.mapName}-$roomNumber",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = TextSecondary
-                            )
-                        }
                     }
                 }
 
@@ -682,39 +818,40 @@ fun UltraBossDetailHeaderCard(
             }
 
             // Recommended Classes Badges
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = "Recommended Party Comp:",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextMuted
-                )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    bossInfo.recommendedClasses.forEach { className ->
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFF131522))
-                                .border(
-                                    1.dp,
-                                    accentColor.copy(alpha = 0.3f),
-                                    RoundedCornerShape(6.dp)
+            if (!isRunning)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Recommended Party Comp:",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextMuted
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        bossInfo.recommendedClasses.forEach { className ->
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFF131522))
+                                    .border(
+                                        1.dp,
+                                        accentColor.copy(alpha = 0.3f),
+                                        RoundedCornerShape(6.dp)
+                                    )
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = className,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextPrimary
                                 )
-                                .padding(horizontal = 10.dp, vertical = 5.dp)
-                        ) {
-                            Text(
-                                text = className,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
-                            )
+                            }
                         }
                     }
                 }
-            }
 
             // Key Combat Rules
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -745,6 +882,111 @@ fun UltraBossDetailHeaderCard(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun UltraBossAnimMsgCard(
+    modifier: Modifier = Modifier,
+    animMsg: String,
+    accentColor: Color,
+    isRunning: Boolean = true
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .border(1.dp, BorderDark, RoundedCornerShape(14.dp)),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = CardDark)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(if (isRunning) accentColor else TextMuted)
+                    )
+                    Text(
+                        text = "ANIMATION / EVENT BROADCAST",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFF22273D))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "LIVE EVENT",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextSecondary,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF0F111D))
+                    .border(1.dp, Color(0xFF232840), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(
+                            if (animMsg.isNotBlank()) accentColor.copy(alpha = 0.15f) else Color(
+                                0xFF1A1D2D
+                            )
+                        )
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = "ANIM MSG",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (animMsg.isNotBlank()) accentColor else TextMuted,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+
+                Text(
+                    text = animMsg.ifBlank { "● ● ●" },
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = if (animMsg.isNotBlank()) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (animMsg.isNotBlank()) TextPrimary else TextMuted,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
     }

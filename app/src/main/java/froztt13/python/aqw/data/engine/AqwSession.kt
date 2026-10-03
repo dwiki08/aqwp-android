@@ -11,6 +11,7 @@ import froztt13.python.aqw.data.model.LogEntryType
 import froztt13.python.aqw.data.network.AqwHttpApi
 import froztt13.python.aqw.data.network.AqwSocketClient
 import froztt13.python.aqw.domain.model.AqwItem
+import froztt13.python.aqw.domain.model.AqwMonster
 import froztt13.python.aqw.domain.model.AqwOtherPlayer
 import froztt13.python.aqw.domain.model.AqwPlayerState
 import froztt13.python.aqw.domain.model.AqwSkill
@@ -906,7 +907,7 @@ class AqwSession {
         return result
     }
 
-    val lastTargetMonster: String
+    val lastTargetMonster: AqwMonster?
         get() = combat.lastTargetMonster
 
     fun stop() {

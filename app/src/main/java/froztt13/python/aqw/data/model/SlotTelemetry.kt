@@ -1,6 +1,7 @@
 package froztt13.python.aqw.data.model
 
 import froztt13.python.aqw.domain.model.AqwAura
+import froztt13.python.aqw.domain.model.AqwMonster
 
 data class SlotTelemetry(
     val running: Boolean = false,
@@ -22,7 +23,7 @@ data class SlotTelemetry(
     val soeQty: Int = 0,
     val monsters: List<MonsterTelemetry> = emptyList(),
     val targetMonsters: String = "",
-    val targetedMonster: String = "",
+    val targetedMonster: AqwMonster? = null,
     val auras: List<AqwAura> = emptyList()
 ) {
     val activeAuras = auras.filter { it.isExpired().not() }
