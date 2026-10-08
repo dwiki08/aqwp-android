@@ -14,7 +14,7 @@ enum class UltraBossType(
     GRAMIEL("Ultra Gramiel", "ultagramiel", "Ultra Gramiel", "Gramiel Insignia"),
 
     @SerialName("malgor")
-    MALGOR("Ultra Malgor", "ultramalgor", "Ultra Malgor", "Malgor Insignia"),
+    MALGOR("Ultra Speaker", "ultraspeaker", "Ultra Speaker", "Malgor Insignia"),
 
     @SerialName("drakath")
     DRAKATH("Ultra Drakath", "championdrakath", "Champion Drakath", "Drakath Insignia")
@@ -51,18 +51,17 @@ object UltraBossData {
 
     val MALGOR_INFO = UltraBossInfo(
         type = UltraBossType.MALGOR,
-        title = "Ultra Malgor",
-        mapName = "ultramalgor",
+        title = "Ultra Speaker",
+        mapName = "ultraspeaker",
         recommendedClasses = listOf(
-            "Chaos Avenger",
             "Lord of Order",
             "ArchPaladin",
-            "Paladin Chronomancer"
+            "StoneCrusher",
+            "Legion Revenant"
         ),
         mechanics = listOf(
-            "Dual-Taunter rotation on Elemental Shift callouts",
-            "Zone switching & Listen for 'Listen to me!' voice telegraphs",
-            "Keep LoO & AP defense buffs maxed"
+            "Map: /join ultraspeaker-99999",
+            "4-slot round-robin taunt loop on 'listen' & 'truth' animation messages"
         ),
         insigniaName = "Malgor Insignia",
         colorHex = 0xFFF43F5E // Doom Crimson

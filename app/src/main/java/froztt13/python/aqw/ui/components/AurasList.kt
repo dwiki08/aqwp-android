@@ -187,7 +187,8 @@ fun AurasList(
         )
     } else {
         val displayAuras = remember(auras) {
-            auras.sortedWith(compareByDescending { it.name.equals("Focus", ignoreCase = true) })
+            auras.filter { it.isExpired().not() }
+                .sortedWith(compareByDescending { it.name.equals("Focus", ignoreCase = true) })
         }
         FlowRow(
             modifier = modifier.fillMaxWidth(),

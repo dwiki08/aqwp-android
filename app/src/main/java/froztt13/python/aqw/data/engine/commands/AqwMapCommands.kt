@@ -170,8 +170,6 @@ class AqwMapCommands(
     suspend fun walkTo(x: Int, y: Int, speed: Int = 8): Boolean {
         playerState.tx = x
         playerState.ty = y
-        playerState.x = x
-        playerState.y = y
         val packet = "%xt%zm%mv%${playerState.areaId}%${x}%${y}%${speed}%"
         return client.send(packet)
     }

@@ -246,7 +246,12 @@ object NativeSlaveryBot {
             slotJobs.joinAll()
         } catch (e: Exception) {
             Log.e(TAG, "Error in Slavery run: ${e.message}", e)
-            activeSessions.values.forEach { it.log("Error in Slavery run: ${e.message}", LogEntryType.ERROR) }
+            activeSessions.values.forEach {
+                it.log(
+                    "Error in Slavery run: ${e.message}",
+                    LogEntryType.ERROR
+                )
+            }
         } finally {
             timerJob.cancel()
             stop()
@@ -471,8 +476,8 @@ object NativeSlaveryBot {
                         ignoreCase = true
                     )
                 ) {
-                    val targetX = if (masterPlayer.tx != 0) masterPlayer.tx else masterPlayer.x
-                    val targetY = if (masterPlayer.ty != 0) masterPlayer.ty else masterPlayer.y
+                    val targetX = masterPlayer.tx
+                    val targetY = masterPlayer.ty
                     if ((targetX != 0 || targetY != 0) && (targetX != lastWalkedX || targetY != lastWalkedY)) {
                         session.map.walkTo(
                             targetX,

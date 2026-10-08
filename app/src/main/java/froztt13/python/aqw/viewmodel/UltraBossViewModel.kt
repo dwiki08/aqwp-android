@@ -12,11 +12,15 @@ import froztt13.python.aqw.data.model.UltraBossData
 import froztt13.python.aqw.data.model.UltraBossType
 import froztt13.python.aqw.data.repository.ConfigRepositoryImpl
 import froztt13.python.aqw.domain.bot.gramiel.NativeUltraGramielBot
+import froztt13.python.aqw.domain.bot.malgor.NativeUltraMalgorBot
 import froztt13.python.aqw.domain.repository.ConfigRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class UltraBossViewModel(
@@ -53,14 +57,30 @@ class UltraBossViewModel(
     )
     val logs: StateFlow<List<LogEntry>> = _logs.asStateFlow()
 
-    val slotLogs: StateFlow<Map<String, List<LogEntry>>> = NativeUltraGramielBot.slotLogs
+    val slotLogs: StateFlow<Map<String, List<LogEntry>>> = combine(
+        NativeUltraGramielBot.slotLogs,
+        NativeUltraMalgorBot.slotLogs
+    ) { gramielLogs, malgorLogs ->
+        if (NativeUltraMalgorBot.isRunning) malgorLogs else gramielLogs
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
-    val animMsg: StateFlow<String> = NativeUltraGramielBot.animMsg
+    val animMsg: StateFlow<String> = combine(
+        NativeUltraGramielBot.animMsg,
+        NativeUltraMalgorBot.animMsg
+    ) { gramielMsg, malgorMsg ->
+        if (NativeUltraMalgorBot.isRunning) malgorMsg else gramielMsg
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
 
-    val isFinished: StateFlow<Boolean> = NativeUltraGramielBot.isFinished
+    val isFinished: StateFlow<Boolean> = combine(
+        NativeUltraGramielBot.isFinished,
+        NativeUltraMalgorBot.isFinished
+    ) { gramielFin, malgorFin ->
+        gramielFin || malgorFin
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     fun resetFinishedState() {
         NativeUltraGramielBot.resetFinishedState()
+        NativeUltraMalgorBot.resetFinishedState()
     }
 
     private val _isRunning = MutableStateFlow(false)
@@ -74,7 +94,7 @@ class UltraBossViewModel(
 
     init {
         loadConfig()
-        observeGramielBot()
+        observeBots()
     }
 
     private fun loadConfig() {
@@ -88,27 +108,41 @@ class UltraBossViewModel(
         }
     }
 
-    private fun observeGramielBot() {
+    private fun observeBots() {
         viewModelScope.launch {
-            NativeUltraGramielBot.status.collect { gramielStatus ->
-                if (NativeUltraGramielBot.isRunning) {
-                    _telemetryMap.value = gramielStatus
-                    _isRunning.value = gramielStatus.values.any { it.running }
+            combine(
+                NativeUltraGramielBot.status,
+                NativeUltraMalgorBot.status
+            ) { gramielStatus, malgorStatus ->
+                when {
+                    NativeUltraGramielBot.isRunning -> gramielStatus
+                    NativeUltraMalgorBot.isRunning -> malgorStatus
+                    else -> emptyMap()
+                }
+            }.collect { statusMap ->
+                if (statusMap.isNotEmpty()) {
+                    _telemetryMap.value = statusMap
+                    _isRunning.value = statusMap.values.any { it.running }
                 }
             }
         }
 
         viewModelScope.launch {
-            NativeUltraGramielBot.stats.collect { gramielStats ->
-                if (NativeUltraGramielBot.isRunning) {
-                    _partyStats.value = gramielStats
+            combine(
+                NativeUltraGramielBot.stats,
+                NativeUltraMalgorBot.stats
+            ) { gramielStats, malgorStats ->
+                if (NativeUltraMalgorBot.isRunning) malgorStats else gramielStats
+            }.collect { stats ->
+                if (NativeUltraGramielBot.isRunning || NativeUltraMalgorBot.isRunning) {
+                    _partyStats.value = stats
                 }
             }
         }
 
         viewModelScope.launch {
-            NativeUltraGramielBot.slotLogs.collect { slotLogsMap ->
-                if (NativeUltraGramielBot.isRunning) {
+            slotLogs.collect { slotLogsMap ->
+                if (NativeUltraGramielBot.isRunning || NativeUltraMalgorBot.isRunning) {
                     val combinedLogs = slotLogsMap.values.flatten().sortedBy { it.timestamp }
                     _logs.value = combinedLogs.takeLast(200)
                 }
@@ -116,8 +150,13 @@ class UltraBossViewModel(
         }
 
         viewModelScope.launch {
-            NativeUltraGramielBot.isPaused.collect { paused ->
-                if (NativeUltraGramielBot.isRunning) {
+            combine(
+                NativeUltraGramielBot.isPaused,
+                NativeUltraMalgorBot.isPaused
+            ) { gramielPaused, malgorPaused ->
+                if (NativeUltraMalgorBot.isRunning) malgorPaused else gramielPaused
+            }.collect { paused ->
+                if (NativeUltraGramielBot.isRunning || NativeUltraMalgorBot.isRunning) {
                     _isPaused.value = paused
                 }
             }
@@ -199,38 +238,61 @@ class UltraBossViewModel(
             LogEntryType.SYSTEM
         )
 
-        if (_selectedBossTab.value == UltraBossType.GRAMIEL) {
-            val (started, errorMsg) = NativeUltraGramielBot.start(_ultraBossConfig.value)
-            if (!started) {
-                addLog("❌ Failed to start Native Ultra Gramiel Bot: $errorMsg", LogEntryType.ERROR)
-                return
+        when (_selectedBossTab.value) {
+            UltraBossType.GRAMIEL -> {
+                val (started, errorMsg) = NativeUltraGramielBot.start(_ultraBossConfig.value)
+                if (!started) {
+                    addLog(
+                        "❌ Failed to start Native Ultra Gramiel Bot: $errorMsg",
+                        LogEntryType.ERROR
+                    )
+                    return
+                }
+                _isRunning.value = true
+                _isPaused.value = false
             }
-            _isRunning.value = true
-            _isPaused.value = false
-        } else {
-            _isRunning.value = true
-            _isPaused.value = false
-            val updatedMap = _telemetryMap.value.mapValues { (_, tele) ->
-                tele.copy(
-                    running = true,
-                    map = "${bossInfo.mapName}-${_ultraBossConfig.value.roomNumber}",
-                    hp = 2500,
-                    maxHp = 2500,
-                    mp = 500,
-                    maxMp = 500,
-                    isInCombat = true,
-                    isDead = false
-                )
+
+            UltraBossType.MALGOR -> {
+                val (started, errorMsg) = NativeUltraMalgorBot.start(_ultraBossConfig.value)
+                if (!started) {
+                    addLog(
+                        "❌ Failed to start Native Ultra Malgor Bot: $errorMsg",
+                        LogEntryType.ERROR
+                    )
+                    return
+                }
+                _isRunning.value = true
+                _isPaused.value = false
             }
-            _telemetryMap.value = updatedMap
+
+            else -> {
+                _isRunning.value = true
+                _isPaused.value = false
+                val updatedMap = _telemetryMap.value.mapValues { (_, tele) ->
+                    tele.copy(
+                        running = true,
+                        map = "${bossInfo.mapName}-${_ultraBossConfig.value.roomNumber}",
+                        hp = 2500,
+                        maxHp = 2500,
+                        mp = 500,
+                        maxMp = 500,
+                        isInCombat = true,
+                        isDead = false
+                    )
+                }
+                _telemetryMap.value = updatedMap
+            }
         }
     }
 
     fun stopBot() {
         if (!_isRunning.value) return
 
-        if (_selectedBossTab.value == UltraBossType.GRAMIEL && NativeUltraGramielBot.isRunning) {
+        if (NativeUltraGramielBot.isRunning) {
             NativeUltraGramielBot.stop()
+        }
+        if (NativeUltraMalgorBot.isRunning) {
+            NativeUltraMalgorBot.stop()
         }
 
         _isRunning.value = false
@@ -248,12 +310,13 @@ class UltraBossViewModel(
     }
 
     fun togglePause() {
-        if (_selectedBossTab.value == UltraBossType.GRAMIEL && NativeUltraGramielBot.isRunning) {
-            if (_isPaused.value) {
-                NativeUltraGramielBot.resume()
-            } else {
-                NativeUltraGramielBot.pause()
-            }
+        if (NativeUltraGramielBot.isRunning) {
+            if (_isPaused.value) NativeUltraGramielBot.resume() else NativeUltraGramielBot.pause()
+            _isPaused.value = !_isPaused.value
+            return
+        }
+        if (NativeUltraMalgorBot.isRunning) {
+            if (_isPaused.value) NativeUltraMalgorBot.resume() else NativeUltraMalgorBot.pause()
             _isPaused.value = !_isPaused.value
             return
         }
@@ -272,8 +335,10 @@ class UltraBossViewModel(
     }
 
     fun clearSlotLogs(slotKey: String) {
-        if (_selectedBossTab.value == UltraBossType.GRAMIEL) {
-            NativeUltraGramielBot.clearLogs(slotKey)
+        when (_selectedBossTab.value) {
+            UltraBossType.GRAMIEL -> NativeUltraGramielBot.clearLogs(slotKey)
+            UltraBossType.MALGOR -> NativeUltraMalgorBot.clearLogs(slotKey)
+            else -> {}
         }
     }
 

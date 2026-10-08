@@ -70,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import froztt13.python.aqw.data.model.LogEntry
+import froztt13.python.aqw.data.model.LogEntryType
 import froztt13.python.aqw.data.model.PartyStats
 import froztt13.python.aqw.data.model.SlotConfig
 import froztt13.python.aqw.data.model.SlotTelemetry
@@ -77,6 +78,7 @@ import froztt13.python.aqw.data.model.UltraBossConfig
 import froztt13.python.aqw.data.model.UltraBossData
 import froztt13.python.aqw.data.model.UltraBossInfo
 import froztt13.python.aqw.data.model.UltraBossType
+import froztt13.python.aqw.domain.model.AqwMonster
 import froztt13.python.aqw.ui.components.BotSessionStatsBar
 import froztt13.python.aqw.ui.components.CustomOutlinedTextField
 import froztt13.python.aqw.ui.components.DefaultTopBar
@@ -643,7 +645,12 @@ fun PartySlotTabView(
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             slotLabels.forEachIndexed { index, _ ->
+                val slotKey = slotKeys[index]
+                val slotTel = telemetryMap[slotKey]
+                val isSlotDead =
+                    isRunning && (slotTel != null && (slotTel.isDead || (slotTel.hp <= 0 && slotTel.maxHp > 0)))
                 val isSelected = pagerState.currentPage == index
+
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -653,7 +660,9 @@ fun PartySlotTabView(
                         )
                         .border(
                             1.dp,
-                            if (isSelected) accentColor.copy(alpha = 0.6f) else Color.Transparent,
+                            if (isSlotDead) ErrorRed.copy(alpha = 0.8f) else if (isSelected) accentColor.copy(
+                                alpha = 0.6f
+                            ) else Color.Transparent,
                             RoundedCornerShape(10.dp)
                         )
                         .clickable {
@@ -664,12 +673,23 @@ fun PartySlotTabView(
                         .padding(vertical = 10.dp, horizontal = 2.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "Slot ${index + 1}",
-                        fontSize = 12.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) TextPrimary else TextSecondary
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = "Slot ${index + 1}",
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isSlotDead) ErrorRed else if (isSelected) TextPrimary else TextSecondary
+                        )
+                        if (isSlotDead) {
+                            Text(
+                                text = "💀",
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -992,19 +1012,321 @@ fun UltraBossAnimMsgCard(
     }
 }
 
-@Preview(name = "Ultra Gramiel Detail Screen", showBackground = true, backgroundColor = 0xFF090A10)
+@Preview(name = "Ultra Gramiel - Idle", showBackground = true, backgroundColor = 0xFF090A10)
 @Composable
-private fun UltraGramielDetailScreenPreview() {
+private fun UltraGramielDetailIdlePreview() {
     MyApplicationTheme {
         UltraBossDetailContent(
             bossType = UltraBossType.GRAMIEL,
             config = UltraBossConfig(),
             telemetryMap = mapOf(
-                "slot1" to SlotTelemetry(running = true, hp = 2500, maxHp = 2500)
+                "slot1" to SlotTelemetry(running = false),
+                "slot2" to SlotTelemetry(running = false),
+                "slot3" to SlotTelemetry(running = false),
+                "slot4" to SlotTelemetry(running = false)
             ),
-            partyStats = PartyStats(clearedCount = 3),
-            logs = emptyList(),
+            partyStats = PartyStats(clearedCount = 0),
+            logs = listOf(
+                LogEntry(
+                    botType = LogEntryType.INFO,
+                    username = "UltraBossHub",
+                    message = "Ultra Gramiel Party configured and ready."
+                )
+            ),
             isRunning = false,
+            isPaused = false,
+            onBack = {},
+            onUpdateSettings = { _, _, _, _ -> },
+            onUpdateSlot = { _, _ -> },
+            onStartBot = {},
+            onStopBot = {},
+            onTogglePause = {},
+            onClearLogs = {}
+        )
+    }
+}
+
+@Preview(
+    name = "Ultra Gramiel - Running & Dead Slot",
+    showBackground = true,
+    backgroundColor = 0xFF090A10
+)
+@Composable
+private fun UltraGramielDetailRunningPreview() {
+    MyApplicationTheme {
+        UltraBossDetailContent(
+            bossType = UltraBossType.GRAMIEL,
+            config = UltraBossConfig(),
+            telemetryMap = mapOf(
+                "slot1" to SlotTelemetry(
+                    running = true,
+                    isConnected = true,
+                    map = "ultagramiel-9099",
+                    cell = "r2",
+                    pad = "Left",
+                    hp = 3200,
+                    maxHp = 3500,
+                    mp = 180,
+                    maxMp = 200,
+                    isInCombat = true,
+                    isNextTaunter = true,
+                    soeQty = 95,
+                    targetMonsters = "Monster ID 2",
+                    targetedMonster = AqwMonster(
+                        monMapId = "2",
+                        name = "Right Crystal",
+                        currentHp = 10000,
+                        maxHp = 10000,
+                        isAlive = true
+                    )
+                ),
+                "slot2" to SlotTelemetry(
+                    running = true,
+                    isConnected = true,
+                    map = "ultagramiel-9099",
+                    cell = "r2",
+                    pad = "Left",
+                    hp = 0,
+                    maxHp = 3200,
+                    mp = 0,
+                    maxMp = 200,
+                    isDead = true,
+                    isInCombat = true,
+                    soeQty = 90,
+                    targetMonsters = "Monster ID 2",
+                    targetedMonster = AqwMonster(
+                        monMapId = "2",
+                        name = "Right Crystal",
+                        currentHp = 10000,
+                        maxHp = 10000,
+                        isAlive = true
+                    )
+                ),
+                "slot3" to SlotTelemetry(
+                    running = true,
+                    isConnected = true,
+                    map = "ultagramiel-9099",
+                    cell = "r2",
+                    pad = "Left",
+                    hp = 2800,
+                    maxHp = 3000,
+                    mp = 150,
+                    maxMp = 200,
+                    isInCombat = true,
+                    isNextTaunter = true,
+                    soeQty = 88,
+                    targetMonsters = "Monster ID 3",
+                    targetedMonster = AqwMonster(
+                        monMapId = "3",
+                        name = "Left Crystal",
+                        currentHp = 10000,
+                        maxHp = 10000,
+                        isAlive = true
+                    )
+                ),
+                "slot4" to SlotTelemetry(
+                    running = true,
+                    isConnected = true,
+                    map = "ultagramiel-9099",
+                    cell = "r2",
+                    pad = "Left",
+                    hp = 3100,
+                    maxHp = 3100,
+                    mp = 200,
+                    maxMp = 200,
+                    isInCombat = true,
+                    soeQty = 100,
+                    targetMonsters = "Monster ID 3",
+                    targetedMonster = AqwMonster(
+                        monMapId = "3",
+                        name = "Left Crystal",
+                        currentHp = 10000,
+                        maxHp = 10000,
+                        isAlive = true
+                    )
+                )
+            ),
+            partyStats = PartyStats(timeRunning = 125L, clearedCount = 2),
+            logs = listOf(
+                LogEntry(
+                    botType = LogEntryType.INFO,
+                    username = "slot1",
+                    message = "Executing Taunt on Monster ID 2!"
+                ),
+                LogEntry(
+                    botType = LogEntryType.WARNING,
+                    username = "slot2",
+                    message = "Player DIED! Respawn countdown started (11s)..."
+                )
+            ),
+            animMsg = "💥 Shattering attack #2 detected! slot1 taunting Monster ID 2, slot3 taunting Monster ID 3.",
+            isRunning = true,
+            isPaused = false,
+            onBack = {},
+            onUpdateSettings = { _, _, _, _ -> },
+            onUpdateSlot = { _, _ -> },
+            onStartBot = {},
+            onStopBot = {},
+            onTogglePause = {},
+            onClearLogs = {}
+        )
+    }
+}
+
+@Preview(name = "Ultra Gramiel - Paused", showBackground = true, backgroundColor = 0xFF090A10)
+@Composable
+private fun UltraGramielDetailPausedPreview() {
+    MyApplicationTheme {
+        UltraBossDetailContent(
+            bossType = UltraBossType.GRAMIEL,
+            config = UltraBossConfig(),
+            telemetryMap = mapOf(
+                "slot1" to SlotTelemetry(
+                    running = true,
+                    isPaused = true,
+                    targetMonsters = "PAUSED"
+                ),
+                "slot2" to SlotTelemetry(
+                    running = true,
+                    isPaused = true,
+                    targetMonsters = "PAUSED"
+                ),
+                "slot3" to SlotTelemetry(
+                    running = true,
+                    isPaused = true,
+                    targetMonsters = "PAUSED"
+                ),
+                "slot4" to SlotTelemetry(running = true, isPaused = true, targetMonsters = "PAUSED")
+            ),
+            partyStats = PartyStats(timeRunning = 210L, clearedCount = 1),
+            logs = listOf(
+                LogEntry(
+                    botType = LogEntryType.WARNING,
+                    username = "UltraBossHub",
+                    message = "=== Ultra Gramiel Party PAUSED ==="
+                )
+            ),
+            isRunning = true,
+            isPaused = true,
+            onBack = {},
+            onUpdateSettings = { _, _, _, _ -> },
+            onUpdateSlot = { _, _ -> },
+            onStartBot = {},
+            onStopBot = {},
+            onTogglePause = {},
+            onClearLogs = {}
+        )
+    }
+}
+
+@Preview(
+    name = "Ultra Speaker / Malgor - Running",
+    showBackground = true,
+    backgroundColor = 0xFF090A10
+)
+@Composable
+private fun UltraMalgorDetailRunningPreview() {
+    MyApplicationTheme {
+        UltraBossDetailContent(
+            bossType = UltraBossType.MALGOR,
+            config = UltraBossConfig(selectedBoss = UltraBossType.MALGOR, roomNumber = 99999),
+            telemetryMap = mapOf(
+                "slot1" to SlotTelemetry(
+                    running = true,
+                    isConnected = true,
+                    map = "ultraspeaker-99999",
+                    cell = "Boss",
+                    pad = "Left",
+                    hp = 3500,
+                    maxHp = 3500,
+                    mp = 200,
+                    maxMp = 200,
+                    isInCombat = true,
+                    isNextTaunter = true,
+                    soeQty = 100,
+                    targetMonsters = "Monster ID 1",
+                    targetedMonster = AqwMonster(
+                        monMapId = "1",
+                        name = "Ultra Speaker",
+                        currentHp = 50000,
+                        maxHp = 50000,
+                        isAlive = true
+                    )
+                ),
+                "slot2" to SlotTelemetry(
+                    running = true,
+                    isConnected = true,
+                    map = "ultraspeaker-99999",
+                    cell = "Boss",
+                    pad = "Left",
+                    hp = 3200,
+                    maxHp = 3200,
+                    mp = 190,
+                    maxMp = 200,
+                    isInCombat = true,
+                    soeQty = 98,
+                    targetMonsters = "Monster ID 1",
+                    targetedMonster = AqwMonster(
+                        monMapId = "1",
+                        name = "Ultra Speaker",
+                        currentHp = 50000,
+                        maxHp = 50000,
+                        isAlive = true
+                    )
+                ),
+                "slot3" to SlotTelemetry(
+                    running = true,
+                    isConnected = true,
+                    map = "ultraspeaker-99999",
+                    cell = "Boss",
+                    pad = "Left",
+                    hp = 3000,
+                    maxHp = 3000,
+                    mp = 180,
+                    maxMp = 200,
+                    isInCombat = true,
+                    soeQty = 95,
+                    targetMonsters = "Monster ID 1",
+                    targetedMonster = AqwMonster(
+                        monMapId = "1",
+                        name = "Ultra Speaker",
+                        currentHp = 50000,
+                        maxHp = 50000,
+                        isAlive = true
+                    )
+                ),
+                "slot4" to SlotTelemetry(
+                    running = true,
+                    isConnected = true,
+                    map = "ultraspeaker-99999",
+                    cell = "Boss",
+                    pad = "Left",
+                    hp = 3100,
+                    maxHp = 3100,
+                    mp = 200,
+                    maxMp = 200,
+                    isInCombat = true,
+                    soeQty = 99,
+                    targetMonsters = "Monster ID 1",
+                    targetedMonster = AqwMonster(
+                        monMapId = "1",
+                        name = "Ultra Speaker",
+                        currentHp = 50000,
+                        maxHp = 50000,
+                        isAlive = true
+                    )
+                )
+            ),
+            partyStats = PartyStats(timeRunning = 88L, clearedCount = 5),
+            logs = listOf(
+                LogEntry(
+                    botType = LogEntryType.INFO,
+                    username = "slot1",
+                    message = "Executing Taunt on Monster ID 1 (Ultra Speaker)!"
+                )
+            ),
+            animMsg = "💥 Callout #3 ('Listen to me!') detected (from slot1)! [slot3] Queuing taunt for Monster ID 1",
+            isRunning = true,
             isPaused = false,
             onBack = {},
             onUpdateSettings = { _, _, _, _ -> },

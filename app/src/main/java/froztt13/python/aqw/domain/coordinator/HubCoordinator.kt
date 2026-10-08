@@ -6,6 +6,7 @@ import froztt13.python.aqw.domain.bot.doom.NativeWeeklyDoomBot
 import froztt13.python.aqw.domain.bot.eclipse.NativeEclipseBot
 import froztt13.python.aqw.domain.bot.general.NativeGeneralBot
 import froztt13.python.aqw.domain.bot.gramiel.NativeUltraGramielBot
+import froztt13.python.aqw.domain.bot.malgor.NativeUltraMalgorBot
 import froztt13.python.aqw.domain.bot.slavery.NativeSlaveryBot
 import froztt13.python.aqw.domain.bot.temple.NativeTempleBot
 import kotlinx.coroutines.flow.Flow
@@ -96,20 +97,36 @@ object HubCoordinator {
             overview = overview.copy(general = generalSummary)
         }
 
-        val gramielStatus = NativeUltraGramielBot.status.value
-        val gramielStats = NativeUltraGramielBot.stats.value
-        if (gramielStatus.values.any { it.running } || gramielStats.timeRunning > 0) {
-            val isGramielRunning = gramielStatus.values.any { it.running }
-            val gramielSummary = BotSummary(
-                running = isGramielRunning,
-                count = gramielStatus.size,
-                members = gramielStatus.keys.toList(),
-                currentUsername = gramielStatus["slot1"]?.map ?: "",
-                subModule = "Native Ultra Gramiel",
-                task = "Runs: ${gramielStats.clearedCount}",
-                timeRunning = gramielStats.timeRunning
+        val malgorStatus = NativeUltraMalgorBot.status.value
+        val malgorStats = NativeUltraMalgorBot.stats.value
+        if (malgorStatus.values.any { it.running } || malgorStats.timeRunning > 0) {
+            val isMalgorRunning = malgorStatus.values.any { it.running }
+            val malgorSummary = BotSummary(
+                running = isMalgorRunning,
+                count = malgorStatus.size,
+                members = malgorStatus.keys.toList(),
+                currentUsername = malgorStatus["slot1"]?.map ?: "",
+                subModule = "Native Ultra Speaker",
+                task = "Runs: ${malgorStats.clearedCount}",
+                timeRunning = malgorStats.timeRunning
             )
-            overview = overview.copy(ultraBoss = gramielSummary)
+            overview = overview.copy(ultraBoss = malgorSummary)
+        } else {
+            val gramielStatus = NativeUltraGramielBot.status.value
+            val gramielStats = NativeUltraGramielBot.stats.value
+            if (gramielStatus.values.any { it.running } || gramielStats.timeRunning > 0) {
+                val isGramielRunning = gramielStatus.values.any { it.running }
+                val gramielSummary = BotSummary(
+                    running = isGramielRunning,
+                    count = gramielStatus.size,
+                    members = gramielStatus.keys.toList(),
+                    currentUsername = gramielStatus["slot1"]?.map ?: "",
+                    subModule = "Native Ultra Gramiel",
+                    task = "Runs: ${gramielStats.clearedCount}",
+                    timeRunning = gramielStats.timeRunning
+                )
+                overview = overview.copy(ultraBoss = gramielSummary)
+            }
         }
 
         return overview
@@ -130,7 +147,9 @@ object HubCoordinator {
                 NativeSlaveryBot.partyStats,
                 NativeGeneralBot.telemetry,
                 NativeUltraGramielBot.status,
-                NativeUltraGramielBot.stats
+                NativeUltraGramielBot.stats,
+                NativeUltraMalgorBot.status,
+                NativeUltraMalgorBot.stats
             )
         ) {
             calculateOverview()
