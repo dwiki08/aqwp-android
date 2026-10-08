@@ -601,26 +601,28 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
                             }
                         }
 
-                        for (msg in event.animMsgs) {
-                            val lower = msg.lowercase()
-                            if (lower.contains("sun converge")) {
-                                onSunConvergeDetected(slotKey)
-                            } else if (lower.contains("moon converge")) {
-                                onMoonConvergeDetected(slotKey)
-                            } else if (lower.contains("gather")) {
-                                onLightGatherDetected(slotKey)
-                            } else if (lower.contains("warmth") || lower.contains("sunset")) {
-                                hasSunWarmth = true
-                            } else if (lower.contains("gaze") || lower.contains("moon haze")) {
-                                hasMoonGaze = true
+                        if (slotKey == "slot1") {
+                            for (msg in event.animMsgs) {
+                                val lower = msg.lowercase()
+                                if (lower.contains("sun converge")) {
+                                    onSunConvergeDetected(slotKey)
+                                } else if (lower.contains("moon converge")) {
+                                    onMoonConvergeDetected(slotKey)
+                                } else if (lower.contains("gather")) {
+                                    onLightGatherDetected(slotKey)
+                                } else if (lower.contains("warmth") || lower.contains("sunset")) {
+                                    hasSunWarmth = true
+                                } else if (lower.contains("gaze") || lower.contains("moon haze")) {
+                                    hasMoonGaze = true
+                                }
                             }
-                        }
 
-                        if (hasSunWarmth) {
-                            onSunWarmthDetected(slotKey)
-                        }
-                        if (hasMoonGaze) {
-                            onMoonGazeDetected(slotKey)
+                            if (hasSunWarmth) {
+                                onSunWarmthDetected(slotKey)
+                            }
+                            if (hasMoonGaze) {
+                                onMoonGazeDetected(slotKey)
+                            }
                         }
                     }
 
@@ -964,7 +966,6 @@ object NativeEclipseBot : BasePartyCoordinator("NativeEclipseBot") {
                         session.map.gotoPlayer(masterUsername)
                         delay(1200.milliseconds)
                     }
-                    continue
                 }
             }
 

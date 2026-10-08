@@ -209,7 +209,7 @@ class AqwCombatCommands(
 
     suspend fun useBuff(
         index: Int,
-        reloadDelayMs: Long = 700L
+        reloadDelayMs: Long = 500L
     ): Boolean {
         if (!ensureAlive()) {
             return false
@@ -253,7 +253,7 @@ class AqwCombatCommands(
 
         val sent = client.send("%xt%zm%gar%1%0%${targetParam}%wvz%")
         if (sent) {
-//            delay(200.milliseconds)
+            delay(200.milliseconds)
             updateNextUse(index)
             skillReloadTime = System.currentTimeMillis() + reloadDelayMs
             return true
@@ -264,7 +264,7 @@ class AqwCombatCommands(
     suspend fun useSkill(
         index: Int,
         targetMonMapId: String? = null,
-        reloadDelayMs: Long = 700L
+        reloadDelayMs: Long = 500L
     ): Boolean {
         if (!ensureAlive()) {
             return false
@@ -326,7 +326,7 @@ class AqwCombatCommands(
 
         val sent = client.send(packet)
         if (sent) {
-//            delay(200.milliseconds)
+            delay(200.milliseconds)
             updateNextUse(index)
             val newReloadTime = System.currentTimeMillis() + reloadDelayMs
             skillReloadTime =

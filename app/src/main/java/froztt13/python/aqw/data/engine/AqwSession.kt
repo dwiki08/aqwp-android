@@ -892,8 +892,8 @@ class AqwSession {
             if (socketClient.isConnected.value && playerState.isDead) {
                 combat.resurrectPlayer()
                 log("Player resurrected!")
-                map.jumpCell(playerState.cell, playerState.pad)
-                log("Jump to ${playerState.cell} [${playerState.pad}]")
+//                map.jumpCell(playerState.cell, playerState.pad)
+//                log("Jump to ${playerState.cell} [${playerState.pad}]")
             }
         }
     }
