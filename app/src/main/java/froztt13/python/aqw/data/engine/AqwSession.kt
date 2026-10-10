@@ -205,9 +205,17 @@ class AqwSession {
         packetListenerJob = sessionScope.launch(Dispatchers.IO) {
             socketClient.incomingPackets.collect { rawPacket ->
                 if (!isActive) return@collect
-                val event = AqwPacketParser.parse(rawPacket, playerState.username)
-                handleEvent(event)
-                _events.emit(event)
+                val packetToParse = AqwPacketParser.decodeBase64Packet(rawPacket)
+                val subPackets = if (packetToParse.contains('\u0000')) {
+                    packetToParse.split('\u0000').filter { it.isNotBlank() }
+                } else {
+                    listOf(packetToParse)
+                }
+                for (subPacket in subPackets) {
+                    val event = AqwPacketParser.parse(subPacket, playerState.username)
+                    handleEvent(event)
+                    _events.emit(event)
+                }
             }
         }
     }
@@ -219,7 +227,7 @@ class AqwSession {
                 emitLog("Policy received. Sending login handshake...")
                 val loginXml = "<msg t='sys'><body action='login' r='0'>" +
                         "<login z='zone_master'>" +
-                        "<nick><![CDATA[SPIDER#0001~${playerState.username}~3.0141]]></nick>" +
+                        "<nick><![CDATA[SPIDER#0001~${playerState.username}~5.01]]></nick>" +
                         "<pword><![CDATA[${playerState.token}]]></pword>" +
                         "</login></body></msg>"
                 socketClient.send(loginXml)

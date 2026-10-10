@@ -5,6 +5,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayOutputStream
+import java.util.Base64
+import java.util.zip.Deflater
 
 class AqwPacketParserSarsaTest {
 
@@ -98,5 +101,83 @@ class AqwPacketParserSarsaTest {
         assertFalse(skill1.isReady())
         val cdRemaining = session.getCooldowns()[1] ?: 0.0
         assertTrue("Cooldown should be > 0, was $cdRemaining", cdRemaining > 3000.0)
+    }
+
+    @Test
+    fun testDecodeBase64Packet_withoutZPrefix_returnsOriginal() {
+        val plainText = "%xt%zm%cmd%1%test%"
+        val result = AqwPacketParser.decodeBase64Packet(plainText)
+        assertEquals(plainText, result)
+    }
+
+    @Test
+    fun testDecodeBase64Packet_withZPrefix_decodesSuccessfully() {
+        // Base64 encoding of "%xt%zm%cmd%1%test%" is "JXh0JXptJWNtZCUxJXRlc3Ql"
+        val rawZPacket = "ZJXh0JXptJWNtZCUxJXRlc3Ql"
+        val decoded = AqwPacketParser.decodeBase64Packet(rawZPacket)
+        assertEquals("%xt%zm%cmd%1%test%", decoded)
+    }
+
+    @Test
+    fun testParse_withZPrefixedBase64JsonPacket_parsesEventCorrectly() {
+        val rawJson = """{"t":"xt","b":{"r":-1,"o":{"cmd":"ct","sarsa":[]}}}"""
+        val base64Payload = Base64.getEncoder().encodeToString(rawJson.toByteArray(Charsets.UTF_8))
+        val zPacket = "Z$base64Payload"
+
+        val event = AqwPacketParser.parse(zPacket, "Hero")
+        assertTrue(event is AqwEvent.CombatTick)
+    }
+
+    @Test
+    fun testDecodeBase64Packet_withZlibCompression_decompressesCorrectly() {
+        val jsonPayload =
+            """{"t":"xt","b":{"r":-1,"o":{"cmd":"moveToArea","areaId":42,"areaName":"battleon","mapName":"battleon-1","sType":"normal","monsters":[]}}}"""
+        val rawBytes = jsonPayload.toByteArray(Charsets.UTF_8)
+
+        // Compress bytes using Deflater (Zlib)
+        val deflater = Deflater()
+        deflater.setInput(rawBytes)
+        deflater.finish()
+        val baos = ByteArrayOutputStream()
+        val buf = ByteArray(1024)
+        while (!deflater.finished()) {
+            val count = deflater.deflate(buf)
+            baos.write(buf, 0, count)
+        }
+        deflater.end()
+
+        val compressedBase64 = Base64.getEncoder().encodeToString(baos.toByteArray())
+        val zPacket = "Z$compressedBase64"
+
+        // Ensure base64 payload starts with expected zlib header signature 'eJ'
+        assertTrue(
+            "Compressed Base64 should start with 'eJ', got: $compressedBase64",
+            compressedBase64.startsWith("eJ")
+        )
+
+        val decompressed = AqwPacketParser.decodeBase64Packet(zPacket)
+        assertEquals(jsonPayload, decompressed)
+
+        val event = AqwPacketParser.parse(zPacket, "Hero")
+        assertTrue(event is AqwEvent.MoveToArea)
+        val moveEvent = event as AqwEvent.MoveToArea
+        assertEquals(42, moveEvent.areaId)
+        assertEquals("battleon", moveEvent.areaName)
+    }
+
+    @Test
+    fun testDecodeBase64Packet_withRealGzipUserPacket_decompressesSuccessfully() {
+        val samplePacket =
+            "ZSInFlU1v4jAQhv8KmnPYTQKBxbe2wJYVqRCw2sOKwywMEJHYkWO+VPHfKydpCBAiukLtKR6P5tXj8evJKyhgsFNgwD9gryCBVS0DhF5PgxkwCMSGxuJBEoIBKAl7M2CNhmMl0QsGBAzIp4C4Qr/aMlstMMDjarwPdcoCA6LOTkkEBnqtpIvheV2W6Ho+pckHOUW+kGJD35XY8ipGSqJfbfxCbpvfou0cDAgEDzAE9vcVXMFdDHttYJahA72qt8xYuCsTSWnrkw5pBmyOfkQx6HA00sc+GHkN+w4atZyGdapRu1WjfgcN5w4ajev9qN+q0cxp2Kcazq0aPzIN2/oIyCT2yozmsVeiIU51SSfnv/zxPK76tCEfWC1pWN/jK1zokl4QusgxNazgqVn1XqUXhNl+zshpSWrZSMlHWuJGZ7bor0AfsBTIKgXS0l30p4IXMp2lcljHwlvInpYoIji9wRyVXUCVvW67kOyn8Cm4BpbV1qR1C96L4ARn3ihp2h/0Vx5fdJGkR2NJdE6o9ypiXmlTpDy+L8IMBI8UyeqF1lXeiQFr8SiRT5exDdcilZqTlKSUAAMom5xhEsUTzXSazVjxd0SSXxTlXkGHK5lL1gD1BB+FuOXJSB4pVBTPx2NrLDPp1PMAWM1sJoE7yCdc3J3k4jhOqx0w/dnHH5yvsqcXLcX2yRe4AqbkOt14Jj9I4vQ95npxdXyfc8eg73BFoMfcEfR0LPQ3qSe27cFIH6109n8+QO3i8V8CmCUA5ocB7NK/zucDOF8N0PhqDzQvRm1hB0pbcBuC/Y7gNMr/tUUM9RKE+v/cwuRwOLwByI8xAA=="
+
+        val decompressed = AqwPacketParser.decodeBase64Packet(samplePacket)
+        assertTrue(
+            "Decompressed packet should not equal original encoded packet",
+            decompressed != samplePacket
+        )
+        assertTrue(
+            "Decompressed packet should contain JSON structure or xt command",
+            decompressed.contains("{") || decompressed.contains("%xt%")
+        )
     }
 }

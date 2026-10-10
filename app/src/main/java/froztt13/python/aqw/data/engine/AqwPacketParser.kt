@@ -12,6 +12,11 @@ import froztt13.python.aqw.domain.model.AqwShop
 import froztt13.python.aqw.domain.model.AqwSkill
 import froztt13.python.aqw.utils.Utils
 import org.json.JSONObject
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.util.Base64
+import java.util.zip.GZIPInputStream
+import java.util.zip.Inflater
 
 data class AqwSarsaAction(
     val cInf: String,
@@ -166,8 +171,92 @@ object AqwPacketParser {
 
     private const val TAG = "AqwPacketParser"
 
-    fun parse(raw: String, currentUsername: String): AqwEvent {
+    fun decodeBase64Packet(raw: String): String {
         val trimmed = raw.trim()
+        if (!trimmed.startsWith("Z") && !trimmed.startsWith("z")) {
+            return raw
+        }
+        val payload = trimmed.substring(1).trim()
+        if (payload.isEmpty()) return raw
+        return try {
+            val decodedBytes = try {
+                Base64.getDecoder().decode(payload)
+            } catch (_: Exception) {
+                try {
+                    Base64.getMimeDecoder().decode(payload)
+                } catch (_: Exception) {
+                    Base64.getUrlDecoder().decode(payload)
+                }
+            }
+
+            val decompressedBytes = tryDecompressGzip(decodedBytes)
+                ?: tryDecompressZlib(decodedBytes)
+                ?: decodedBytes
+            String(decompressedBytes, Charsets.UTF_8)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to decode/decompress packet starting with 'Z': ${e.message}")
+            raw
+        }
+    }
+
+    private fun tryDecompressGzip(data: ByteArray): ByteArray? {
+        try {
+            ByteArrayInputStream(data).use { bais ->
+                GZIPInputStream(bais).use { gzis ->
+                    val decompressed = gzis.readBytes()
+                    if (decompressed.isNotEmpty()) return decompressed
+                }
+            }
+        } catch (_: Exception) {
+        }
+        return null
+    }
+
+    private fun tryDecompressZlib(data: ByteArray): ByteArray? {
+        // Try standard Zlib inflation
+        try {
+            val inflater = Inflater(false)
+            inflater.setInput(data)
+            val outputStream = ByteArrayOutputStream(data.size * 2)
+            val buffer = ByteArray(2048)
+            while (!inflater.finished()) {
+                val count = inflater.inflate(buffer)
+                if (count == 0) {
+                    if (inflater.needsInput() || inflater.needsDictionary()) break
+                }
+                outputStream.write(buffer, 0, count)
+            }
+            inflater.end()
+            val result = outputStream.toByteArray()
+            if (result.isNotEmpty()) return result
+        } catch (_: Exception) {
+        }
+
+        // Try raw Deflate (no Zlib header)
+        try {
+            val inflater = Inflater(true)
+            inflater.setInput(data)
+            val outputStream = ByteArrayOutputStream(data.size * 2)
+            val buffer = ByteArray(2048)
+            while (!inflater.finished()) {
+                val count = inflater.inflate(buffer)
+                if (count == 0) {
+                    if (inflater.needsInput() || inflater.needsDictionary()) break
+                }
+                outputStream.write(buffer, 0, count)
+            }
+            inflater.end()
+            val result = outputStream.toByteArray()
+            if (result.isNotEmpty()) return result
+        } catch (_: Exception) {
+        }
+
+        return null
+    }
+
+    fun parse(raw: String, currentUsername: String): AqwEvent {
+        val decoded = decodeBase64Packet(raw)
+        val trimmed = decoded.trim()
 
         // 1. XML Messages
         if (trimmed.startsWith("<")) {
