@@ -227,7 +227,7 @@ class AqwSession {
                 emitLog("Policy received. Sending login handshake...")
                 val loginXml = "<msg t='sys'><body action='login' r='0'>" +
                         "<login z='zone_master'>" +
-                        "<nick><![CDATA[SPIDER#0001~${playerState.username}~5.01]]></nick>" +
+                        "<nick><![CDATA[SPIDER#0001~${playerState.username}~5.1]]></nick>" +
                         "<pword><![CDATA[${playerState.token}]]></pword>" +
                         "</login></body></msg>"
                 socketClient.send(loginXml)
