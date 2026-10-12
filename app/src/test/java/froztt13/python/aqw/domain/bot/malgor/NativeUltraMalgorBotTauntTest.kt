@@ -1,7 +1,7 @@
 package froztt13.python.aqw.domain.bot.malgor
 
 import froztt13.python.aqw.data.engine.AqwSession
-import froztt13.python.aqw.domain.model.AqwItem
+import froztt13.python.aqw.data.engine.AqwItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

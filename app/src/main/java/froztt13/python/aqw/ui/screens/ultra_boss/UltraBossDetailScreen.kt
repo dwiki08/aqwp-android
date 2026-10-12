@@ -1,4 +1,4 @@
-package froztt13.python.aqw.ui.screens
+package froztt13.python.aqw.ui.screens.ultra_boss
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -78,7 +78,7 @@ import froztt13.python.aqw.data.model.UltraBossConfig
 import froztt13.python.aqw.data.model.UltraBossData
 import froztt13.python.aqw.data.model.UltraBossInfo
 import froztt13.python.aqw.data.model.UltraBossType
-import froztt13.python.aqw.domain.model.AqwMonster
+import froztt13.python.aqw.data.model.MonsterTelemetry
 import froztt13.python.aqw.ui.components.BotSessionStatsBar
 import froztt13.python.aqw.ui.components.CustomOutlinedTextField
 import froztt13.python.aqw.ui.components.DefaultTopBar
@@ -99,7 +99,6 @@ import froztt13.python.aqw.ui.theme.SunGold
 import froztt13.python.aqw.ui.theme.TextMuted
 import froztt13.python.aqw.ui.theme.TextPrimary
 import froztt13.python.aqw.ui.theme.TextSecondary
-import froztt13.python.aqw.viewmodel.UltraBossViewModel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -1072,10 +1071,10 @@ private fun UltraGramielDetailRunningPreview() {
                     isNextTaunter = true,
                     soeQty = 95,
                     targetMonsters = "Monster ID 2",
-                    targetedMonster = AqwMonster(
+                    targetedMonster = MonsterTelemetry(
                         monMapId = "2",
-                        name = "Right Crystal",
-                        currentHp = 10000,
+                        monName = "Right Crystal",
+                        hp = 10000,
                         maxHp = 10000,
                         isAlive = true
                     )
@@ -1094,10 +1093,10 @@ private fun UltraGramielDetailRunningPreview() {
                     isInCombat = true,
                     soeQty = 90,
                     targetMonsters = "Monster ID 2",
-                    targetedMonster = AqwMonster(
+                    targetedMonster = MonsterTelemetry(
                         monMapId = "2",
-                        name = "Right Crystal",
-                        currentHp = 10000,
+                        monName = "Right Crystal",
+                        hp = 10000,
                         maxHp = 10000,
                         isAlive = true
                     )
@@ -1116,10 +1115,10 @@ private fun UltraGramielDetailRunningPreview() {
                     isNextTaunter = true,
                     soeQty = 88,
                     targetMonsters = "Monster ID 3",
-                    targetedMonster = AqwMonster(
+                    targetedMonster = MonsterTelemetry(
                         monMapId = "3",
-                        name = "Left Crystal",
-                        currentHp = 10000,
+                        monName = "Left Crystal",
+                        hp = 10000,
                         maxHp = 10000,
                         isAlive = true
                     )
@@ -1137,10 +1136,10 @@ private fun UltraGramielDetailRunningPreview() {
                     isInCombat = true,
                     soeQty = 100,
                     targetMonsters = "Monster ID 3",
-                    targetedMonster = AqwMonster(
+                    targetedMonster = MonsterTelemetry(
                         monMapId = "3",
-                        name = "Left Crystal",
-                        currentHp = 10000,
+                        monName = "Left Crystal",
+                        hp = 10000,
                         maxHp = 10000,
                         isAlive = true
                     )
@@ -1245,10 +1244,10 @@ private fun UltraMalgorDetailRunningPreview() {
                     isNextTaunter = true,
                     soeQty = 100,
                     targetMonsters = "Monster ID 1",
-                    targetedMonster = AqwMonster(
+                    targetedMonster = MonsterTelemetry(
                         monMapId = "1",
-                        name = "Ultra Speaker",
-                        currentHp = 50000,
+                        monName = "Ultra Speaker",
+                        hp = 50000,
                         maxHp = 50000,
                         isAlive = true
                     )
@@ -1266,10 +1265,10 @@ private fun UltraMalgorDetailRunningPreview() {
                     isInCombat = true,
                     soeQty = 98,
                     targetMonsters = "Monster ID 1",
-                    targetedMonster = AqwMonster(
+                    targetedMonster = MonsterTelemetry(
                         monMapId = "1",
-                        name = "Ultra Speaker",
-                        currentHp = 50000,
+                        monName = "Ultra Speaker",
+                        hp = 50000,
                         maxHp = 50000,
                         isAlive = true
                     )
@@ -1287,10 +1286,10 @@ private fun UltraMalgorDetailRunningPreview() {
                     isInCombat = true,
                     soeQty = 95,
                     targetMonsters = "Monster ID 1",
-                    targetedMonster = AqwMonster(
+                    targetedMonster = MonsterTelemetry(
                         monMapId = "1",
-                        name = "Ultra Speaker",
-                        currentHp = 50000,
+                        monName = "Ultra Speaker",
+                        hp = 50000,
                         maxHp = 50000,
                         isAlive = true
                     )
@@ -1308,10 +1307,10 @@ private fun UltraMalgorDetailRunningPreview() {
                     isInCombat = true,
                     soeQty = 99,
                     targetMonsters = "Monster ID 1",
-                    targetedMonster = AqwMonster(
+                    targetedMonster = MonsterTelemetry(
                         monMapId = "1",
-                        name = "Ultra Speaker",
-                        currentHp = 50000,
+                        monName = "Ultra Speaker",
+                        hp = 50000,
                         maxHp = 50000,
                         isAlive = true
                     )

@@ -1,4 +1,4 @@
-package froztt13.python.aqw.ui.screens
+package froztt13.python.aqw.ui.screens.eclipse
 
 import android.Manifest
 import android.os.Build
@@ -104,7 +104,6 @@ import froztt13.python.aqw.ui.theme.SunGold
 import froztt13.python.aqw.ui.theme.TextMuted
 import froztt13.python.aqw.ui.theme.TextPrimary
 import froztt13.python.aqw.ui.theme.TextSecondary
-import froztt13.python.aqw.viewmodel.EclipseViewModel
 import kotlinx.coroutines.launch
 
 @Composable

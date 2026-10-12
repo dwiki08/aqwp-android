@@ -1,7 +1,7 @@
 package froztt13.python.aqw.data.engine.commands
 
 import froztt13.python.aqw.data.network.AqwSocketClient
-import froztt13.python.aqw.domain.model.AqwPlayerState
+import froztt13.python.aqw.data.engine.AqwPlayerState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

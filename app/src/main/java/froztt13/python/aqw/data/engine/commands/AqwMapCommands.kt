@@ -1,8 +1,8 @@
 package froztt13.python.aqw.data.engine.commands
 
 import froztt13.python.aqw.data.network.AqwSocketClient
-import froztt13.python.aqw.domain.model.AqwMonster
-import froztt13.python.aqw.domain.model.AqwPlayerState
+import froztt13.python.aqw.data.engine.AqwMonster
+import froztt13.python.aqw.data.engine.AqwPlayerState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

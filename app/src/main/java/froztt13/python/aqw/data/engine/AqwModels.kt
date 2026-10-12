@@ -1,4 +1,4 @@
-package froztt13.python.aqw.domain.model
+package froztt13.python.aqw.data.engine
 
 import froztt13.python.aqw.utils.Utils
 

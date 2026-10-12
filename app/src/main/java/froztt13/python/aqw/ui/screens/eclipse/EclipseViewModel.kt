@@ -1,4 +1,4 @@
-package froztt13.python.aqw.viewmodel
+package froztt13.python.aqw.ui.screens.eclipse
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

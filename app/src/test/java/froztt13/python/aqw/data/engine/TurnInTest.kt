@@ -1,7 +1,5 @@
 package froztt13.python.aqw.data.engine
 
-import froztt13.python.aqw.domain.model.AqwItem
-import froztt13.python.aqw.domain.model.AqwPlayerState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue

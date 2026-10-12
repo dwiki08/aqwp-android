@@ -1,4 +1,4 @@
-package froztt13.python.aqw.ui.screens
+package froztt13.python.aqw.ui.screens.slavery
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background

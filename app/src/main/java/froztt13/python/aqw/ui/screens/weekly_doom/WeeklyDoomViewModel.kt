@@ -1,4 +1,4 @@
-package froztt13.python.aqw.viewmodel
+package froztt13.python.aqw.ui.screens.weekly_doom
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

@@ -138,4 +138,44 @@ class NativeEclipseConfigTest {
         assertTrue(s4.isLightGatherTaunter)
         assertEquals("Lord of Order", s4.equipClass)
     }
+
+    @Test
+    fun testSunAndMoonSlots() {
+        assertTrue(NativeEclipseConfig.isSunSlot("slot1"))
+        assertTrue(NativeEclipseConfig.isSunSlot("slot2"))
+        assertFalse(NativeEclipseConfig.isSunSlot("slot3"))
+        assertFalse(NativeEclipseConfig.isSunSlot("slot4"))
+
+        assertFalse(NativeEclipseConfig.isMoonSlot("slot1"))
+        assertFalse(NativeEclipseConfig.isMoonSlot("slot2"))
+        assertTrue(NativeEclipseConfig.isMoonSlot("slot3"))
+        assertTrue(NativeEclipseConfig.isMoonSlot("slot4"))
+
+        assertEquals("Ascended Solstice", NativeEclipseConfig.getFixedPrimaryTarget("slot1"))
+        assertEquals("Ascended Solstice", NativeEclipseConfig.getFixedPrimaryTarget("slot2"))
+        assertEquals("Ascended Midnight", NativeEclipseConfig.getFixedPrimaryTarget("slot3"))
+        assertEquals("Ascended Midnight", NativeEclipseConfig.getFixedPrimaryTarget("slot4"))
+    }
+
+    @Test
+    fun testEnforceSlotConfig() {
+        val rawSlot1 = froztt13.python.aqw.data.model.SlotConfig(defaultTarget = "")
+        val enforced1 = NativeEclipseConfig.enforceSlotConfig("slot1", rawSlot1)
+        assertTrue(enforced1.isTaunter)
+        assertTrue(enforced1.sunsetKnightTaunter)
+        assertFalse(enforced1.moonHazeTaunter)
+        assertFalse(enforced1.lightGatherTaunter)
+        assertEquals("Ascended Solstice,Blessless Deer", enforced1.defaultTarget)
+
+        val rawSlot3 = froztt13.python.aqw.data.model.SlotConfig(
+            defaultTarget = "",
+            lightGatherTaunter = true
+        )
+        val enforced3 = NativeEclipseConfig.enforceSlotConfig("slot3", rawSlot3)
+        assertTrue(enforced3.isTaunter)
+        assertFalse(enforced3.sunsetKnightTaunter)
+        assertTrue(enforced3.moonHazeTaunter)
+        assertTrue(enforced3.lightGatherTaunter)
+        assertEquals("Ascended Midnight", enforced3.defaultTarget)
+    }
 }

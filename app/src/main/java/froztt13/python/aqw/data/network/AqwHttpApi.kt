@@ -1,9 +1,9 @@
 package froztt13.python.aqw.data.network
 
 import android.util.Log
-import froztt13.python.aqw.domain.model.AqwItem
-import froztt13.python.aqw.domain.model.AqwLoginResult
-import froztt13.python.aqw.domain.model.AqwServer
+import froztt13.python.aqw.data.engine.AqwItem
+import froztt13.python.aqw.data.engine.AqwLoginResult
+import froztt13.python.aqw.data.engine.AqwServer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray

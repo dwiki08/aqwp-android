@@ -1,8 +1,8 @@
 package froztt13.python.aqw.domain.bot.gramiel
 
 import froztt13.python.aqw.data.engine.AqwSession
-import froztt13.python.aqw.domain.model.AqwItem
-import froztt13.python.aqw.domain.model.AqwMonster
+import froztt13.python.aqw.data.engine.AqwItem
+import froztt13.python.aqw.data.engine.AqwMonster
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

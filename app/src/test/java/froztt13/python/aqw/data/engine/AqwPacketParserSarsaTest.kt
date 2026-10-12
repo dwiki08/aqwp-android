@@ -1,6 +1,5 @@
 package froztt13.python.aqw.data.engine
 
-import froztt13.python.aqw.domain.model.AqwSkill
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

@@ -9,6 +9,7 @@ import froztt13.python.aqw.data.model.PartyStats
 import froztt13.python.aqw.data.model.SlotConfig
 import froztt13.python.aqw.data.model.SlotTelemetry
 import froztt13.python.aqw.data.model.UltraBossConfig
+import froztt13.python.aqw.data.model.toTelemetry
 import froztt13.python.aqw.domain.coordinator.BasePartyCoordinator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -792,16 +793,7 @@ object NativeUltraMalgorBot : BasePartyCoordinator("NativeUltraMalgorBot") {
     ) {
         val p = session.playerState
         val cooldowns = session.getCooldowns()
-        val cellMonsters = session.map.getCellMonsters(p.cell).map {
-            MonsterTelemetry(
-                monMapId = it.monMapId,
-                monName = it.name,
-                hp = it.currentHp,
-                maxHp = it.maxHp,
-                isAlive = it.isAlive,
-                auras = it.auras.toList()
-            )
-        }
+        val cellMonsters = session.map.getCellMonsters(p.cell).map { it.toTelemetry() }
         val isPending = pendingTauntTargets.containsKey(slotKey)
         val isEligible = isSlotEligibleForTaunt(slotKey)
         val isNext = isEligible && session.combat.canUseSkill(5)
@@ -827,7 +819,7 @@ object NativeUltraMalgorBot : BasePartyCoordinator("NativeUltraMalgorBot") {
                 soeQty = soeQty ?: session.playerState.getScrollOfEnrageCount(),
                 monsters = cellMonsters,
                 targetMonsters = targetMonsters,
-                targetedMonster = session.lastTargetMonster,
+                targetedMonster = session.lastTargetMonster?.toTelemetry(),
                 auras = p.auras.toList()
             ))
         }

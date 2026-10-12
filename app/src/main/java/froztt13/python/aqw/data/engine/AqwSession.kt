@@ -10,11 +10,6 @@ import froztt13.python.aqw.data.model.LogEntry
 import froztt13.python.aqw.data.model.LogEntryType
 import froztt13.python.aqw.data.network.AqwHttpApi
 import froztt13.python.aqw.data.network.AqwSocketClient
-import froztt13.python.aqw.domain.model.AqwItem
-import froztt13.python.aqw.domain.model.AqwMonster
-import froztt13.python.aqw.domain.model.AqwOtherPlayer
-import froztt13.python.aqw.domain.model.AqwPlayerState
-import froztt13.python.aqw.domain.model.AqwSkill
 import froztt13.python.aqw.utils.stripAnsi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

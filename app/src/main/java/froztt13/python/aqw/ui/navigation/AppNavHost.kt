@@ -10,15 +10,15 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import froztt13.python.aqw.data.model.UltraBossType
-import froztt13.python.aqw.ui.screens.DashboardScreen
-import froztt13.python.aqw.ui.screens.EclipseScreen
-import froztt13.python.aqw.ui.screens.GeneralBotScreen
-import froztt13.python.aqw.ui.screens.PlayerStateScreen
-import froztt13.python.aqw.ui.screens.SlaveryScreen
-import froztt13.python.aqw.ui.screens.TempleScreen
-import froztt13.python.aqw.ui.screens.UltraBossDetailScreen
-import froztt13.python.aqw.ui.screens.UltraBossScreen
-import froztt13.python.aqw.ui.screens.WeeklyDoomBotScreen
+import froztt13.python.aqw.ui.screens.dashboard.DashboardScreen
+import froztt13.python.aqw.ui.screens.eclipse.EclipseScreen
+import froztt13.python.aqw.ui.screens.general.GeneralBotScreen
+import froztt13.python.aqw.ui.screens.player_state.PlayerStateScreen
+import froztt13.python.aqw.ui.screens.slavery.SlaveryScreen
+import froztt13.python.aqw.ui.screens.temple.TempleScreen
+import froztt13.python.aqw.ui.screens.ultra_boss.UltraBossDetailScreen
+import froztt13.python.aqw.ui.screens.ultra_boss.UltraBossScreen
+import froztt13.python.aqw.ui.screens.weekly_doom.WeeklyDoomBotScreen
 
 @Composable
 fun AppNavHost(

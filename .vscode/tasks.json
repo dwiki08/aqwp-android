@@ -17,6 +17,17 @@
       }
     },
     {
+      "label": "Android CLI: Fast Delta Run",
+      "type": "shell",
+      "command": "android run --apks app/build/outputs/apk/debug/app-debug.apk --activity froztt13.python.aqw.MainActivity",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+    },
+    {
       "label": "gradle: installDebug",
       "type": "shell",
       "command": "./gradlew installDebug",

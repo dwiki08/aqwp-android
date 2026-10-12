@@ -1,15 +1,6 @@
 package froztt13.python.aqw.data.engine
 
 import android.util.Log
-import froztt13.python.aqw.domain.model.AqwAura
-import froztt13.python.aqw.domain.model.AqwFaction
-import froztt13.python.aqw.domain.model.AqwItem
-import froztt13.python.aqw.domain.model.AqwMonster
-import froztt13.python.aqw.domain.model.AqwOtherPlayer
-import froztt13.python.aqw.domain.model.AqwQuest
-import froztt13.python.aqw.domain.model.AqwQuestItem
-import froztt13.python.aqw.domain.model.AqwShop
-import froztt13.python.aqw.domain.model.AqwSkill
 import froztt13.python.aqw.utils.Utils
 import org.json.JSONObject
 import java.io.ByteArrayInputStream

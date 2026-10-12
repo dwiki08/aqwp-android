@@ -95,13 +95,58 @@ object NativeEclipseConfig {
         getSlot(slotKey)?.isSlave ?: false
 
     /**
+     * Checks if the given slot key belongs to the sun team (slot1, slot2).
+     */
+    fun isSunSlot(slotKey: String): Boolean =
+        slotKey.equals("slot1", ignoreCase = true) || slotKey.equals("slot2", ignoreCase = true)
+
+    /**
+     * Checks if the given slot key belongs to the moon team (slot3, slot4).
+     */
+    fun isMoonSlot(slotKey: String): Boolean =
+        slotKey.equals("slot3", ignoreCase = true) || slotKey.equals("slot4", ignoreCase = true)
+
+    /**
+     * Resolves the primary fixed boss target for sun/moon slots.
+     */
+    fun getFixedPrimaryTarget(slotKey: String): String =
+        if (isSunSlot(slotKey)) "Ascended Solstice" else "Ascended Midnight"
+
+    /**
+     * Enforces fixed roles, taunt flags, and target ordering for an Eclipse slot.
+     */
+    fun enforceSlotConfig(key: String, config: SlotConfig): SlotConfig {
+        val isSun = isSunSlot(key)
+        val fixedPrimary = getFixedPrimaryTarget(key)
+        val targets =
+            config.defaultTarget.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        val normalizedTarget = if (targets.isEmpty()) {
+            if (key == MASTER_SLOT_KEY) "Ascended Solstice,Blessless Deer" else fixedPrimary
+        } else if (!targets.first().equals(fixedPrimary, ignoreCase = true)) {
+            val remaining = targets.filterNot { it.equals(fixedPrimary, ignoreCase = true) }
+            (listOf(fixedPrimary) + remaining).joinToString(",")
+        } else {
+            config.defaultTarget
+        }
+        val isLightGather = key != MASTER_SLOT_KEY && config.lightGatherTaunter
+
+        return config.copy(
+            isTaunter = true,
+            sunsetKnightTaunter = isSun,
+            moonHazeTaunter = !isSun,
+            lightGatherTaunter = isLightGather,
+            defaultTarget = normalizedTarget
+        )
+    }
+
+    /**
      * Creates default [SlotConfig] matching the screen's initial presets.
      */
     fun createDefaultSlotConfig(slotKey: String): SlotConfig {
         val slot = getSlot(slotKey) ?: PartySlot(id = slotKey)
         val isMaster = slot.isMaster
-        val isSun = slotKey == "slot1" || slotKey == "slot2"
-        val isMoon = slotKey == "slot3" || slotKey == "slot4"
+        val isSun = isSunSlot(slotKey)
+        val isMoon = isMoonSlot(slotKey)
         return SlotConfig(
             charClass = slot.equipClass,
             role = if (isMaster) "master" else "slave",

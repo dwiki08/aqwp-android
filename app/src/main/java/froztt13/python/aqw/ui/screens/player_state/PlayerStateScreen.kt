@@ -1,4 +1,4 @@
-package froztt13.python.aqw.ui.screens
+package froztt13.python.aqw.ui.screens.player_state
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -55,14 +55,18 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import froztt13.python.aqw.data.engine.AqwSession
-import froztt13.python.aqw.domain.model.AqwAura
-import froztt13.python.aqw.domain.model.AqwFaction
-import froztt13.python.aqw.domain.model.AqwItem
-import froztt13.python.aqw.domain.model.AqwOtherPlayer
-import froztt13.python.aqw.domain.model.AqwPlayerState
-import froztt13.python.aqw.domain.model.AqwQuest
-import froztt13.python.aqw.domain.model.AqwShop
-import froztt13.python.aqw.domain.model.AqwSkill
+import froztt13.python.aqw.data.engine.AqwAura
+import froztt13.python.aqw.data.engine.AqwFaction
+import froztt13.python.aqw.data.engine.AqwItem
+import froztt13.python.aqw.data.engine.AqwOtherPlayer
+import froztt13.python.aqw.data.engine.AqwPlayerState
+import froztt13.python.aqw.data.engine.AqwQuest
+import froztt13.python.aqw.data.engine.AqwShop
+import froztt13.python.aqw.data.engine.AqwSkill
+import froztt13.python.aqw.domain.bot.eclipse.NativeEclipseBot
+import froztt13.python.aqw.domain.bot.general.NativeGeneralBot
+import froztt13.python.aqw.domain.bot.slavery.NativeSlaveryBot
+import froztt13.python.aqw.domain.bot.temple.NativeTempleBot
 import froztt13.python.aqw.ui.components.AurasSection
 import froztt13.python.aqw.ui.components.CustomOutlinedTextField
 import froztt13.python.aqw.ui.components.DefaultTopBar
@@ -114,10 +118,10 @@ fun PlayerStateScreen(
         val sessionConnected =
             session?.isConnected?.value == true || AqwSession.activeSessions.any { it.isConnected.value }
         val generalRunning =
-            froztt13.python.aqw.domain.bot.general.NativeGeneralBot.telemetry.value.running
-        val eclipseRunning = froztt13.python.aqw.domain.bot.eclipse.NativeEclipseBot.isRunning
-        val slaveryRunning = froztt13.python.aqw.domain.bot.slavery.NativeSlaveryBot.isRunning
-        val templeRunning = froztt13.python.aqw.domain.bot.temple.NativeTempleBot.isRunning
+            NativeGeneralBot.telemetry.value.running
+        val eclipseRunning = NativeEclipseBot.isRunning
+        val slaveryRunning = NativeSlaveryBot.isRunning
+        val templeRunning = NativeTempleBot.isRunning
         return sessionConnected || generalRunning || eclipseRunning || slaveryRunning || templeRunning
     }
 

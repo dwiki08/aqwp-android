@@ -1,4 +1,4 @@
-package froztt13.python.aqw.ui.screens
+package froztt13.python.aqw.ui.screens.general
 
 import android.Manifest
 import android.os.Build
@@ -114,7 +114,6 @@ import froztt13.python.aqw.ui.theme.SurfaceDark
 import froztt13.python.aqw.ui.theme.TextMuted
 import froztt13.python.aqw.ui.theme.TextPrimary
 import froztt13.python.aqw.ui.theme.TextSecondary
-import froztt13.python.aqw.viewmodel.GeneralBotViewModel
 
 @Composable
 fun GeneralBotScreen(

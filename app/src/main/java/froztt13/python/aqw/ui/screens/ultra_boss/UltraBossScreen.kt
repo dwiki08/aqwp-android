@@ -1,4 +1,4 @@
-package froztt13.python.aqw.ui.screens
+package froztt13.python.aqw.ui.screens.ultra_boss
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -66,7 +66,6 @@ import froztt13.python.aqw.ui.theme.SuccessGreen
 import froztt13.python.aqw.ui.theme.TextMuted
 import froztt13.python.aqw.ui.theme.TextPrimary
 import froztt13.python.aqw.ui.theme.TextSecondary
-import froztt13.python.aqw.viewmodel.UltraBossViewModel
 
 @Composable
 fun UltraBossScreen(

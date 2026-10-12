@@ -58,8 +58,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import froztt13.python.aqw.data.model.SlotConfig
 import froztt13.python.aqw.data.model.SlotTelemetry
-import froztt13.python.aqw.domain.model.AqwAura
-import froztt13.python.aqw.domain.model.AqwMonster
+import froztt13.python.aqw.data.engine.AqwAura
+import froztt13.python.aqw.data.model.MonsterTelemetry
 import froztt13.python.aqw.ui.theme.CardDark
 import froztt13.python.aqw.ui.theme.ErrorRed
 import froztt13.python.aqw.ui.theme.MoonCyan
@@ -980,7 +980,7 @@ private fun SlotCardActivePreview() {
                 cooldowns = mapOf(0 to 0.0, 1 to 2.1, 2 to 0.0, 3 to 4.5, 4 to 0.0, 5 to 0.0),
                 soeQty = 150,
                 targetMonsters = "Ascended Solstice,Blessless Deer,Dawn Knight",
-                targetedMonster = AqwMonster(name = "Ascended Solstice"),
+                targetedMonster = MonsterTelemetry(monName = "Ascended Solstice"),
                 auras = listOf(
                     AqwAura(name = "Focus", duration = 15),
                     AqwAura(name = "Radiance", duration = 30),
